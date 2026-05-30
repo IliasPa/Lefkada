@@ -1,0 +1,116 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --header-h: 56px;
+  --tabbar-h: 64px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  height: 100%;
+  height: -webkit-fill-available;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: 16px;
+}
+
+body {
+  height: 100%;
+  height: -webkit-fill-available;
+  min-height: 100dvh;
+  overscroll-behavior: none;
+  overflow: hidden;
+}
+
+#__next,
+main {
+  height: 100%;
+}
+
+/* Scrollable content area */
+.scroll-area {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  scrollbar-width: none;
+}
+.scroll-area::-webkit-scrollbar {
+  display: none;
+}
+
+/* iOS momentum scroll fix */
+.scroll-momentum {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Smooth tab transitions */
+.tab-content {
+  animation: slideUp 0.22s ease-out forwards;
+}
+
+/* Card hover press effect */
+.card-press {
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+.card-press:active {
+  transform: scale(0.98);
+}
+
+/* Radio button animation */
+.radio-check {
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+/* Bar chart fill animation */
+.bar-fill {
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Veto button pulse when active */
+@keyframes vetoPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(220, 38, 38, 0); }
+}
+.veto-pulse {
+  animation: vetoPulse 2s ease-in-out infinite;
+}
+
+/* Focus ring */
+*:focus-visible {
+  outline: 2px solid #0D5EAF;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Chip/filter active state */
+.chip-active {
+  background-color: #0D5EAF;
+  color: #ffffff;
+  border-color: #0D5EAF;
+}
+
+/* Skeleton loading */
+@keyframes shimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: calc(200px + 100%) 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 400px 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+.dark .skeleton {
+  background: linear-gradient(90deg, #252A3A 25%, #1C2130 50%, #252A3A 75%);
+}

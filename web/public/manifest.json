@@ -1,0 +1,43 @@
+{
+  "name": "Λευκάδα",
+  "short_name": "Λευκάδα",
+  "description": "Δημοτική εφαρμογή Δήμου Λευκάδος – Civic engagement platform",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#0D5EAF",
+  "background_color": "#FFFFFF",
+  "lang": "el",
+  "categories": ["government", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/PegasusFlag.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/PegasusFlag.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Νέα",
+      "short_name": "Νέα",
+      "description": "Τελευταία νέα του Δήμου",
+      "url": "/?tab=home",
+      "icons": [{ "src": "/PegasusFlag.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Ψηφοφορία",
+      "short_name": "Ψήφος",
+      "description": "Συμμετέχετε στις ψηφοφορίες",
+      "url": "/?tab=vote",
+      "icons": [{ "src": "/PegasusFlag.png", "sizes": "96x96" }]
+    }
+  ]
+}

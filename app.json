@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "lefkada",
+    "slug": "lefkada",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/PegasusFlag.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/PegasusFlag.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/PegasusFlag.png",
+        "backgroundColor": "#E6F4FE"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/PegasusFlag.png"
+    }
+  }
+}
