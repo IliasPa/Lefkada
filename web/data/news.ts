@@ -5,6 +5,20 @@ export interface BilingualText {
 
 export type NewsCategory = 'Infrastructure' | 'Tourism' | 'Events' | 'Council' | 'Environment' | 'Culture';
 
+/** A news outlet / reporter that published the item. */
+export interface Reporter {
+  id: string;
+  name: string;
+  /** The reporter's website — opened by the reporter social button. */
+  url: string;
+}
+
+export const reporters: Reporter[] = [
+  { id: 'lefkada-press', name: 'Lefkada Press', url: 'https://www.lefkadapress.gr/' },
+  { id: 'ionian-news',   name: 'Ionian News',   url: 'https://aftodioikisi.gr/' },
+  { id: 'dimos',         name: 'Δήμος Λευκάδας', url: 'https://www.lefkada.gov.gr/' },
+];
+
 export interface NewsItem {
   id: string;
   title: BilingualText;
@@ -12,6 +26,8 @@ export interface NewsItem {
   timestamp: BilingualText;
   accentColor: string;
   category: NewsCategory;
+  /** Id of the reporter (see `reporters`) that published this item. */
+  reporterId: string;
   socialLinks?: {
     instagram?: string;
     facebook?: string;
@@ -33,6 +49,7 @@ export const newsData: NewsItem[] = [
     timestamp: { el: 'Πριν 2 ώρες', en: '2 hours ago' },
     accentColor: '#4A90D9',
     category: 'Infrastructure',
+    reporterId: 'dimos',
     socialLinks: {
       instagram: 'https://www.instagram.com/explore/tags/lefkada/',
       facebook: 'https://www.facebook.com/DimosLefkadas/',
@@ -52,6 +69,7 @@ export const newsData: NewsItem[] = [
     timestamp: { el: 'Πριν 5 ώρες', en: '5 hours ago' },
     accentColor: '#27AE60',
     category: 'Tourism',
+    reporterId: 'lefkada-press',
     socialLinks: {
       instagram: 'https://www.instagram.com/explore/tags/lefkada/',
       facebook: 'https://www.facebook.com/DimosLefkadas/',
@@ -70,6 +88,7 @@ export const newsData: NewsItem[] = [
     timestamp: { el: 'Χθες', en: 'Yesterday' },
     accentColor: '#E67E22',
     category: 'Events',
+    reporterId: 'ionian-news',
     socialLinks: {
       instagram: 'https://www.instagram.com/explore/tags/lefkadafestival/',
       facebook: 'https://www.facebook.com/DimosLefkadas/',
@@ -89,6 +108,7 @@ export const newsData: NewsItem[] = [
     timestamp: { el: 'Πριν 2 μέρες', en: '2 days ago' },
     accentColor: '#9B59B6',
     category: 'Infrastructure',
+    reporterId: 'lefkada-press',
     socialLinks: {
       facebook: 'https://www.facebook.com/DimosLefkadas/',
       twitter: 'https://x.com/search?q=lefkada+cycling',
@@ -107,6 +127,7 @@ export const newsData: NewsItem[] = [
     timestamp: { el: 'Πριν 3 μέρες', en: '3 days ago' },
     accentColor: '#1ABC9C',
     category: 'Council',
+    reporterId: 'dimos',
     socialLinks: {
       instagram: 'https://www.instagram.com/explore/tags/lefkadagreen/',
       facebook: 'https://www.facebook.com/DimosLefkadas/',
@@ -126,6 +147,7 @@ export const newsData: NewsItem[] = [
     timestamp: { el: 'Πριν 4 μέρες', en: '4 days ago' },
     accentColor: '#E74C3C',
     category: 'Culture',
+    reporterId: 'ionian-news',
     socialLinks: {
       instagram: 'https://www.instagram.com/explore/tags/lefkadaancient/',
     },
@@ -143,6 +165,7 @@ export const newsData: NewsItem[] = [
     timestamp: { el: 'Πριν 5 μέρες', en: '5 days ago' },
     accentColor: '#3498DB',
     category: 'Infrastructure',
+    reporterId: 'dimos',
     socialLinks: {
       facebook: 'https://www.facebook.com/DimosLefkadas/',
       twitter: 'https://x.com/search?q=lefkada+airport',

@@ -11,6 +11,12 @@ export interface Poll {
   options: PollOption[];
   explanations: { short: BilingualText; medium: BilingualText; full: BilingualText };
   seedVotes: Record<string, number>;
+  /** ISO date string — when the poll closes. Drives the countdown / "ended" label. */
+  endDate: string;
+  /** YouTube video id shown between the poll info and the ballot. */
+  youtubeId?: string;
+  /** URL of the official PDF document for this poll. */
+  pdfUrl?: string;
 }
 
 export const pollsData: Poll[] = [
@@ -51,6 +57,9 @@ export const pollsData: Poll[] = [
       },
     ],
     seedVotes: { a: 342, b: 178, c: 89, d: 267 },
+    endDate: '2026-06-24T20:00:00',
+    youtubeId: 'aqz-KE-bpKQ',
+    pdfUrl: '/docs/poll-bridge-2025.pdf',
     explanations: {
       short: {
         el: 'Η Λευκάδα συζητά αν πρέπει να αντικαταστήσει την εμβληματική πλωτή γέφυρα με μία μόνιμη. Αυτό θα μείωνε τις καθυστερήσεις αλλά θα άλλαζε την ταυτότητα του νησιού.',
@@ -123,6 +132,67 @@ Lefkada, unlike most Greek islands, is technically a peninsula separated from th
 - A permanent structure would alter the landscape permanently
 - Environmental impact risks to the lagoon ecosystem
 - EU funding would be required given the substantial cost`,
+      },
+    },
+  },
+
+  // ── Older / closed polls (shown via "Show older votings") ──────────────────
+  {
+    id: 'poll_marina_2026',
+    title: {
+      el: 'Να επεκταθεί η μαρίνα του Νυδριού;',
+      en: 'Should the Nidri marina be expanded?',
+    },
+    options: [
+      { id: 'a', text: { el: 'Ναι – περισσότερες θέσεις ελλιμενισμού', en: 'Yes – more berths are needed' } },
+      { id: 'b', text: { el: 'Όχι – προτεραιότητα στο περιβάλλον', en: 'No – prioritise the environment' } },
+      { id: 'c', text: { el: 'Μόνο με μελέτη περιβαλλοντικών επιπτώσεων', en: 'Only with an environmental impact study' } },
+    ],
+    seedVotes: { a: 421, b: 233, c: 388 },
+    endDate: '2026-05-10T20:00:00',
+    youtubeId: 'aqz-KE-bpKQ',
+    pdfUrl: '/docs/poll-bridge-2025.pdf',
+    explanations: {
+      short: {
+        el: 'Η ψηφοφορία αφορούσε την επέκταση της μαρίνας του Νυδριού για περισσότερα σκάφη, σε ισορροπία με την προστασία του κόλπου.',
+        en: 'This vote concerned expanding the Nidri marina to host more boats, balanced against protecting the bay.',
+      },
+      medium: {
+        el: 'Η επέκταση της μαρίνας θα αύξανε τα έσοδα από τον θαλάσσιο τουρισμό, αλλά εγείρει ερωτήματα για την πίεση στο οικοσύστημα του κόλπου.',
+        en: 'Expanding the marina would boost marine-tourism revenue but raises concerns about pressure on the bay ecosystem.',
+      },
+      full: {
+        el: '**Σχετικά**\n\nΗ μαρίνα του Νυδριού λειτουργεί στα όριά της τους καλοκαιρινούς μήνες. Η ψηφοφορία εξέτασε αν η επέκταση είναι βιώσιμη.',
+        en: '**About**\n\nThe Nidri marina operates at capacity during the summer. This vote examined whether expansion is sustainable.',
+      },
+    },
+  },
+  {
+    id: 'poll_recycling_2026',
+    title: {
+      el: 'Να εφαρμοστεί υποχρεωτική ανακύκλωση τεσσάρων ρευμάτων;',
+      en: 'Should mandatory four-stream recycling be introduced?',
+    },
+    options: [
+      { id: 'a', text: { el: 'Ναι – άμεσα σε όλο τον δήμο', en: 'Yes – municipality-wide immediately' } },
+      { id: 'b', text: { el: 'Σταδιακά, ξεκινώντας από τη Χώρα', en: 'Gradually, starting from Lefkada town' } },
+      { id: 'c', text: { el: 'Όχι – το υπάρχον σύστημα επαρκεί', en: 'No – the current system is sufficient' } },
+    ],
+    seedVotes: { a: 612, b: 344, c: 121 },
+    endDate: '2026-04-01T18:00:00',
+    pdfUrl: '/docs/poll-bridge-2025.pdf',
+    explanations: {
+      short: {
+        el: 'Η ψηφοφορία αφορούσε την εισαγωγή υποχρεωτικής ανακύκλωσης τεσσάρων ρευμάτων στον Δήμο Λευκάδος.',
+        en: 'This vote concerned introducing mandatory four-stream recycling across the Municipality of Lefkada.',
+      },
+      medium: {
+        el: 'Η υποχρεωτική ανακύκλωση θα μείωνε τα απορρίμματα στις χωματερές, αλλά απαιτεί επένδυση σε κάδους και ενημέρωση των πολιτών.',
+        en: 'Mandatory recycling would cut landfill waste but requires investment in bins and citizen education.',
+      },
+      full: {
+        el: '**Σχετικά**\n\nΟ Δήμος εξέτασε την καθιέρωση τεσσάρων ξεχωριστών ρευμάτων ανακύκλωσης για χαρτί, γυαλί, πλαστικό και οργανικά.',
+        en: '**About**\n\nThe Municipality considered establishing four separate recycling streams for paper, glass, plastic and organics.',
       },
     },
   },

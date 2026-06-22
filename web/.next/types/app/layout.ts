@@ -1,4 +1,4 @@
-// File: /Users/iliasmac/Library/CloudStorage/OneDrive-Personal/Political Ideas/app/v1.1/web/app/layout.tsx
+// File: /Users/iliasmac/Library/CloudStorage/OneDrive-Personal/Political Ideas/app/v0.2/web/app/layout.tsx
 import * as entry from '../../../app/layout.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

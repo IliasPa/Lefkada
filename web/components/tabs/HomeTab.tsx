@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Instagram, Facebook, Twitter } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
-import { newsData, type NewsCategory } from '@/data/news';
+import { newsData, reporters, type NewsCategory } from '@/data/news';
 
 const CATEGORIES: Array<{ key: NewsCategory | 'all'; tKey: string }> = [
   { key: 'all',            tKey: 'news_cat_all' },
@@ -18,16 +18,46 @@ const CATEGORIES: Array<{ key: NewsCategory | 'all'; tKey: string }> = [
 export default function HomeTab() {
   const { t, lang } = useApp();
   const [activeCategory, setActiveCategory] = useState<NewsCategory | 'all'>('all');
+  const [activeReporter, setActiveReporter] = useState<string>('all');
 
-  const filtered =
-    activeCategory === 'all'
-      ? newsData
-      : newsData.filter((n) => n.category === activeCategory);
+  const filtered = newsData.filter(
+    (n) =>
+      (activeCategory === 'all' || n.category === activeCategory) &&
+      (activeReporter === 'all' || n.reporterId === activeReporter),
+  );
 
   return (
     <div className="h-full scroll-area">
-      {/* Sticky filter bar — centered */}
-      <div className="sticky top-0 z-10 bg-[#F2F5F9]/90 dark:bg-[#0B0F18]/90 backdrop-blur-sm pt-4 pb-2">
+      {/* Sticky filter bars — centered */}
+      <div className="sticky top-0 z-10 bg-[#F2F5F9]/90 dark:bg-[#0B0F18]/90 backdrop-blur-sm pt-4 pb-2 space-y-2">
+        {/* Reporter filter — above the theme filters */}
+        <div className="flex justify-center overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+          <div className="flex gap-2 px-4">
+            <ReporterChip
+              active={activeReporter === 'all'}
+              onClick={() => setActiveReporter('all')}
+            >
+              {t('news_reporters_all')}
+            </ReporterChip>
+            {reporters.map((r) => {
+              const active = activeReporter === r.id;
+              return (
+                <ReporterChip
+                  key={r.id}
+                  active={active}
+                  onClick={() => setActiveReporter(r.id)}
+                >
+                  <PegasusMark
+                    className={`w-3.5 h-3.5 ${active ? 'bg-white' : 'bg-[#1B5E9B] dark:bg-blue-200'}`}
+                  />
+                  {r.name}
+                </ReporterChip>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Theme (category) filters */}
         <div className="flex justify-center overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
           <div className="flex gap-2 px-4">
           {CATEGORIES.map(({ key, tKey }) => (
@@ -57,7 +87,9 @@ export default function HomeTab() {
           </p>
         )}
 
-        {filtered.map((item) => (
+        {filtered.map((item) => {
+          const reporter = reporters.find((r) => r.id === item.reporterId);
+          return (
           <article
             key={item.id}
             className="
@@ -100,31 +132,83 @@ export default function HomeTab() {
                 </span>
 
                 {/* Social links — the ONLY interactive elements on the card */}
-                {item.socialLinks && (
-                  <div className="flex items-center gap-1.5">
-                    {item.socialLinks.instagram && (
-                      <SocialBtn href={item.socialLinks.instagram} label={t('home_instagram')} color="#E1306C">
-                        <Instagram size={14} />
-                      </SocialBtn>
-                    )}
-                    {item.socialLinks.facebook && (
-                      <SocialBtn href={item.socialLinks.facebook} label={t('home_facebook')} color="#1877F2">
-                        <Facebook size={14} />
-                      </SocialBtn>
-                    )}
-                    {item.socialLinks.twitter && (
-                      <SocialBtn href={item.socialLinks.twitter} label={t('home_twitter')} color="#000000">
-                        <Twitter size={14} />
-                      </SocialBtn>
-                    )}
-                  </div>
-                )}
+                <div className="flex items-center gap-1.5">
+                  {/* Reporter website — app-icon outline button on light-blue */}
+                  {reporter && (
+                    <a
+                      href={reporter.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`${t('home_reporter')} – ${reporter.name}`}
+                      title={reporter.name}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-8 h-8 rounded-full flex items-center justify-center bg-[#E3F0FB] dark:bg-[#16314F] transition-transform active:scale-90"
+                    >
+                      <PegasusMark className="w-4 h-4 bg-[#1B5E9B] dark:bg-blue-300" />
+                    </a>
+                  )}
+                  {item.socialLinks?.instagram && (
+                    <SocialBtn href={item.socialLinks.instagram} label={t('home_instagram')} color="#E1306C">
+                      <Instagram size={14} />
+                    </SocialBtn>
+                  )}
+                  {item.socialLinks?.facebook && (
+                    <SocialBtn href={item.socialLinks.facebook} label={t('home_facebook')} color="#1877F2">
+                      <Facebook size={14} />
+                    </SocialBtn>
+                  )}
+                  {item.socialLinks?.twitter && (
+                    <SocialBtn href={item.socialLinks.twitter} label={t('home_twitter')} color="#000000">
+                      <Twitter size={14} />
+                    </SocialBtn>
+                  )}
+                </div>
               </div>
             </div>
           </article>
-        ))}
+          );
+        })}
       </div>
     </div>
+  );
+}
+
+/** The app's Pegasus rendered as a single-colour mark via CSS mask, so it can be
+ *  tinted (a darker shade of the button's blue) like the other social glyphs. */
+function PegasusMark({ className }: { className?: string }) {
+  const mask = "url('/pegasus-mark.png') center / contain no-repeat";
+  return (
+    <span
+      aria-hidden
+      className={`inline-block flex-shrink-0 ${className ?? ''}`}
+      style={{ WebkitMask: mask, mask }}
+    />
+  );
+}
+
+function ReporterChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`
+        flex-shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold
+        border transition-all duration-150 active:scale-95
+        ${active
+          ? 'bg-[#4A90D9] text-white border-[#4A90D9] shadow-sm'
+          : 'bg-[#E3F0FB] dark:bg-[#16314F] text-[#1B5E9B] dark:text-blue-200 border-transparent'
+        }
+      `}
+    >
+      {children}
+    </button>
   );
 }
 
