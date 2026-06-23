@@ -123,13 +123,9 @@ export default function JobsTab() {
                     <MapPin size={12} className="text-gray-400 flex-shrink-0" />
                     <span className="text-xs text-gray-400 dark:text-gray-500">{job.location}</span>
                   </div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed mb-3 line-clamp-3">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed mb-4 line-clamp-3">
                     {job.description[lang]}
                   </p>
-                  <div className="flex items-center gap-1.5 mb-4 text-primary dark:text-primary-300">
-                    <FileText size={12} className="flex-shrink-0" />
-                    <span className="text-[11px] font-semibold">{t('jobs_details')}</span>
-                  </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1">
                       <Clock size={11} className="text-gray-300 dark:text-gray-600" />
@@ -139,7 +135,7 @@ export default function JobsTab() {
                     </div>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleApply(job); }}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold active:scale-95 transition-transform shadow-sm shadow-primary/30"
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary-600 active:scale-95 transition-all shadow-sm shadow-primary/30"
                     >
                       <Send size={11} />
                       {t('jobs_apply')}

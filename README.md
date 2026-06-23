@@ -72,14 +72,15 @@
 
 ### 💰 Budget — Financial Transparency
 
-**What it does:** Visualize municipal spending across categories with a donut chart, historical trends, and a detailed expense table.
+**What it does:** Visualize the municipal budget across categories with a donut chart, historical trends, and a detailed table — for both spending and revenue.
 
 **Why this design:**
 
+- **Expenses / Income sub-tabs:** A segmented control switches between the two sides of the budget. **Expenses is the default**; Income breaks down taxes, grants, tourism, services and property. Each aspect reuses the same charts and table for a consistent read.
 - **Donut chart (not pie):** Easier to read percentages without overlap; legend appears once to reduce repetition.
-- **Trend lines (2022–2025):** Shows spending patterns over time; citizens can spot whether budgets are growing or shrinking per category.
-- **Dual visualization:** Visual learners use the charts; detail-oriented users drill into the expense table for line-item inspection.
-- **Category filtering:** Reduces cognitive load; users can focus on one area (e.g., "Infrastructure") without seeing all 50+ line items at once.
+- **Trend lines (2022–2025):** Shows patterns over time; citizens can spot whether budgets are growing or shrinking per category.
+- **Dual visualization:** Visual learners use the charts; detail-oriented users drill into the table for line-item inspection.
+- **Category filtering:** Reduces cognitive load; users can focus on one area (e.g., "Infrastructure") without seeing all line items at once.
 
 ---
 
@@ -90,6 +91,7 @@
 **Why this design:**
 
 - **Type & location filters:** Users can quickly narrow to "Full-time, Remote" or "Part-time, On-site" without scanning every listing.
+- **Tap card for details:** Tapping anywhere on a listing opens its full details PDF; the **Apply** button is visually distinct (its own hover state) so the two actions never collide.
 - **Automatic CV inclusion:** If you've uploaded a CV in the Profile tab, it's sent automatically with each application—no extra clicks needed.
 - **Post date visibility:** Users know if opportunities are fresh or stale; avoids wasted applications on old postings.
 - **Apply notification:** Immediate feedback confirms the action worked and alerts users if their CV is missing (so they can fix it).
@@ -134,8 +136,11 @@
 - **TypeScript** (strict mode)
 - **Tailwind CSS** — no external UI libraries
 - **lucide-react** — icons
+- **anime.js** — spring physics for the liquid-glass tab indicator
 - **PWA** — installable, offline-capable via Service Worker
 - **No backend** — all data persisted in `localStorage` (`lefkada_*` keys)
+
+> **Responsive header:** the logo + name adapt to width (name stacks under the logo on small screens so the tabs stay on one line) and the name localizes to "Lefkada" in English. The compressed logo is ~16 KB; the full-resolution original is kept locally (gitignored).
 
 ## Run locally
 
