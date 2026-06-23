@@ -12,6 +12,8 @@ export interface JobPosting {
   employmentType: EmploymentType;
   workMode: WorkMode;
   postedAt: BilingualText;
+  /** Official PDF with the full job details. Falls back to a shared placeholder. */
+  detailsPdf?: string;
 }
 
 export const jobsData: JobPosting[] = [

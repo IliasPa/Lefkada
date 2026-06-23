@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState, useLayoutEffect, useCallback } from "react";
+import { useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
+import { animate, spring } from "animejs";
 import {
   Newspaper,
   Vote,
@@ -35,24 +36,58 @@ export default function AppHeader() {
     useApp();
   const tabRowRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const [ind, setInd] = useState<{ left: number; width: number } | null>(null);
-  const [ready, setReady] = useState(false);
+  const indRef = useRef<HTMLDivElement>(null);
+  const firstRef = useRef(true);
   const isDark = theme === "dark";
+  const onAccount = activeTab === "account";
 
-  const measure = useCallback(() => {
-    const idx = TABS.findIndex((tab) => tab.key === activeTab);
-    const el = tabRefs.current[idx];
-    const row = tabRowRef.current;
-    if (!el || !row) return;
-    const rRect = row.getBoundingClientRect();
-    const eRect = el.getBoundingClientRect();
-    setInd({ left: eRect.left - rRect.left, width: eRect.width });
-    setReady(true);
-  }, [activeTab]);
+  // Position the liquid-glass indicator under the active tab. On tab changes it
+  // springs into place (anime.js); on first paint / resize it snaps instantly.
+  const place = useCallback(
+    (withSpring: boolean) => {
+      const row = tabRowRef.current;
+      const indicator = indRef.current;
+      if (!row || !indicator) return;
 
-  useLayoutEffect(() => {
-    measure();
-  }, [measure]);
+      const idx = TABS.findIndex((tb) => tb.key === activeTab);
+      const el = idx >= 0 ? tabRefs.current[idx] : null;
+      if (!el) {
+        // Profile/account active — no center tab, fade the indicator out.
+        indicator.style.opacity = "0";
+        return;
+      }
+
+      const rRect = row.getBoundingClientRect();
+      const eRect = el.getBoundingClientRect();
+      const left = eRect.left - rRect.left + 3;
+      const width = eRect.width - 6;
+
+      if (withSpring && !firstRef.current) {
+        animate(indicator, {
+          left,
+          width,
+          opacity: 1,
+          ease: spring({ bounce: 0.4, duration: 620 }),
+        });
+      } else {
+        indicator.style.left = `${left}px`;
+        indicator.style.width = `${width}px`;
+        indicator.style.opacity = "1";
+      }
+      firstRef.current = false;
+    },
+    [activeTab],
+  );
+
+  useEffect(() => {
+    place(true);
+  }, [place]);
+
+  useEffect(() => {
+    const onResize = () => place(false);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [place]);
 
   const glass: React.CSSProperties = {
     background: isDark ? "rgba(11,15,24,0.88)" : "rgba(255,255,255,0.84)",
@@ -83,55 +118,50 @@ export default function AppHeader() {
       className="flex items-center h-12 px-1.5 flex-shrink-0 z-20"
       style={glass}
     >
-      {/* ── LEFT: Logo + "Λευκάδα" Title ── */}
+      {/* ── LEFT: Logo + title. Stacks (name under logo) on small screens so the
+          tab row fits on one line; side-by-side from sm up. ── */}
       <button
-        onClick={() => setActiveTab("account")}
+        onClick={() => {
+          if (!onAccount) setActiveTab("account");
+        }}
+        disabled={onAccount}
         aria-label={t("tab_account")}
         className={`
-          relative flex-shrink-0 flex items-center gap-2 px-2 h-full z-10
-          transition-colors duration-150 active:scale-90
-          ${activeTab === "account" ? "text-primary dark:text-primary-300" : "text-gray-700 dark:text-gray-300"}
+          relative flex-shrink-0 flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2 px-2 h-full z-10
+          transition-colors duration-150
+          ${onAccount ? "text-primary dark:text-primary-300 cursor-default" : "text-gray-700 dark:text-gray-300 active:scale-90"}
         `}
       >
         {/* Logo image */}
-        <div className="relative z-10 w-[35px] h-[35px] rounded-[5px] overflow-hidden flex-shrink-0">
+        <div className="relative z-10 w-7 h-7 sm:w-[35px] sm:h-[35px] rounded-[5px] overflow-hidden flex-shrink-0">
           <Image
             src="/PegasusFlag.png"
-            alt="Λευκάδα"
-            width={30}
-            height={30}
+            alt={t("appName")}
+            width={35}
+            height={35}
             className="w-full h-full object-cover"
             priority
           />
         </div>
-        {/* Label */}
-        <span className="relative z-10 text-[13px] font-bold whitespace-nowrap">
-          Λευκάδα
+        {/* Label — translates to "Lefkada" in English */}
+        <span className="relative z-10 text-[9px] sm:text-[13px] font-bold whitespace-nowrap leading-none">
+          {t("appName")}
         </span>
       </button>
 
-      {/* ── CENTER: 5 tab icons — truly centered ── */}
+      {/* ── CENTER: 6 tab icons — truly centered ── */}
       <div
         className="flex-1 flex justify-center overflow-x-auto items-center h-full"
         style={{ scrollbarWidth: "none" }}
       >
         <div ref={tabRowRef} className="relative flex items-center">
-          {/* Liquid-glass sliding indicator — only show when a center tab is active */}
-          {ready && ind && activeTab !== "account" && (
-            <div
-              aria-hidden="true"
-              className="absolute pointer-events-none rounded-xl"
-              style={{
-                top: 4,
-                bottom: 4,
-                left: ind.left + 3,
-                width: ind.width - 6,
-                ...pillActive,
-                transition:
-                  "left 0.32s cubic-bezier(0.34,1.28,0.64,1), width 0.32s cubic-bezier(0.34,1.28,0.64,1)",
-              }}
-            />
-          )}
+          {/* Liquid-glass sliding indicator (anime.js spring) */}
+          <div
+            ref={indRef}
+            aria-hidden="true"
+            className="absolute pointer-events-none rounded-xl"
+            style={{ top: 4, bottom: 4, left: 0, width: 0, opacity: 0, ...pillActive }}
+          />
           {TABS.map(({ key, Icon }, idx) => {
             const active = activeTab === key;
             return (

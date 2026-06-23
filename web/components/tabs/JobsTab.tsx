@@ -33,6 +33,9 @@ const MODE_COLORS: Record<string, string> = {
 
 type FilterType = EmploymentType | 'all';
 
+/** Shared placeholder used when a posting has no specific details PDF. */
+const JOB_DETAILS_PDF = '/docs/job-details.pdf';
+
 interface ApplyNotif {
   jobTitle: string;
   hasCv: boolean;
@@ -92,7 +95,19 @@ export default function JobsTab() {
           ) : (
             <div className="space-y-3">
               {filtered.map((job) => (
-                <article key={job.id} className="bg-white dark:bg-[#141929] rounded-2xl p-4 border border-gray-100 dark:border-[#1E2D4E] shadow-sm">
+                <article
+                  key={job.id}
+                  onClick={() => window.open(job.detailsPdf ?? JOB_DETAILS_PDF, '_blank', 'noopener,noreferrer')}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      window.open(job.detailsPdf ?? JOB_DETAILS_PDF, '_blank', 'noopener,noreferrer');
+                    }
+                  }}
+                  className="bg-white dark:bg-[#141929] rounded-2xl p-4 border border-gray-100 dark:border-[#1E2D4E] shadow-sm cursor-pointer hover:border-primary/40 hover:shadow-md transition-all active:scale-[0.99]"
+                >
                   <div className="flex items-center gap-1.5 mb-3 flex-wrap">
                     <Badge color={TYPE_COLORS[job.employmentType]}>{t(TYPE_TKEY[job.employmentType])}</Badge>
                     <Badge color={MODE_COLORS[job.workMode]}>{t(MODE_TKEY[job.workMode])}</Badge>
@@ -108,9 +123,13 @@ export default function JobsTab() {
                     <MapPin size={12} className="text-gray-400 flex-shrink-0" />
                     <span className="text-xs text-gray-400 dark:text-gray-500">{job.location}</span>
                   </div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed mb-4 line-clamp-3">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed mb-3 line-clamp-3">
                     {job.description[lang]}
                   </p>
+                  <div className="flex items-center gap-1.5 mb-4 text-primary dark:text-primary-300">
+                    <FileText size={12} className="flex-shrink-0" />
+                    <span className="text-[11px] font-semibold">{t('jobs_details')}</span>
+                  </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1">
                       <Clock size={11} className="text-gray-300 dark:text-gray-600" />
@@ -119,7 +138,7 @@ export default function JobsTab() {
                       </span>
                     </div>
                     <button
-                      onClick={() => handleApply(job)}
+                      onClick={(e) => { e.stopPropagation(); handleApply(job); }}
                       className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold active:scale-95 transition-transform shadow-sm shadow-primary/30"
                     >
                       <Send size={11} />

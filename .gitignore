@@ -33,6 +33,20 @@ yarn-error.*
 # local launcher
 start.command
 
+# local changelog
+README_Changes.md
+
+# full-resolution logo original (compressed version is committed)
+web/public/PegasusFlag.original.png
+
+# Next.js build output / cache — regenerable ("cooked")
+.next/
+out/
+web/.next/
+web/out/
+*.tsbuildinfo
+next-env.d.ts
+
 # local env files
 .env*.local
 

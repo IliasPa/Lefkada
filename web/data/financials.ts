@@ -27,6 +27,56 @@ export const CATEGORY_COLORS: Record<string, string> = {
   Administration: '#F59E0B',
 };
 
+// ── Income side of the municipal budget ──────────────────────────────────────
+export const INCOME_CATEGORIES = [
+  'Taxes',
+  'Grants',
+  'Tourism',
+  'Services',
+  'Property',
+] as const;
+
+export const INCOME_COLORS: Record<string, string> = {
+  Taxes: '#0EA5E9',
+  Grants: '#8B5CF6',
+  Tourism: '#F97316',
+  Services: '#10B981',
+  Property: '#EAB308',
+};
+
+export const incomeData: FinancialItem[] = [
+  // 2022
+  { id: 'I2201', year: 2022, category: 'Taxes',    name: 'Municipal Property Tax (ΤΑΠ)',    itemPrice: 95000,  quantity: 1, totalPrice: 95000,  notes: 'Annual property levy' },
+  { id: 'I2202', year: 2022, category: 'Grants',   name: 'State Subsidy (ΚΑΠ)',             itemPrice: 120000, quantity: 1, totalPrice: 120000, notes: 'Central government allocation' },
+  { id: 'I2203', year: 2022, category: 'Tourism',  name: 'Overnight Stay Tax',              itemPrice: 3,      quantity: 18000, totalPrice: 54000, notes: 'Per-night accommodation fee' },
+  { id: 'I2204', year: 2022, category: 'Services', name: 'Water & Sewerage Fees',          itemPrice: 28,     quantity: 1400,  totalPrice: 39200, notes: 'Household utility billing' },
+  { id: 'I2205', year: 2022, category: 'Property', name: 'Municipal Property Rents',        itemPrice: 1200,   quantity: 9,  totalPrice: 10800,  notes: 'Shops & beach kiosks' },
+  // 2023
+  { id: 'I2301', year: 2023, category: 'Taxes',    name: 'Municipal Property Tax (ΤΑΠ)',    itemPrice: 99000,  quantity: 1, totalPrice: 99000,  notes: 'Annual property levy' },
+  { id: 'I2302', year: 2023, category: 'Grants',   name: 'State Subsidy (ΚΑΠ)',             itemPrice: 128000, quantity: 1, totalPrice: 128000, notes: 'Central government allocation' },
+  { id: 'I2303', year: 2023, category: 'Grants',   name: 'EU Cohesion Fund',                itemPrice: 60000,  quantity: 1, totalPrice: 60000,  notes: 'Cycling path co-funding' },
+  { id: 'I2304', year: 2023, category: 'Tourism',  name: 'Overnight Stay Tax',              itemPrice: 3,      quantity: 21000, totalPrice: 63000, notes: 'Per-night accommodation fee' },
+  { id: 'I2305', year: 2023, category: 'Services', name: 'Water & Sewerage Fees',          itemPrice: 29,     quantity: 1450,  totalPrice: 42050, notes: 'Household utility billing' },
+  { id: 'I2306', year: 2023, category: 'Property', name: 'Municipal Property Rents',        itemPrice: 1250,   quantity: 10, totalPrice: 12500,  notes: 'Shops & beach kiosks' },
+  // 2024
+  { id: 'I2401', year: 2024, category: 'Taxes',    name: 'Municipal Property Tax (ΤΑΠ)',    itemPrice: 104000, quantity: 1, totalPrice: 104000, notes: 'Annual property levy' },
+  { id: 'I2402', year: 2024, category: 'Grants',   name: 'State Subsidy (ΚΑΠ)',             itemPrice: 132000, quantity: 1, totalPrice: 132000, notes: 'Central government allocation' },
+  { id: 'I2403', year: 2024, category: 'Grants',   name: 'EU Recovery Fund',                itemPrice: 85000,  quantity: 1, totalPrice: 85000,  notes: 'Green energy projects' },
+  { id: 'I2404', year: 2024, category: 'Tourism',  name: 'Overnight Stay Tax',              itemPrice: 4,      quantity: 23000, totalPrice: 92000, notes: 'Increased per-night fee' },
+  { id: 'I2405', year: 2024, category: 'Tourism',  name: 'Marina Berth Fees',               itemPrice: 450,    quantity: 60, totalPrice: 27000,  notes: 'Seasonal mooring' },
+  { id: 'I2406', year: 2024, category: 'Services', name: 'Water & Sewerage Fees',          itemPrice: 30,     quantity: 1500,  totalPrice: 45000, notes: 'Household utility billing' },
+  { id: 'I2407', year: 2024, category: 'Property', name: 'Municipal Property Rents',        itemPrice: 1300,   quantity: 11, totalPrice: 14300,  notes: 'Shops & beach kiosks' },
+  // 2025
+  { id: 'I2501', year: 2025, category: 'Taxes',    name: 'Municipal Property Tax (ΤΑΠ)',    itemPrice: 110000, quantity: 1, totalPrice: 110000, notes: 'Annual property levy' },
+  { id: 'I2502', year: 2025, category: 'Taxes',    name: 'Business Operating Fees',          itemPrice: 320,    quantity: 140, totalPrice: 44800, notes: 'Licences & permits' },
+  { id: 'I2503', year: 2025, category: 'Grants',   name: 'State Subsidy (ΚΑΠ)',             itemPrice: 138000, quantity: 1, totalPrice: 138000, notes: 'Central government allocation' },
+  { id: 'I2504', year: 2025, category: 'Grants',   name: 'EU Recovery Fund',                itemPrice: 90000,  quantity: 1, totalPrice: 90000,  notes: 'Infrastructure & digital' },
+  { id: 'I2505', year: 2025, category: 'Tourism',  name: 'Overnight Stay Tax',              itemPrice: 4,      quantity: 26000, totalPrice: 104000, notes: 'Per-night accommodation fee' },
+  { id: 'I2506', year: 2025, category: 'Tourism',  name: 'Marina Berth Fees',               itemPrice: 480,    quantity: 70, totalPrice: 33600,  notes: 'Seasonal mooring' },
+  { id: 'I2507', year: 2025, category: 'Services', name: 'Water & Sewerage Fees',          itemPrice: 31,     quantity: 1560,  totalPrice: 48360, notes: 'Household utility billing' },
+  { id: 'I2508', year: 2025, category: 'Property', name: 'Municipal Property Rents',        itemPrice: 1350,   quantity: 12, totalPrice: 16200,  notes: 'Shops & beach kiosks' },
+];
+
 export const financialsData: FinancialItem[] = [
   // 2022
   { id: '2201', year: 2022, category: 'Infrastructure',  name: 'Road Repair – Main Street',           itemPrice: 4500,  quantity: 3,   totalPrice: 13500,  notes: 'Annual road maintenance' },
