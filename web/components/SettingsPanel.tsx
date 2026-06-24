@@ -13,8 +13,8 @@ import {
   ShieldAlert,
   ShieldOff,
   Save,
-  CalendarDays,
   Stethoscope,
+  Megaphone,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { KEYS, storageGet, storageSet, storageRemove } from "@/lib/storage";
@@ -533,19 +533,43 @@ export default function SettingsPanel() {
                 </div>
               ) : (
                 <div className="px-4 py-3 space-y-3">
-                  <div className="flex gap-2">
-                    <ToggleChip
-                      active={anonymous}
-                      onClick={() => handleAnon(true)}
-                      icon={<EyeOff size={12} />}
-                      label={t("settings_mayor_anonymous")}
-                    />
-                    <ToggleChip
-                      active={!anonymous}
-                      onClick={() => handleAnon(false)}
-                      icon={<User size={12} />}
-                      label={t("settings_mayor_with_profile")}
-                    />
+                  <div className="flex items-center gap-2">
+                    {/* Anonymity — a compact segmented toggle (labels collapse to
+                        icons under 400px to leave room for the 4MyCity button) */}
+                    <div className="flex flex-1 min-w-0 p-0.5 rounded-xl bg-gray-100 dark:bg-[#0F1219] border border-gray-200 dark:border-[#3A4155]">
+                      <button
+                        onClick={() => handleAnon(true)}
+                        aria-pressed={anonymous}
+                        className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg text-[12px] font-semibold transition-colors active:scale-95 ${anonymous ? "bg-primary text-white shadow-sm" : "text-gray-600 dark:text-gray-400"}`}
+                      >
+                        <EyeOff size={12} className="flex-shrink-0" />
+                        <span className="hidden min-[400px]:inline truncate">
+                          {t("settings_mayor_anonymous")}
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => handleAnon(false)}
+                        aria-pressed={!anonymous}
+                        className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg text-[12px] font-semibold transition-colors active:scale-95 ${!anonymous ? "bg-primary text-white shadow-sm" : "text-gray-600 dark:text-gray-400"}`}
+                      >
+                        <User size={12} className="flex-shrink-0" />
+                        <span className="hidden min-[400px]:inline truncate">
+                          {t("settings_mayor_with_profile")}
+                        </span>
+                      </button>
+                    </div>
+                    {/* 4MyCity — report a city issue to the municipality */}
+                    <a
+                      href="https://4mycity.lefkada.gov.gr/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={t("settings_4mycity_aria")}
+                      title={t("settings_4mycity_aria")}
+                      className="flex items-center gap-1.5 flex-shrink-0 px-3 py-2 rounded-xl text-[12px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-all shadow-sm shadow-emerald-600/30"
+                    >
+                      <Megaphone size={14} className="flex-shrink-0" />
+                      <span className="hidden min-[400px]:inline">4MyCity</span>
+                    </a>
                   </div>
                   {!anonymous && (profile.fullName || profile.email) && (
                     <div className="flex items-center gap-2 px-3 py-2 bg-primary-50 dark:bg-primary-900/20 rounded-xl">
@@ -647,24 +671,3 @@ function PInput(
   );
 }
 
-function ToggleChip({
-  active,
-  onClick,
-  icon,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-  label: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg border text-[12px] font-semibold transition-colors active:scale-95 ${active ? "bg-primary text-white border-primary" : "bg-gray-50 dark:bg-[#252A3A] text-gray-600 dark:text-gray-400 border-gray-200 dark:border-[#3A4155]"}`}
-    >
-      {icon}
-      {label}
-    </button>
-  );
-}

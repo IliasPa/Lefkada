@@ -16,13 +16,15 @@
 
 | Tab             | Description                                                                |
 | --------------- | -------------------------------------------------------------------------- |
-| 📰 **Αρχική**   | Municipal news & announcements with reporter + Instagram / Facebook / X links and reporter/theme filters |
+| 📰 **Αρχική**   | Municipal news over a full-screen Lefkada photo backdrop; live city alerts (water/power/fire/weather/road); reporter + social links and reporter/theme filters |
+| 🗓 **Εκδηλώσεις** | Cultural events as a photo-rich list or an interactive calendar with a per-day detail panel/popup |
 | 🗳 **Ψήφος**    | Civic polls — live countdown, explainer video, official PDF, vote & see real-time results, browse older votings |
-| 🏥 **Υγεία**    | Health advisories, emergency 166 shortcut, personal lab exam tracker       |
-| 💰 **Δαπάνες**  | Municipal budget with donut chart, category trend lines, and expense table |
+| 🏥 **Υγεία**    | Health advisories, emergency 166 shortcut, pharmacy-on-duty finder, personal lab exam tracker |
+| 💰 **Δαπάνες**  | Municipal budget — Expenses & Income sub-tabs + a Διαύγεια/Transparency link; clickable line items with a detail popup |
 | 💼 **Θέσεις**   | Open job positions with type/location filtering                            |
 | 🎲 **Παιχνίδι** | Greek Wordle-style word game with daily word & win/loss tracking           |
-| 👤 **Προφίλ**   | Personal profile, CV upload, VETO action, and message to the Mayor         |
+| 📞 **Επαφές**   | Searchable directory of municipal phones, emails and hours                 |
+| 👤 **Προφίλ**   | Personal profile, CV upload, VETO action, message to the Mayor + 4MyCity   |
 
 ## Tab Design & User Experience
 
@@ -33,10 +35,27 @@
 **Why this design:**
 
 - **Dominant news feed:** Users come to stay informed first; this is the landing tab.
+- **Lefkada photo backdrop:** A full-screen, fixed slideshow of island views auto-crossfades behind the feed. It stays put while the news scrolls over it (a light scrim keeps cards and filters readable). The bundled images are lightweight stylized placeholders in `public/backgrounds/`, ready to be swapped for real photographs.
+- **Live city alerts:** Below the filters, up to five circular emoji buttons (water cut 💧, power cut ⚡, fire risk 🔥, weather alert 🌧️, road closure 🚧), each marked with a red "!" badge. A button **only appears when that alert type is active**; tapping it opens a popup with the time window and affected area for every alert of that type. Data lives in `data/alerts.ts`.
+  - **Planned:** a small map will be added inside the alert popup to show the affected location visually, instead of (or alongside) the text area name.
 - **Reporter + theme filters:** Two stacked filter rows let users narrow the feed by the reporter who published a story (top row) and/or by topic/category (bottom row).
 - **Source transparency:** Each card carries a reporter button — the app's Pegasus mark, tinted a darker shade of the light-blue background (derived from the logo via a CSS-masked PNG, `pegasus-mark.png`) — that links straight to the publishing outlet's website, alongside the Instagram / Facebook / X links.
 - **One-click sharing:** Social buttons are always visible, reducing friction for users who want to spread awareness about local issues.
 - **Chronological order:** Newest first so users don't miss recent decisions or events.
+
+---
+
+### 🗓 Events — Cultural Calendar
+
+**What it does:** Presents the island's cultural events (festivals, music, theatre, sports, religious feasts, food, arts) as either a photo-rich **list** or an interactive **calendar**.
+
+**Why this design:**
+
+- **Two views, one toggle (List is the default):** The list answers "what's coming up?"; the calendar answers "what's happening on a given day?". A segmented control switches instantly.
+- **List shows only upcoming events**, sorted by date — so citizens aren't scrolling past things that already happened. Each card uses a category-themed photo as its header, with date, location, description and an optional programme PDF.
+- **Calendar shows every event, including past ones**, marking each day that has events with a colour dot. This keeps history browsable without cluttering the "what's next" list.
+- **Adaptive detail surface:** tapping a day with events opens a **side panel on large screens** (read the calendar and the day's details at once) and a **bottom-sheet popup on small screens** — same content, right ergonomics for each size, with a link to the programme PDF where one exists.
+- **Localized calendar:** Monday-first week, localized month and weekday names, and a ring on "today".
 
 ---
 
@@ -64,6 +83,7 @@
 **Why this design:**
 
 - **Emergency 166 shortcut:** One-tap access for critical situations; not buried in menus.
+- **Pharmacy-on-duty finder:** A square green-cross button sits next to the emergency banner (matched height). It opens a list of local pharmacies with the **on-duty** one pinned to the top and highlighted, each with a tap-to-call number.
 - **Personal lab results tracking:** Health data stored locally on the device (not on servers) respects privacy while letting citizens monitor their own health trends.
 - **Lab result categories (Normal/High/Low):** Visual status signals quick health assessment without medical training.
 - **Bookmarking system:** Users can save important health advisories for later reference.
@@ -76,7 +96,8 @@
 
 **Why this design:**
 
-- **Expenses / Income sub-tabs:** A segmented control switches between the two sides of the budget. **Expenses is the default**; Income breaks down taxes, grants, tourism, services and property. Each aspect reuses the same charts and table for a consistent read.
+- **Expenses / Income sub-tabs + Διαύγεια link:** A segmented control switches between the two sides of the budget (**Expenses is the default**; Income breaks down taxes, grants, tourism, services and property). On the opposite side of the toggle, a **Transparency / Διαύγεια** button links out to the municipality's official `diavgeia.gov.gr` page.
+- **Clickable line items:** Every row opens a detail popup with the figures, notes and — for expenses — a "where is it now" **status** (completed / in progress / planned). The redundant table footer total was removed since the grand total already sits in the card at the top.
 - **Donut chart (not pie):** Easier to read percentages without overlap; legend appears once to reduce repetition.
 - **Trend lines (2022–2025):** Shows patterns over time; citizens can spot whether budgets are growing or shrinking per category.
 - **Dual visualization:** Visual learners use the charts; detail-oriented users drill into the table for line-item inspection.
@@ -105,6 +126,7 @@
 
 **Why this design:**
 
+- **"What is this?" tooltip:** A circled-ⓘ next to the title explains, on hover/focus, that this is the classic Wordle but with **Greek words tied to the Municipality** (place names, services, traditions). The point isn't just a game: a familiar daily ritual is a low-pressure hook that brings residents back into the app, and seeding it with local vocabulary quietly teaches Lefkada's geography and civic life — turning idle play into civic familiarity and daily engagement.
 - **Daily seed (date-based):** Every player worldwide guesses the same word each day; encourages social conversation ("Did you get today's word?").
 - **Keyboard colors:**
   - 🟩 Green: correct letter, correct position
@@ -118,6 +140,19 @@
 
 ---
 
+### 📞 Contacts — Municipal Directory
+
+**What it does:** A single searchable place for every municipal phone, email and opening hours.
+
+**Why this design:**
+
+- **Search-first:** One box filters by service name, phone, email or category — the fastest way to "who do I call for X?".
+- **Tap-to-call / tap-to-email:** Each entry exposes the actions directly; no copy-paste.
+- **★ Standard hours, stated once:** Most departments share the same office hours, so those entries show a ★ and a single footnote (`Mon–Fri 08:00–14:00`) instead of repeating the same line on every card. Entries that differ (24-hour emergency lines, summer tourism hours, the cleaning crew) show their own hours inline.
+- **Colour-coded categories:** Administration, Services, Emergency, Utilities, Tourism, Health — quick visual grouping without forcing a rigid hierarchy.
+
+---
+
 ### 👤 Profile — Personal Data & Civic Actions
 
 **What it does:** Manage identity, health records, job applications, and exercise the VETO civic action.
@@ -127,7 +162,7 @@
 - **VETO action (highlighted in red):** Official municipal protest mechanism; visual prominence matches its significance.
 - **Sectioned profile data:** Identity (name, ID), Personal (gender, height, birth date), Career (skills), Doctors (personal physicians)—each section is independent.
 - **CV upload:** Your resume persists locally and auto-attaches to job applications; no re-uploading each time.
-- **Message to the Mayor:** Anonymous or identified; citizens can communicate directly with municipal leadership without intermediaries.
+- **Message to the Mayor + 4MyCity:** Anonymous or identified messaging to municipal leadership. On the opposite side of the anonymity toggle, a **4MyCity** button links to the municipality's issue-reporting platform; on very small screens the anonymity toggle collapses to a tight icon-only segmented control so the 4MyCity button always has room.
 - **Local-first storage:** All data lives on your device; no cloud sync, no data collection, no tracking. You control what exists.
 
 ## Tech stack

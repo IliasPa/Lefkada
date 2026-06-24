@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { Instagram, Facebook, Twitter } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { newsData, reporters, type NewsCategory } from '@/data/news';
+import NewsBackground from '@/components/NewsBackground';
+import NewsAlerts from '@/components/NewsAlerts';
 
 const CATEGORIES: Array<{ key: NewsCategory | 'all'; tKey: string }> = [
   { key: 'all',            tKey: 'news_cat_all' },
@@ -27,9 +29,13 @@ export default function HomeTab() {
   );
 
   return (
-    <div className="h-full scroll-area">
+    <div className="h-full scroll-area relative">
+      {/* Fixed full-screen Lefkada photo slideshow behind the feed */}
+      <NewsBackground />
+
+      <div className="relative z-10">
       {/* Sticky filter bars — centered */}
-      <div className="sticky top-0 z-10 bg-[#F2F5F9]/90 dark:bg-[#0B0F18]/90 backdrop-blur-sm pt-4 pb-2 space-y-2">
+      <div className="sticky top-0 z-10 bg-[#F2F5F9]/80 dark:bg-[#0B0F18]/80 backdrop-blur-md pt-4 pb-2 space-y-2">
         {/* Reporter filter — above the theme filters */}
         <div className="flex justify-center overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
           <div className="flex gap-2 px-4">
@@ -80,7 +86,10 @@ export default function HomeTab() {
         </div>
       </div>
 
-      <div className="px-4 pb-6 max-w-2xl mx-auto space-y-4">
+      <div className="px-4 pt-3 pb-6 max-w-2xl mx-auto space-y-4">
+        {/* Active city alerts (water/power/fire/weather/road) — below the filters */}
+        <NewsAlerts />
+
         {filtered.length === 0 && (
           <p className="text-center text-gray-400 dark:text-gray-500 py-10 text-sm">
             {lang === 'el' ? 'Δεν βρέθηκαν νέα.' : 'No news found.'}
@@ -168,6 +177,7 @@ export default function HomeTab() {
           </article>
           );
         })}
+      </div>
       </div>
     </div>
   );

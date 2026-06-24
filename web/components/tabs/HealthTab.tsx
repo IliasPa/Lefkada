@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { AlertTriangle, Pencil, Check, X, ChevronDown } from 'lucide-react';
+import { AlertTriangle, Pencil, Check, X, ChevronDown, Cross, Phone, MapPin } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { healthCategories, type ResultStatus, type YearlyResult } from '@/data/healthTests';
+import { pharmaciesData } from '@/data/pharmacies';
 import { storageGet, storageSet } from '@/lib/storage';
 
 const EXAMS_KEY = 'health_exams';
@@ -64,6 +65,7 @@ export default function HealthTab() {
   const [editingCell, setEditingCell] = useState<{ testId: string; year: number } | null>(null);
   const [editValue, setEditValue] = useState('');
   const [examsStore, setExamsStore] = useState<ExamsStore>(() => loadExams());
+  const [showPharmacies, setShowPharmacies] = useState(false);
 
   const category = healthCategories[activeCatIdx];
 
@@ -100,6 +102,7 @@ export default function HealthTab() {
   const handleEditCancel = () => setEditingCell(null);
 
   return (
+    <>
     <div className="h-full scroll-area">
       <div className="pb-6 max-w-2xl mx-auto">
         <div className="px-4 pt-4 mb-3">
@@ -108,10 +111,10 @@ export default function HealthTab() {
           </h1>
         </div>
 
-        {/* Emergency banner — 166 appears once */}
-        <div className="px-4 mb-4">
+        {/* Emergency banner + pharmacy-on-duty button (matched height) */}
+        <div className="px-4 mb-4 flex items-stretch gap-3">
           <a href="tel:166"
-            className="flex items-center gap-3 p-4 rounded-2xl bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/40 active:scale-[0.98] transition-transform">
+            className="flex-1 flex items-center gap-3 p-4 rounded-2xl bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/40 active:scale-[0.98] transition-transform">
             <div className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0">
               <AlertTriangle size={18} className="text-white" />
             </div>
@@ -120,6 +123,14 @@ export default function HealthTab() {
             </p>
             <span className="text-2xl font-black text-red-400 flex-shrink-0">166</span>
           </a>
+          <button
+            onClick={() => setShowPharmacies(true)}
+            aria-label={t('health_pharmacy_aria')}
+            title={t('health_pharmacy_aria')}
+            className="aspect-square self-stretch flex items-center justify-center rounded-2xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/40 active:scale-95 transition-transform"
+          >
+            <Cross size={24} className="text-green-600 dark:text-green-400" strokeWidth={2.6} />
+          </button>
         </div>
 
         {/* Emoji subtabs */}
@@ -263,6 +274,85 @@ export default function HealthTab() {
               </div>
             );
           })}
+        </div>
+      </div>
+    </div>
+
+    {showPharmacies && (
+      <PharmacyModal lang={lang} t={t} onClose={() => setShowPharmacies(false)} />
+    )}
+    </>
+  );
+}
+
+function PharmacyModal({
+  lang,
+  t,
+  onClose,
+}: {
+  lang: 'el' | 'en';
+  t: (k: string) => string;
+  onClose: () => void;
+}) {
+  // On-duty pharmacies first.
+  const list = [...pharmaciesData].sort(
+    (a, b) => Number(!!b.onDuty) - Number(!!a.onDuty),
+  );
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center px-4 pb-6 sm:pb-0">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-md bg-white dark:bg-[#141929] rounded-3xl shadow-2xl overflow-hidden animate-slide-up max-h-[80vh] flex flex-col">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-[#1E2D4E]">
+          <div className="flex items-center gap-2">
+            <Cross size={18} className="text-green-600 dark:text-green-400" strokeWidth={2.6} />
+            <h3 className="font-bold text-[16px] text-gray-900 dark:text-white">
+              {t('health_pharmacies')}
+            </h3>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label={t('health_edit_cancel')}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-[#252A3A] active:scale-90"
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-4 space-y-2.5 overflow-y-auto">
+          {list.map((ph) => (
+            <div
+              key={ph.id}
+              className={`rounded-xl p-3.5 border ${ph.onDuty ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700/50' : 'bg-gray-50 dark:bg-[#0F1219] border-gray-100 dark:border-[#1E2D4E]'}`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-bold text-[14px] text-gray-900 dark:text-white">
+                    {ph.name}
+                  </p>
+                  <p className="flex items-center gap-1 text-[12px] text-gray-500 dark:text-gray-400 mt-0.5">
+                    <MapPin size={11} className="flex-shrink-0" />
+                    {ph.area[lang]}
+                  </p>
+                </div>
+                {ph.onDuty && (
+                  <span className="flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-600 text-white">
+                    {t('health_onduty')}
+                  </span>
+                )}
+              </div>
+              {ph.onDuty && ph.dutyHours && (
+                <p className="text-[11px] font-semibold text-green-700 dark:text-green-400 mt-1.5">
+                  {ph.dutyHours[lang]}
+                </p>
+              )}
+              <a
+                href={`tel:${ph.phone}`}
+                className="inline-flex items-center gap-1.5 mt-2.5 px-3 py-1.5 rounded-lg bg-primary text-white text-[12px] font-bold hover:bg-primary-600 active:scale-95 transition-all"
+              >
+                <Phone size={12} />
+                {ph.phone}
+              </a>
+            </div>
+          ))}
         </div>
       </div>
     </div>

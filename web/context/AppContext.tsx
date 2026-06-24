@@ -4,7 +4,7 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import { KEYS, storageGet, storageSet } from '@/lib/storage';
 import { translations, type Lang } from '@/lib/i18n';
 
-export type TabKey = 'home' | 'vote' | 'health' | 'financials' | 'jobs' | 'game' | 'account';
+export type TabKey = 'home' | 'culture' | 'vote' | 'health' | 'financials' | 'jobs' | 'game' | 'contacts' | 'account';
 export type ThemeMode = 'light' | 'dark';
 
 interface AppContextValue {
@@ -36,7 +36,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const params = new URLSearchParams(window.location.search);
     const tabParam = params.get('tab') as TabKey | null;
-    if (tabParam && ['home', 'vote', 'health', 'financials', 'jobs', 'game', 'account'].includes(tabParam)) {
+    if (tabParam && ['home', 'culture', 'vote', 'health', 'financials', 'jobs', 'game', 'contacts', 'account'].includes(tabParam)) {
       setActiveTabState(tabParam);
     }
     setMounted(true);

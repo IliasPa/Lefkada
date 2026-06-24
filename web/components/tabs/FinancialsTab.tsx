@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, ExternalLink, X } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import {
   financialsData,
@@ -11,8 +11,18 @@ import {
   FINANCIAL_YEARS,
   CATEGORY_COLORS,
   INCOME_COLORS,
+  deriveStatus,
   type FinancialItem,
+  type ItemStatus,
 } from "@/data/financials";
+
+const DIAVGEIA_URL = "https://et.diavgeia.gov.gr/f/dimos_lefkadas";
+
+const STATUS_STYLE: Record<ItemStatus, { tKey: string; color: string }> = {
+  completed: { tKey: "fin_status_completed", color: "#22C55E" },
+  inprogress: { tKey: "fin_status_inprogress", color: "#3B82F6" },
+  planned: { tKey: "fin_status_planned", color: "#F59E0B" },
+};
 
 const CAT_TKEY: Record<string, string> = {
   Infrastructure: "fin_cat_Infrastructure",
@@ -40,6 +50,8 @@ interface Aspect {
   totalLabelKey: string;
   pieTitleKey: string;
   lineTitleKey: string;
+  /** Show a project "status" (where is it now) in the detail popup. */
+  showStatus: boolean;
 }
 
 function fmt(n: number) {
@@ -273,6 +285,7 @@ function FinancialView({
   const { items, categories, colors, catTKey } = aspect;
   const [year, setYear] = useState<number>(2025);
   const [category, setCategory] = useState<string>("all");
+  const [selected, setSelected] = useState<FinancialItem | null>(null);
 
   const yearItems = useMemo(
     () => items.filter((i) => i.year === year),
@@ -444,9 +457,10 @@ function FinancialView({
             ))}
           </div>
           {filtered.map((item, idx) => (
-            <div
+            <button
               key={item.id}
-              className={`grid grid-cols-[1fr_60px_60px_70px] gap-1 px-4 py-3 ${idx < filtered.length - 1 ? "border-b border-gray-50 dark:border-[#1A2235]" : ""}`}
+              onClick={() => setSelected(item)}
+              className={`w-full text-left grid grid-cols-[1fr_60px_60px_70px] gap-1 px-4 py-3 transition-colors hover:bg-gray-50 dark:hover:bg-[#0F1219] active:scale-[0.99] ${idx < filtered.length - 1 ? "border-b border-gray-50 dark:border-[#1A2235]" : ""}`}
             >
               <div>
                 <p className="text-[12px] font-semibold text-gray-800 dark:text-gray-200 leading-snug">
@@ -471,24 +485,125 @@ function FinancialView({
               <p className="text-[12px] font-bold text-gray-800 dark:text-gray-200 text-right self-center">
                 €{item.totalPrice.toLocaleString()}
               </p>
-            </div>
+            </button>
           ))}
-          {filtered.length > 0 && (
-            <div className="grid grid-cols-[1fr_60px_60px_70px] gap-1 px-4 py-3 bg-gray-50 dark:bg-[#0F1219] border-t-2 border-gray-200 dark:border-[#252A3A]">
-              <p className="text-[12px] font-black text-gray-700 dark:text-gray-300 col-span-3">
-                {t("fin_total_col")}
-              </p>
-              <p className="text-[12px] font-black text-primary dark:text-primary-300 text-right">
-                €
-                {filtered
-                  .reduce((s, i) => s + i.totalPrice, 0)
-                  .toLocaleString()}
-              </p>
+        </div>
+      </div>
+
+      {selected && (
+        <ItemDetailModal
+          item={selected}
+          color={colors[selected.category] ?? "#888"}
+          catLabel={t(catTKey[selected.category])}
+          showStatus={aspect.showStatus}
+          t={t}
+          onClose={() => setSelected(null)}
+        />
+      )}
+    </>
+  );
+}
+
+function ItemDetailModal({
+  item,
+  color,
+  catLabel,
+  showStatus,
+  t,
+  onClose,
+}: {
+  item: FinancialItem;
+  color: string;
+  catLabel: string;
+  showStatus: boolean;
+  t: (k: string) => string;
+  onClose: () => void;
+}) {
+  const status = STATUS_STYLE[deriveStatus(item)];
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center px-4 pb-6 sm:pb-0">
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div className="relative w-full max-w-sm bg-white dark:bg-[#141929] rounded-3xl shadow-2xl overflow-hidden animate-slide-up">
+        <div className="p-5 border-b border-gray-100 dark:border-[#1E2D4E]">
+          <div className="flex items-start justify-between gap-3">
+            <span
+              className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+              style={{ backgroundColor: color + "18", color }}
+            >
+              {catLabel}
+            </span>
+            <button
+              onClick={onClose}
+              aria-label={t("close")}
+              className="w-7 h-7 -mt-1 -mr-1 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-[#252A3A] active:scale-90"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <h3 className="font-bold text-[16px] text-gray-900 dark:text-white leading-snug mt-2">
+            {item.name}
+          </h3>
+          {showStatus && (
+            <div className="flex items-center gap-2 mt-2.5">
+              <span className="text-[11px] font-semibold text-gray-400 dark:text-gray-500">
+                {t("fin_status_label")}
+              </span>
+              <span
+                className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+                style={{ backgroundColor: status.color + "1E", color: status.color }}
+              >
+                {t(status.tKey)}
+              </span>
             </div>
           )}
         </div>
+        <div className="p-5 space-y-3">
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <Stat label={t("fin_unit")} value={`€${item.itemPrice.toLocaleString()}`} />
+            <Stat label={t("fin_qty")} value={`×${item.quantity}`} />
+            <Stat
+              label={t("fin_total_col")}
+              value={`€${item.totalPrice.toLocaleString()}`}
+              accent
+            />
+          </div>
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1">
+              {t("fin_notes")}
+            </p>
+            <p className="text-[13px] text-gray-600 dark:text-gray-300 leading-relaxed">
+              {item.notes} <span className="text-gray-400">· {item.year}</span>
+            </p>
+          </div>
+        </div>
       </div>
-    </>
+    </div>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  accent = false,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+}) {
+  return (
+    <div className="bg-gray-50 dark:bg-[#0F1219] rounded-xl py-2.5 px-1">
+      <p className="text-[9px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+        {label}
+      </p>
+      <p
+        className={`text-[13px] font-black mt-0.5 ${accent ? "text-primary dark:text-primary-300" : "text-gray-800 dark:text-gray-200"}`}
+      >
+        {value}
+      </p>
+    </div>
   );
 }
 
@@ -504,6 +619,7 @@ const ASPECTS: Record<SubTab, Aspect> = {
     totalLabelKey: "fin_total_spending",
     pieTitleKey: "fin_pie_title",
     lineTitleKey: "fin_line_title",
+    showStatus: true,
   },
   income: {
     items: incomeData,
@@ -513,6 +629,7 @@ const ASPECTS: Record<SubTab, Aspect> = {
     totalLabelKey: "fin_total_income",
     pieTitleKey: "fin_income_dist",
     lineTitleKey: "fin_income_trends",
+    showStatus: false,
   },
 };
 
@@ -537,8 +654,8 @@ export default function FinancialsTab() {
           </h1>
         </div>
 
-        {/* Sub-tabs: financial aspects (expenses / income) */}
-        <div className="px-4 mb-4">
+        {/* Sub-tabs (expenses / income) with the Transparency link on the other side */}
+        <div className="px-4 mb-4 flex items-center justify-between gap-2">
           <div className="inline-flex p-1 rounded-2xl bg-gray-100 dark:bg-[#0F1219] border border-gray-200 dark:border-[#252A3A]">
             {SUBTABS.map(({ key, tKey }) => {
               const active = sub === key;
@@ -553,6 +670,17 @@ export default function FinancialsTab() {
               );
             })}
           </div>
+          <a
+            href={DIAVGEIA_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 flex-shrink-0 px-3.5 py-2 rounded-xl text-[13px] font-bold
+              text-primary dark:text-primary-300 bg-primary-50 dark:bg-primary-900/20 border border-primary-100 dark:border-primary-900/40
+              hover:bg-primary-100 dark:hover:bg-primary-900/30 transition-colors active:scale-95"
+          >
+            {t("fin_transparency")}
+            <ExternalLink size={13} />
+          </a>
         </div>
 
         {/* Keying by sub remounts the view so its year/category state resets per aspect */}

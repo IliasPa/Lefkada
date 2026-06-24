@@ -5,11 +5,13 @@ import { AppProvider, useApp, type TabKey } from '@/context/AppContext';
 import AppHeader from '@/components/AppHeader';
 import SettingsPanel from '@/components/SettingsPanel';
 import HomeTab from '@/components/tabs/HomeTab';
+import CultureTab from '@/components/tabs/CultureTab';
 import VoteTab from '@/components/tabs/VoteTab';
 import HealthTab from '@/components/tabs/HealthTab';
 import FinancialsTab from '@/components/tabs/FinancialsTab';
 import JobsTab from '@/components/tabs/JobsTab';
 import GameTab from '@/components/tabs/GameTab';
+import ContactsTab from '@/components/tabs/ContactsTab';
 
 function ServiceWorkerRegistration() {
   useEffect(() => {
@@ -23,11 +25,13 @@ function ServiceWorkerRegistration() {
 function TabContent({ tab }: { tab: TabKey }) {
   switch (tab) {
     case 'home':       return <HomeTab />;
+    case 'culture':    return <CultureTab />;
     case 'vote':       return <VoteTab />;
     case 'health':     return <HealthTab />;
     case 'financials': return <FinancialsTab />;
     case 'jobs':       return <JobsTab />;
     case 'game':       return <GameTab />;
+    case 'contacts':   return <ContactsTab />;
     case 'account':    return <SettingsPanel />;
   }
 }

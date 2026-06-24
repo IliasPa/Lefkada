@@ -6,11 +6,13 @@ const el: Record<string, string> = {
 
   // Tab labels
   tab_home: 'Αρχική',
+  tab_culture: 'Εκδηλώσεις',
   tab_vote: 'Ψήφος',
   tab_health: 'Υγεία',
   tab_financials: 'Δαπάνες',
   tab_jobs: 'Θέσεις',
   tab_game: 'Παιχνίδι',
+  tab_contacts: 'Επαφές',
   tab_account: 'Προφίλ',
 
   // Common
@@ -34,6 +36,30 @@ const el: Record<string, string> = {
   home_twitter: 'X (Twitter)',
   home_reporter: 'Ιστότοπος δημοσιογράφου',
   news_reporters_all: 'Όλοι οι δημοσιογράφοι',
+  alert_water: 'Διακοπή νερού',
+  alert_electricity: 'Διακοπή ρεύματος',
+  alert_fire: 'Κίνδυνος πυρκαγιάς',
+  alert_weather: 'Καιρικό φαινόμενο',
+  alert_road: 'Κλειστός δρόμος',
+
+  // ── Culture / Events tab ──
+  culture_title: 'Πολιτιστικές Εκδηλώσεις',
+  culture_view_list: 'Λίστα',
+  culture_view_calendar: 'Ημερολόγιο',
+  culture_upcoming: 'Επερχόμενες εκδηλώσεις',
+  culture_no_upcoming: 'Δεν υπάρχουν επερχόμενες εκδηλώσεις. Δείτε το ημερολόγιο.',
+  culture_past_badge: 'Ολοκληρώθηκε',
+  culture_select_day: 'Επιλέξτε μια ημέρα με εκδηλώσεις για λεπτομέρειες.',
+  culture_no_events_day: 'Καμία εκδήλωση αυτή την ημέρα.',
+  culture_programme: 'Πρόγραμμα (PDF)',
+  culture_today: 'Σήμερα',
+  cat_Festival: 'Φεστιβάλ',
+  cat_Music: 'Μουσική',
+  cat_Theatre: 'Θέατρο',
+  cat_Sports: 'Αθλητισμός',
+  cat_Religious: 'Θρησκευτικά',
+  cat_Food: 'Γαστρονομία',
+  cat_Art: 'Τέχνες',
 
   // ── Vote tab ──
   vote_title: 'Ψηφοφορία Πολιτών',
@@ -64,10 +90,26 @@ const el: Record<string, string> = {
   cd_minutes: 'Λεπτά',
   cd_seconds: 'Δευτ.',
 
+  // ── Contacts tab ──
+  contacts_title: 'Τηλέφωνα & Επικοινωνία',
+  contacts_search: 'Αναζήτηση υπηρεσίας, τηλεφώνου, email…',
+  contacts_email: 'Email',
+  contacts_no_results: 'Δεν βρέθηκαν επαφές.',
+  contacts_standard_note: '★ Τυπικό ωράριο γραφείων:',
+  con_cat_Administration: 'Διοίκηση',
+  con_cat_Services: 'Υπηρεσίες',
+  con_cat_Emergency: 'Έκτακτη Ανάγκη',
+  con_cat_Utilities: 'Κοινωφελή',
+  con_cat_Tourism: 'Τουρισμός',
+  con_cat_Health: 'Υγεία',
+
   // ── Health tab ──
   health_title: 'Υπηρεσίες Υγείας',
   health_call: 'Κλήση',
   health_emergency: 'Έκτακτη Ανάγκη',
+  health_pharmacies: 'Φαρμακεία',
+  health_pharmacy_aria: 'Εφημερεύοντα φαρμακεία',
+  health_onduty: 'Εφημερεύον',
   health_cat_all: 'Όλα',
   health_cat_Hospital: 'Νοσοκομείο',
   health_cat_Advisory: 'Συμβουλή',
@@ -94,6 +136,11 @@ const el: Record<string, string> = {
   fin_cat_Administration: 'Διοίκηση',
   fin_sub_expenses: 'Δαπάνες',
   fin_sub_income: 'Έσοδα',
+  fin_transparency: 'Διαύγεια',
+  fin_status_label: 'Κατάσταση:',
+  fin_status_completed: 'Ολοκληρώθηκε',
+  fin_status_inprogress: 'Σε εξέλιξη',
+  fin_status_planned: 'Προγραμματισμένο',
   fin_total_income: 'Συνολικά Έσοδα',
   fin_income_dist: 'Κατανομή Εσόδων',
   fin_income_trends: 'Εξέλιξη Εσόδων',
@@ -204,6 +251,7 @@ const el: Record<string, string> = {
   settings_mayor_sent_title: 'Εστάλη!',
   settings_mayor_sent_text: 'Το μήνυμά σας παραδόθηκε στον Δήμαρχο.',
   settings_mayor_new: 'Νέο Μήνυμα',
+  settings_4mycity_aria: 'Αναφορά προβλήματος στον Δήμο (4MyCity)',
   settings_close: 'Κλείσιμο',
 
   // Apply notification
@@ -216,6 +264,8 @@ const el: Record<string, string> = {
 
   // Game tab
   game_title: 'Wordle Ελληνικά',
+  game_info_tooltip:
+    'Το κλασικό παιχνίδι Wordle, αλλά με ελληνικές λέξεις σχετικές με τον Δήμο — τοπωνύμια, υπηρεσίες και παράδοση της Λευκάδας. Στόχος είναι να εμπλέξει τους πολίτες με διασκεδαστικό τρόπο και να τους εξοικειώσει με τον τόπο τους.',
 };
 
 const en: Record<string, string> = {
@@ -223,11 +273,13 @@ const en: Record<string, string> = {
   appSubtitle: 'Municipality of Lefkada',
 
   tab_home: 'News',
+  tab_culture: 'Events',
   tab_vote: 'Vote',
   tab_health: 'Health',
   tab_financials: 'Budget',
   tab_jobs: 'Jobs',
   tab_game: 'Game',
+  tab_contacts: 'Contacts',
   tab_account: 'Profile',
 
   save: 'Save',
@@ -248,6 +300,30 @@ const en: Record<string, string> = {
   home_twitter: 'X (Twitter)',
   home_reporter: 'Reporter website',
   news_reporters_all: 'All reporters',
+  alert_water: 'Water cut',
+  alert_electricity: 'Power cut',
+  alert_fire: 'Fire risk',
+  alert_weather: 'Weather alert',
+  alert_road: 'Road closure',
+
+  // ── Culture / Events tab ──
+  culture_title: 'Cultural Events',
+  culture_view_list: 'List',
+  culture_view_calendar: 'Calendar',
+  culture_upcoming: 'Upcoming events',
+  culture_no_upcoming: 'No upcoming events. Check the calendar.',
+  culture_past_badge: 'Finished',
+  culture_select_day: 'Select a day with events to see the details.',
+  culture_no_events_day: 'No events on this day.',
+  culture_programme: 'Programme (PDF)',
+  culture_today: 'Today',
+  cat_Festival: 'Festival',
+  cat_Music: 'Music',
+  cat_Theatre: 'Theatre',
+  cat_Sports: 'Sports',
+  cat_Religious: 'Religious',
+  cat_Food: 'Food',
+  cat_Art: 'Arts',
 
   vote_title: 'Civic Polling',
   vote_active_badge: 'ACTIVE POLL',
@@ -277,9 +353,24 @@ const en: Record<string, string> = {
   cd_minutes: 'Minutes',
   cd_seconds: 'Seconds',
 
+  contacts_title: 'Phones & Contact',
+  contacts_search: 'Search a service, phone, email…',
+  contacts_email: 'Email',
+  contacts_no_results: 'No contacts found.',
+  contacts_standard_note: '★ Standard office hours:',
+  con_cat_Administration: 'Administration',
+  con_cat_Services: 'Services',
+  con_cat_Emergency: 'Emergency',
+  con_cat_Utilities: 'Utilities',
+  con_cat_Tourism: 'Tourism',
+  con_cat_Health: 'Health',
+
   health_title: 'Health Services',
   health_call: 'Call',
   health_emergency: 'Emergency',
+  health_pharmacies: 'Pharmacies',
+  health_pharmacy_aria: 'Pharmacies on duty',
+  health_onduty: 'On duty',
   health_cat_all: 'All',
   health_cat_Hospital: 'Hospital',
   health_cat_Advisory: 'Advisory',
@@ -305,6 +396,11 @@ const en: Record<string, string> = {
   fin_cat_Administration: 'Administration',
   fin_sub_expenses: 'Expenses',
   fin_sub_income: 'Income',
+  fin_transparency: 'Transparency',
+  fin_status_label: 'Status:',
+  fin_status_completed: 'Completed',
+  fin_status_inprogress: 'In progress',
+  fin_status_planned: 'Planned',
   fin_total_income: 'Total Income',
   fin_income_dist: 'Income Distribution',
   fin_income_trends: 'Income Trends',
@@ -408,6 +504,7 @@ const en: Record<string, string> = {
   settings_mayor_sent_title: 'Sent!',
   settings_mayor_sent_text: 'Your message has been delivered to the Mayor.',
   settings_mayor_new: 'New Message',
+  settings_4mycity_aria: 'Report a city issue to the municipality (4MyCity)',
   settings_close: 'Close',
 
   apply_notif_title: 'Application Submitted!',
@@ -419,6 +516,8 @@ const en: Record<string, string> = {
 
   // Game tab
   game_title: 'Greek Wordle',
+  game_info_tooltip:
+    'The classic Wordle game, but with Greek words related to the Municipality — Lefkada place names, services and traditions. The goal is to engage citizens in a fun way and help them get to know their place.',
 };
 
 export const translations = { el, en } as const;

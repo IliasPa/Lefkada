@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { RotateCcw, Share2 } from "lucide-react";
+import { RotateCcw, Share2, Info } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { KEYS, storageGet, storageSet } from "@/lib/storage";
 
@@ -290,9 +290,26 @@ export default function GameTab() {
   return (
     <div className="h-full scroll-area">
       <div className="px-4 pt-4 pb-6 max-w-2xl mx-auto">
-        <h1 className="text-xs font-bold tracking-[0.12em] uppercase text-gray-400 dark:text-gray-500 ml-1 mb-4">
-          {t("game_title")}
-        </h1>
+        <div className="flex items-center gap-1.5 ml-1 mb-4">
+          <h1 className="text-xs font-bold tracking-[0.12em] uppercase text-gray-400 dark:text-gray-500">
+            {t("game_title")}
+          </h1>
+          <span className="relative group inline-flex">
+            <button
+              type="button"
+              aria-label={t("game_info_tooltip")}
+              className="w-4 h-4 flex items-center justify-center rounded-full text-gray-400 dark:text-gray-500 hover:text-primary dark:hover:text-primary-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            >
+              <Info size={13} />
+            </button>
+            <span
+              role="tooltip"
+              className="pointer-events-none absolute left-0 top-6 z-30 w-64 p-3 rounded-xl bg-gray-900 dark:bg-black text-white text-[11px] leading-relaxed shadow-xl opacity-0 translate-y-1 transition-all duration-150 group-hover:opacity-100 group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:translate-y-0 normal-case tracking-normal font-normal"
+            >
+              {t("game_info_tooltip")}
+            </span>
+          </span>
+        </div>
 
         {/* Streak info */}
         <div className="grid grid-cols-3 gap-2 mb-4">

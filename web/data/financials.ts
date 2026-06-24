@@ -1,3 +1,5 @@
+export type ItemStatus = 'completed' | 'inprogress' | 'planned';
+
 export interface FinancialItem {
   id: string;
   year: number;
@@ -7,6 +9,14 @@ export interface FinancialItem {
   quantity: number;
   totalPrice: number;
   notes: string;
+}
+
+/** Derive a plausible "where is it now" status for an expense item.
+ *  Past years are completed; the current year is split deterministically. */
+export function deriveStatus(item: FinancialItem): ItemStatus {
+  if (item.year < 2025) return 'completed';
+  const h = item.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 3;
+  return h === 0 ? 'planned' : h === 1 ? 'inprogress' : 'completed';
 }
 
 export const FINANCIAL_CATEGORIES = [
