@@ -7,6 +7,17 @@ import { translations, type Lang } from '@/lib/i18n';
 export type TabKey = 'home' | 'culture' | 'vote' | 'health' | 'financials' | 'jobs' | 'game' | 'contacts' | 'account';
 export type ThemeMode = 'light' | 'dark';
 
+export interface A11ySettings {
+  reduceMotion: boolean;
+  highContrast: boolean;
+  largeText: boolean;
+}
+const DEFAULT_A11Y: A11ySettings = {
+  reduceMotion: false,
+  highContrast: false,
+  largeText: false,
+};
+
 interface AppContextValue {
   lang: Lang;
   setLang: (l: Lang) => void;
@@ -14,6 +25,8 @@ interface AppContextValue {
   setTheme: (t: ThemeMode) => void;
   activeTab: TabKey;
   setActiveTab: (tab: TabKey) => void;
+  a11y: A11ySettings;
+  setA11y: (patch: Partial<A11ySettings>) => void;
   t: (key: string) => string;
 }
 
@@ -23,6 +36,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = useState<Lang>('el');
   const [theme, setThemeState] = useState<ThemeMode>('light');
   const [activeTab, setActiveTabState] = useState<TabKey>('home');
+  const [a11y, setA11yState] = useState<A11ySettings>(DEFAULT_A11Y);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -33,6 +47,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     setLangState(savedLang);
     setThemeState(resolvedTheme);
+
+    // Default Reduce Motion to the OS preference when the user has no saved choice.
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    setA11yState({
+      ...DEFAULT_A11Y,
+      reduceMotion: prefersReduced,
+      ...storageGet<Partial<A11ySettings>>(KEYS.a11y, {}),
+    });
 
     const params = new URLSearchParams(window.location.search);
     const tabParam = params.get('tab') as TabKey | null;
@@ -46,6 +68,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!mounted) return;
     document.documentElement.classList.toggle('dark', theme === 'dark');
   }, [theme, mounted]);
+
+  // Apply accessibility preferences to the document root.
+  useEffect(() => {
+    if (!mounted) return;
+    const root = document.documentElement;
+    root.classList.toggle('reduce-motion', a11y.reduceMotion);
+    root.classList.toggle('hc', a11y.highContrast);
+    root.classList.toggle('a11y-large', a11y.largeText);
+  }, [a11y, mounted]);
+
+  const setA11y = useCallback((patch: Partial<A11ySettings>) => {
+    setA11yState((prev) => {
+      const next = { ...prev, ...patch };
+      storageSet(KEYS.a11y, next);
+      return next;
+    });
+  }, []);
 
   const setLang = useCallback((l: Lang) => {
     setLangState(l);
@@ -76,7 +115,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AppContext.Provider
-      value={{ lang, setLang, theme, setTheme, activeTab, setActiveTab, t }}
+      value={{ lang, setLang, theme, setTheme, activeTab, setActiveTab, a11y, setA11y, t }}
     >
       {children}
     </AppContext.Provider>

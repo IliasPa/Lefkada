@@ -31,6 +31,7 @@ export function storageRemove(key: string): void {
 export const KEYS = {
   theme: 'theme',
   lang: 'lang',
+  a11y: 'a11y',
   profile: 'me_profile',
   votes: 'votes',
   myVotes: 'my_votes',

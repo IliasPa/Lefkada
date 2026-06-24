@@ -1,13 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useApp } from "@/context/AppContext";
 
-// Stylized Lefkada views — swap these paths for real photographs any time.
+// Real Lefkada photographs (Wikimedia Commons, freely licensed; hotlinked via
+// the stable Special:FilePath endpoint, scaled down with ?width=).
+const wiki = (file: string) =>
+  `https://commons.wikimedia.org/wiki/Special:FilePath/${file}?width=1600`;
 const VIEWS = [
-  "/backgrounds/lefkada-1-ionian.png",
-  "/backgrounds/lefkada-2-sunset.png",
-  "/backgrounds/lefkada-3-cove.png",
-  "/backgrounds/lefkada-4-night.png",
+  wiki("Porto_Katsiki_6108.JPG"),
+  wiki("Egremni_Beach_%28Lefkada%2C_Greece%29.jpg"),
+  wiki("20100726_Kalamitsi_Beach_Ionian_Sea_Lefkada_island_Greece.jpg"),
+  wiki("Sivota%2C_Lefkada%2C_Greece.JPG"),
 ];
 
 const INTERVAL_MS = 6000;
@@ -15,15 +19,17 @@ const INTERVAL_MS = 6000;
 /** Full-screen, fixed (non-scrolling) auto-crossfading photo backdrop for the
  *  News tab. Sits behind the content; cards scroll over it. */
 export default function NewsBackground() {
+  const { a11y } = useApp();
   const [idx, setIdx] = useState(0);
 
   useEffect(() => {
+    if (a11y.reduceMotion) return; // hold a single image when motion is reduced
     const id = setInterval(
       () => setIdx((i) => (i + 1) % VIEWS.length),
       INTERVAL_MS,
     );
     return () => clearInterval(id);
-  }, []);
+  }, [a11y.reduceMotion]);
 
   return (
     <div

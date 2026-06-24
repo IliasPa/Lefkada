@@ -35,7 +35,7 @@
 **Why this design:**
 
 - **Dominant news feed:** Users come to stay informed first; this is the landing tab.
-- **Lefkada photo backdrop:** A full-screen, fixed slideshow of island views auto-crossfades behind the feed. It stays put while the news scrolls over it (a light scrim keeps cards and filters readable). The bundled images are lightweight stylized placeholders in `public/backgrounds/`, ready to be swapped for real photographs.
+- **Lefkada photo backdrop:** A full-screen, fixed slideshow of **real Lefkada photographs** (Porto Katsiki, Egremni, Kalamitsi, Sivota — sourced from Wikimedia Commons under free licences and hotlinked via the stable `Special:FilePath` endpoint) auto-crossfades behind the feed. It stays put while the news scrolls over it; a light scrim keeps cards and filters readable. The crossfade pauses under **Reduce motion**.
 - **Live city alerts:** Below the filters, up to five circular emoji buttons (water cut 💧, power cut ⚡, fire risk 🔥, weather alert 🌧️, road closure 🚧), each marked with a red "!" badge. A button **only appears when that alert type is active**; tapping it opens a popup with the time window and affected area for every alert of that type. Data lives in `data/alerts.ts`.
   - **Planned:** a small map will be added inside the alert popup to show the affected location visually, instead of (or alongside) the text area name.
 - **Reporter + theme filters:** Two stacked filter rows let users narrow the feed by the reporter who published a story (top row) and/or by topic/category (bottom row).
@@ -83,7 +83,7 @@
 **Why this design:**
 
 - **Emergency 166 shortcut:** One-tap access for critical situations; not buried in menus.
-- **Pharmacy-on-duty finder:** A square green-cross button sits next to the emergency banner (matched height). It opens a list of local pharmacies with the **on-duty** one pinned to the top and highlighted, each with a tap-to-call number.
+- **Pharmacy-on-duty finder:** A wide button (≈3× the emergency height) marked with the **Bowl of Hygieia** (the snake-and-cup pharmacy symbol) sits next to the emergency banner. It opens a list of local pharmacies with the **on-duty** one pinned to the top and highlighted; each card has a tap-to-call number and **tapping the card opens Google Maps directions**. The list is curated in `data/pharmacies.ts` (see "Data & content" below).
 - **Personal lab results tracking:** Health data stored locally on the device (not on servers) respects privacy while letting citizens monitor their own health trends.
 - **Lab result categories (Normal/High/Low):** Visual status signals quick health assessment without medical training.
 - **Bookmarking system:** Users can save important health advisories for later reference.
@@ -148,7 +148,7 @@
 
 - **Search-first:** One box filters by service name, phone, email or category — the fastest way to "who do I call for X?".
 - **Tap-to-call / tap-to-email:** Each entry exposes the actions directly; no copy-paste.
-- **★ Standard hours, stated once:** Most departments share the same office hours, so those entries show a ★ and a single footnote (`Mon–Fri 08:00–14:00`) instead of repeating the same line on every card. Entries that differ (24-hour emergency lines, summer tourism hours, the cleaning crew) show their own hours inline.
+- **Hours on every card:** Each entry shows its opening hours directly (most share the standard `Mon–Fri 08:00–14:00`; emergency lines show `24 hours`, tourism shows summer hours, etc.) so the information is never more than one glance away.
 - **Colour-coded categories:** Administration, Services, Emergency, Utilities, Tourism, Health — quick visual grouping without forcing a rigid hierarchy.
 
 ---
@@ -175,7 +175,21 @@
 - **PWA** — installable, offline-capable via Service Worker
 - **No backend** — all data persisted in `localStorage` (`lefkada_*` keys)
 
-> **Responsive header:** the logo + name adapt to width (name stacks under the logo on small screens so the tabs stay on one line) and the name localizes to "Lefkada" in English. The compressed logo is ~16 KB; the full-resolution original is kept locally (gitignored).
+> **Responsive header:** the logo + name adapt to width (name stacks under the logo on small screens so the tabs stay on one line) and the name localizes to "Lefkada" in English. The compressed logo is ~16 KB; the full-resolution original is kept locally (gitignored). Language, theme and accessibility now live together behind a single **⚙️ Settings** menu on the right of the header.
+
+## Accessibility (WCAG 2.2 AA)
+
+The app is built and reviewed against **WCAG 2.2 level AA**. The ⚙️ Settings menu exposes user-controllable accessibility preferences (persisted to `localStorage`):
+
+- **Reduce motion** — pauses the news photo-slideshow and the tab indicator spring, and (via CSS) neutralizes animations/transitions across the app. It **defaults on** when the OS reports `prefers-reduced-motion: reduce`, and the CSS honours that media query regardless. *(WCAG 2.3.3, 2.2.2)*
+- **High contrast** — strengthens the muted grey text and placeholders so secondary text comfortably clears the 4.5:1 AA threshold. *(1.4.3)*
+- **Larger text** — scales the scrollable content ~115% without breaking the layout. *(1.4.4)*
+
+Baseline conformance also covered: semantic buttons/links, visible `:focus-visible` rings, `aria-label`s on icon-only controls, `role="switch"`/`aria-pressed` on toggles, `lang` attribute, dialogs dismissible via backdrop/Escape, and ≥44px primary tap targets. *(Note: WCAG **3.0** is still a W3C draft and doesn't define "AA"; 2.2 AA is the current finished bar and the legal standard for EU public-sector sites.)*
+
+## Data & content
+
+All content is static and lives in `web/data/*.ts` — `news`, `events`, `voting`, `financials` (expenses + income), `jobs`, `contacts`, `pharmacies`, `alerts`, `healthTests`. There is **no backend**: the public directories that would normally feed some of this (e.g. the pharmacy list at `lefkadaopen.gr`) block automated fetching and a static export can't call them at runtime, so these lists are **curated locally in their data file** and edited there. A future version would move changing content (events, alerts, pharmacy duty roster) to a small CMS/database so non-developers can update it without a code change.
 
 ## Run locally
 

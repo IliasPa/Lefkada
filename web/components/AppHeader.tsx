@@ -12,12 +12,10 @@ import {
   Briefcase,
   Dices,
   Phone,
-  Moon,
-  Sun,
-  Languages,
   type LucideIcon,
 } from "lucide-react";
 import { useApp, type TabKey } from "@/context/AppContext";
+import SettingsMenu from "@/components/SettingsMenu";
 
 interface TabDef {
   key: TabKey;
@@ -36,8 +34,7 @@ const TABS: TabDef[] = [
 ];
 
 export default function AppHeader() {
-  const { t, theme, setTheme, lang, setLang, activeTab, setActiveTab } =
-    useApp();
+  const { t, theme, activeTab, setActiveTab, a11y } = useApp();
   const tabRowRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const indRef = useRef<HTMLDivElement>(null);
@@ -66,7 +63,7 @@ export default function AppHeader() {
       const left = eRect.left - rRect.left + 3;
       const width = eRect.width - 6;
 
-      if (withSpring && !firstRef.current) {
+      if (withSpring && !firstRef.current && !a11y.reduceMotion) {
         animate(indicator, {
           left,
           width,
@@ -80,7 +77,7 @@ export default function AppHeader() {
       }
       firstRef.current = false;
     },
-    [activeTab],
+    [activeTab, a11y.reduceMotion],
   );
 
   useEffect(() => {
@@ -190,21 +187,9 @@ export default function AppHeader() {
         </div>
       </div>
 
-      {/* ── RIGHT: language + theme ── */}
-      <div className="flex-shrink-0 flex items-center gap-1 pl-1">
-        <button
-          onClick={() => setLang(lang === "el" ? "en" : "el")}
-          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold text-primary dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30 hover:bg-primary-100 dark:hover:bg-primary-900/50 transition-colors active:scale-95"
-        >
-          <Languages size={12} />
-          {t("toggle_lang")}
-        </button>
-        <button
-          onClick={() => setTheme(isDark ? "light" : "dark")}
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors active:scale-95"
-        >
-          {isDark ? <Sun size={16} /> : <Moon size={16} />}
-        </button>
+      {/* ── RIGHT: settings (language + theme + accessibility) ── */}
+      <div className="flex-shrink-0 flex items-center pl-1">
+        <SettingsMenu />
       </div>
     </header>
   );

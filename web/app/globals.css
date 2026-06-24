@@ -60,6 +60,59 @@ main {
   animation: slideUp 0.22s ease-out forwards;
 }
 
+/* ── Accessibility (WCAG 2.2 AA) ───────────────────────────────────────── */
+
+/* Reduce motion — honour the user toggle and the OS preference (2.3.3) */
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Larger text — scale the scrollable content (resize support, 1.4.4) */
+.a11y-large main {
+  zoom: 1.15;
+}
+
+/* High contrast — strengthen the muted greys that sit near the AA floor
+   (1.4.3). Targets the common Tailwind muted utilities used in the app. */
+.hc .text-gray-400,
+.hc .text-gray-500 {
+  color: #374151 !important;
+}
+.hc.dark .text-gray-400,
+.hc.dark .text-gray-500 {
+  color: #e5e7eb !important;
+}
+.hc .text-gray-300,
+.hc .text-gray-600 {
+  color: #1f2937 !important;
+}
+.hc.dark .text-gray-300,
+.hc.dark .text-gray-600 {
+  color: #f3f4f6 !important;
+}
+.hc input::placeholder,
+.hc textarea::placeholder {
+  color: #4b5563 !important;
+}
+.hc.dark input::placeholder,
+.hc.dark textarea::placeholder {
+  color: #9ca3af !important;
+}
+
 /* Card hover press effect */
 .card-press {
   transition: transform 0.1s ease, box-shadow 0.1s ease;

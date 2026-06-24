@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { AlertTriangle, Pencil, Check, X, ChevronDown, Cross, Phone, MapPin } from 'lucide-react';
+import { AlertTriangle, Pencil, Check, X, ChevronDown, Phone, MapPin, Navigation } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { healthCategories, type ResultStatus, type YearlyResult } from '@/data/healthTests';
-import { pharmaciesData } from '@/data/pharmacies';
+import { pharmaciesData, pharmacyDirectionsUrl } from '@/data/pharmacies';
+import BowlOfHygieia from '@/components/BowlOfHygieia';
 import { storageGet, storageSet } from '@/lib/storage';
 
 const EXAMS_KEY = 'health_exams';
@@ -127,9 +128,12 @@ export default function HealthTab() {
             onClick={() => setShowPharmacies(true)}
             aria-label={t('health_pharmacy_aria')}
             title={t('health_pharmacy_aria')}
-            className="aspect-square self-stretch flex items-center justify-center rounded-2xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/40 active:scale-95 transition-transform"
+            className="aspect-[3/1] self-stretch flex items-center justify-center gap-2 px-2 rounded-2xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/40 active:scale-95 transition-transform"
           >
-            <Cross size={24} className="text-green-600 dark:text-green-400" strokeWidth={2.6} />
+            <BowlOfHygieia size={26} className="text-green-600 dark:text-green-400 flex-shrink-0" />
+            <span className="text-[12px] font-bold text-green-700 dark:text-green-400 leading-tight">
+              {t('health_pharmacies')}
+            </span>
           </button>
         </div>
 
@@ -304,7 +308,7 @@ function PharmacyModal({
       <div className="relative w-full max-w-md bg-white dark:bg-[#141929] rounded-3xl shadow-2xl overflow-hidden animate-slide-up max-h-[80vh] flex flex-col">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-[#1E2D4E]">
           <div className="flex items-center gap-2">
-            <Cross size={18} className="text-green-600 dark:text-green-400" strokeWidth={2.6} />
+            <BowlOfHygieia size={20} className="text-green-600 dark:text-green-400" />
             <h3 className="font-bold text-[16px] text-gray-900 dark:text-white">
               {t('health_pharmacies')}
             </h3>
@@ -321,7 +325,18 @@ function PharmacyModal({
           {list.map((ph) => (
             <div
               key={ph.id}
-              className={`rounded-xl p-3.5 border ${ph.onDuty ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700/50' : 'bg-gray-50 dark:bg-[#0F1219] border-gray-100 dark:border-[#1E2D4E]'}`}
+              role="button"
+              tabIndex={0}
+              onClick={() =>
+                window.open(pharmacyDirectionsUrl(ph), '_blank', 'noopener,noreferrer')
+              }
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  window.open(pharmacyDirectionsUrl(ph), '_blank', 'noopener,noreferrer');
+                }
+              }}
+              className={`rounded-xl p-3.5 border cursor-pointer transition-colors active:scale-[0.99] ${ph.onDuty ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700/50 hover:border-green-500' : 'bg-gray-50 dark:bg-[#0F1219] border-gray-100 dark:border-[#1E2D4E] hover:border-primary/40'}`}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -344,13 +359,20 @@ function PharmacyModal({
                   {ph.dutyHours[lang]}
                 </p>
               )}
-              <a
-                href={`tel:${ph.phone}`}
-                className="inline-flex items-center gap-1.5 mt-2.5 px-3 py-1.5 rounded-lg bg-primary text-white text-[12px] font-bold hover:bg-primary-600 active:scale-95 transition-all"
-              >
-                <Phone size={12} />
-                {ph.phone}
-              </a>
+              <div className="flex items-center justify-between mt-2.5">
+                <a
+                  href={`tel:${ph.phone}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-[12px] font-bold hover:bg-primary-600 active:scale-95 transition-all"
+                >
+                  <Phone size={12} />
+                  {ph.phone}
+                </a>
+                <span className="flex items-center gap-1 text-[11px] font-semibold text-primary dark:text-primary-300">
+                  <Navigation size={12} />
+                  {t('health_directions')}
+                </span>
+              </div>
             </div>
           ))}
         </div>

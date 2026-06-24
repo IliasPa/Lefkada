@@ -533,14 +533,14 @@ export default function SettingsPanel() {
                 </div>
               ) : (
                 <div className="px-4 py-3 space-y-3">
-                  <div className="flex items-center gap-2">
-                    {/* Anonymity — a compact segmented toggle (labels collapse to
-                        icons under 400px to leave room for the 4MyCity button) */}
-                    <div className="flex flex-1 min-w-0 p-0.5 rounded-xl bg-gray-100 dark:bg-[#0F1219] border border-gray-200 dark:border-[#3A4155]">
+                  <div className="flex items-center justify-between gap-2">
+                    {/* Anonymity — a compact, left-aligned segmented toggle (labels
+                        collapse to icons under 400px to leave room for 4MyCity) */}
+                    <div className="flex p-0.5 rounded-xl bg-gray-100 dark:bg-[#0F1219] border border-gray-200 dark:border-[#3A4155]">
                       <button
                         onClick={() => handleAnon(true)}
                         aria-pressed={anonymous}
-                        className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg text-[12px] font-semibold transition-colors active:scale-95 ${anonymous ? "bg-primary text-white shadow-sm" : "text-gray-600 dark:text-gray-400"}`}
+                        className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-semibold transition-colors active:scale-95 ${anonymous ? "bg-primary text-white shadow-sm" : "text-gray-600 dark:text-gray-400"}`}
                       >
                         <EyeOff size={12} className="flex-shrink-0" />
                         <span className="hidden min-[400px]:inline truncate">
@@ -550,7 +550,7 @@ export default function SettingsPanel() {
                       <button
                         onClick={() => handleAnon(false)}
                         aria-pressed={!anonymous}
-                        className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg text-[12px] font-semibold transition-colors active:scale-95 ${!anonymous ? "bg-primary text-white shadow-sm" : "text-gray-600 dark:text-gray-400"}`}
+                        className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-semibold transition-colors active:scale-95 ${!anonymous ? "bg-primary text-white shadow-sm" : "text-gray-600 dark:text-gray-400"}`}
                       >
                         <User size={12} className="flex-shrink-0" />
                         <span className="hidden min-[400px]:inline truncate">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, Phone, Mail, Clock, Star, X } from "lucide-react";
+import { Search, Phone, Mail, Clock, X } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import {
   contactsData,
@@ -49,8 +49,6 @@ export default function ContactsTab() {
     });
   }, [query, t]);
 
-  const usesStandard = filtered.some((c) => !c.hours);
-
   return (
     <div className="h-full scroll-area">
       <div className="px-4 pt-4 pb-6 max-w-2xl mx-auto">
@@ -95,18 +93,6 @@ export default function ContactsTab() {
           </div>
         )}
 
-        {/* Standard-hours footnote (★) */}
-        {usesStandard && (
-          <div className="flex items-start gap-2 mt-5 px-1 text-[12px] text-gray-400 dark:text-gray-500">
-            <Star size={13} className="flex-shrink-0 mt-0.5 fill-current" />
-            <p>
-              {t("contacts_standard_note")}{" "}
-              <span className="font-semibold text-gray-500 dark:text-gray-400">
-                {STANDARD_HOURS[lang]}
-              </span>
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -137,13 +123,10 @@ function ContactCard({
         </span>
       </div>
 
-      {/* Hours */}
+      {/* Hours — always shown explicitly */}
       <div className="flex items-center gap-1.5 text-[12px] text-gray-500 dark:text-gray-400 mb-3">
         <Clock size={13} className="flex-shrink-0" />
         <span>{standard ? STANDARD_HOURS[lang] : c.hours![lang]}</span>
-        {standard && (
-          <Star size={11} className="fill-current text-gray-300 dark:text-gray-600" />
-        )}
       </div>
 
       {/* Actions */}

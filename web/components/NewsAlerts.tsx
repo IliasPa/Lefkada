@@ -34,10 +34,10 @@ export default function NewsAlerts() {
               onClick={() => setSel(ty)}
               aria-label={t(meta.tKey)}
               title={t(meta.tKey)}
-              className="relative w-12 h-12 rounded-full flex items-center justify-center text-2xl bg-white dark:bg-[#141929] border border-gray-200 dark:border-[#252A3A] shadow-sm hover:scale-105 active:scale-95 transition-transform"
+              className="relative w-8 h-8 rounded-full flex items-center justify-center text-base bg-white dark:bg-[#141929] border border-gray-200 dark:border-[#252A3A] shadow-sm hover:scale-105 active:scale-95 transition-transform"
             >
               <span aria-hidden="true">{meta.emoji}</span>
-              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-600 text-white text-[11px] font-black flex items-center justify-center leading-none">
+              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-red-600 text-white text-[9px] font-black flex items-center justify-center leading-none">
                 !
               </span>
             </button>

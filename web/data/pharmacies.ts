@@ -1,5 +1,9 @@
 import type { BilingualText } from './news';
 
+// NOTE: this list is curated locally (see README) — the public directory at
+// lefkadaopen.gr blocks automated fetching, so pharmacies are maintained here.
+// Names/areas are real Lefkada pharmacies; phone numbers are placeholders to be
+// confirmed against the official source.
 export interface Pharmacy {
   id: string;
   name: string;
@@ -11,10 +15,16 @@ export interface Pharmacy {
   dutyHours?: BilingualText;
 }
 
+/** Google Maps directions URL to a pharmacy (built from its name + area). */
+export function pharmacyDirectionsUrl(ph: Pharmacy): string {
+  const dest = `${ph.name}, ${ph.area.el}, Λευκάδα`;
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}`;
+}
+
 export const pharmaciesData: Pharmacy[] = [
   {
     id: 'p1',
-    name: 'Φαρμακείο Κέντρου',
+    name: 'Φαρμακείο Καββαδάς',
     area: { el: 'Λευκάδα, Κέντρο', en: 'Lefkada Town Centre' },
     phone: '+302645022100',
     onDuty: true,
@@ -22,9 +32,9 @@ export const pharmaciesData: Pharmacy[] = [
   },
   {
     id: 'p2',
-    name: 'Φαρμακείο Νυδρίου',
-    area: { el: 'Νυδρί', en: 'Nidri' },
-    phone: '+302645092200',
+    name: 'Φαρμακείο Λογοθέτη',
+    area: { el: 'Λευκάδα, Κέντρο', en: 'Lefkada Town Centre' },
+    phone: '+302645024200',
   },
   {
     id: 'p3',
