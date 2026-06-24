@@ -83,7 +83,7 @@
 **Why this design:**
 
 - **Emergency 166 shortcut:** One-tap access for critical situations; not buried in menus.
-- **Pharmacy-on-duty finder:** A wide button (≈3× the emergency height) marked with the **Bowl of Hygieia** (the snake-and-cup pharmacy symbol) sits next to the emergency banner. It opens a list of local pharmacies with the **on-duty** one pinned to the top and highlighted; each card has a tap-to-call number and **tapping the card opens Google Maps directions**. The list is curated in `data/pharmacies.ts` (see "Data & content" below).
+- **Pharmacy-on-duty finder:** A wide button (≈3× the emergency height) marked with the **official pharmacy symbol** (the green cross + Bowl of Hygieia, from Wikimedia Commons) sits next to the emergency banner. It opens a list of local pharmacies with the **on-duty** one pinned to the top and highlighted; each card has a tap-to-call number and **tapping the card opens Google Maps directions**. The list is curated in `data/pharmacies.ts` (see "Data & content" below).
 - **Personal lab results tracking:** Health data stored locally on the device (not on servers) respects privacy while letting citizens monitor their own health trends.
 - **Lab result categories (Normal/High/Low):** Visual status signals quick health assessment without medical training.
 - **Bookmarking system:** Users can save important health advisories for later reference.
@@ -175,7 +175,14 @@
 - **PWA** — installable, offline-capable via Service Worker
 - **No backend** — all data persisted in `localStorage` (`lefkada_*` keys)
 
-> **Responsive header:** the logo + name adapt to width (name stacks under the logo on small screens so the tabs stay on one line) and the name localizes to "Lefkada" in English. The compressed logo is ~16 KB; the full-resolution original is kept locally (gitignored). Language, theme and accessibility now live together behind a single **⚙️ Settings** menu on the right of the header.
+> **Responsive header:** the logo + name adapt to width (name stacks under the logo on small screens so the tabs stay on one line) and the name localizes to "Lefkada" in English. The compressed logo is ~16 KB; the full-resolution original is kept locally (gitignored). Language, theme, accessibility, **notifications** and **show/hide tabs** now live together behind a single **⚙️ Settings** menu on the right of the header.
+
+**Settings menu sections:**
+
+- **Language / Theme** — moved out of the header bar into the menu.
+- **Accessibility** — Reduce motion, High contrast, Larger text (see below).
+- **Notifications** — opt-in to **risk alerts** as PWA notifications. Toggling on requests browser permission; if there are active alerts it notifies immediately, re-notifies on every app open (in case one was missed), and tapping a notification opens the app (the service worker handles the click). *True background delivery while the app is fully closed needs a push server (Web Push + VAPID) — a backend task noted for later; today's notifications fire while the app is open or on reopen.*
+- **Tabs** — show/hide any of the main tabs; stored in `localStorage` (this is a device preference and is intentionally **not** tied to a future account). Profile stays reachable via the logo, and hiding the active tab falls back to the first visible one.
 
 ## Accessibility (WCAG 2.2 AA)
 
@@ -185,7 +192,15 @@ The app is built and reviewed against **WCAG 2.2 level AA**. The ⚙️ Settings
 - **High contrast** — strengthens the muted grey text and placeholders so secondary text comfortably clears the 4.5:1 AA threshold. *(1.4.3)*
 - **Larger text** — scales the scrollable content ~115% without breaking the layout. *(1.4.4)*
 
-Baseline conformance also covered: semantic buttons/links, visible `:focus-visible` rings, `aria-label`s on icon-only controls, `role="switch"`/`aria-pressed` on toggles, `lang` attribute, dialogs dismissible via backdrop/Escape, and ≥44px primary tap targets. *(Note: WCAG **3.0** is still a W3C draft and doesn't define "AA"; 2.2 AA is the current finished bar and the legal standard for EU public-sector sites.)*
+Baseline conformance also covered: semantic buttons/links, visible `:focus-visible` rings, `aria-label`s on icon-only controls (incl. the header tab buttons and health category chips), `role="switch"`/`aria-pressed` on toggles, labelled form fields, `lang` attribute, dialogs dismissible via backdrop/Escape, and ≥44px primary tap targets. *(Note: WCAG **3.0** is still a W3C draft and doesn't define "AA"; 2.2 AA is the current finished bar and the legal standard for EU public-sector sites.)*
+
+Targeted Lighthouse fixes: **zoom re-enabled** (`user-scalable` no longer disabled — 1.4.4), **default muted-grey text bumped to ≥4.5:1** in light mode (the High-contrast toggle adds more on top), **accessible names** added to icon-only tab buttons and form controls, and the "auto-status" hint removed from the health editor.
+
+## Performance
+
+- **Code-split tabs:** every tab except the landing News tab is loaded with `next/dynamic` the first time it's opened, dropping initial First-Load JS from ~157 KB to ~127 KB.
+- **Lazy slideshow:** only the **first** news photo is preloaded (`<link rel="preload" as="image">` + `preconnect`); the other slides mount and fetch lazily as the show advances, so there's always a slide visible without paying for all of them up front.
+- **System fonts only** (no web-font download); compressed 16 KB logo; hashed static assets cached by the service worker.
 
 ## Data & content
 

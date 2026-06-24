@@ -11,14 +11,34 @@ import {
   Contrast,
   Type,
   Check,
+  Bell,
+  LayoutGrid,
 } from "lucide-react";
-import { useApp } from "@/context/AppContext";
+import { useApp, HIDEABLE_TABS } from "@/context/AppContext";
+import { requestNotificationPermission, showAlertNotification } from "@/lib/notify";
 
 export default function SettingsMenu() {
-  const { t, lang, setLang, theme, setTheme, a11y, setA11y } = useApp();
+  const {
+    t, lang, setLang, theme, setTheme, a11y, setA11y,
+    hiddenTabs, toggleHiddenTab, notifications, setNotifications,
+  } = useApp();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const isDark = theme === "dark";
+
+  const handleNotifications = async (on: boolean) => {
+    if (!on) {
+      setNotifications(false);
+      return;
+    }
+    const perm = await requestNotificationPermission();
+    if (perm === "granted") {
+      setNotifications(true);
+      showAlertNotification(lang); // fire immediately if risks are active
+    } else {
+      setNotifications(false);
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -49,7 +69,7 @@ export default function SettingsMenu() {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-10 z-50 w-64 p-3 rounded-2xl bg-white dark:bg-[#141929] border border-gray-200 dark:border-[#252A3A] shadow-2xl space-y-3"
+          className="absolute right-0 top-10 z-50 w-64 p-3 rounded-2xl bg-white dark:bg-[#141929] border border-gray-200 dark:border-[#252A3A] shadow-2xl space-y-3 max-h-[78vh] overflow-y-auto"
         >
           {/* Language */}
           <Section icon={<Languages size={13} />} label={t("settings_language")}>
@@ -99,6 +119,30 @@ export default function SettingsMenu() {
                 checked={a11y.largeText}
                 onChange={(v) => setA11y({ largeText: v })}
               />
+            </div>
+          </Section>
+
+          {/* Notifications */}
+          <Section icon={<Bell size={13} />} label={t("settings_notifications")}>
+            <SwitchRow
+              icon={<Bell size={14} />}
+              label={t("settings_notify_alerts")}
+              checked={notifications}
+              onChange={handleNotifications}
+            />
+          </Section>
+
+          {/* Show / hide tabs */}
+          <Section icon={<LayoutGrid size={13} />} label={t("settings_tabs")}>
+            <div className="space-y-1">
+              {HIDEABLE_TABS.map((key) => (
+                <SwitchRow
+                  key={key}
+                  label={t(`tab_${key}`)}
+                  checked={!hiddenTabs.includes(key)}
+                  onChange={() => toggleHiddenTab(key)}
+                />
+              ))}
             </div>
           </Section>
 
@@ -166,7 +210,7 @@ function SwitchRow({
   checked,
   onChange,
 }: {
-  icon: React.ReactNode;
+  icon?: React.ReactNode;
   label: string;
   checked: boolean;
   onChange: (v: boolean) => void;
@@ -175,11 +219,12 @@ function SwitchRow({
     <button
       role="switch"
       aria-checked={checked}
+      aria-label={label}
       onClick={() => onChange(!checked)}
       className="w-full flex items-center justify-between gap-2 py-1.5 active:scale-[0.98] transition-transform"
     >
       <span className="flex items-center gap-2 text-[13px] font-medium text-gray-700 dark:text-gray-300">
-        <span className="text-gray-400 dark:text-gray-500">{icon}</span>
+        {icon && <span className="text-gray-400 dark:text-gray-500">{icon}</span>}
         {label}
       </span>
       <span

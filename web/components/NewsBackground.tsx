@@ -21,6 +21,9 @@ const INTERVAL_MS = 6000;
 export default function NewsBackground() {
   const { a11y } = useApp();
   const [idx, setIdx] = useState(0);
+  // Only slides that have actually been shown get mounted, so just the first
+  // image loads up-front (the LCP); the rest fetch lazily as the show advances.
+  const [activated, setActivated] = useState<number[]>([0]);
 
   useEffect(() => {
     if (a11y.reduceMotion) return; // hold a single image when motion is reduced
@@ -31,17 +34,21 @@ export default function NewsBackground() {
     return () => clearInterval(id);
   }, [a11y.reduceMotion]);
 
+  useEffect(() => {
+    setActivated((a) => (a.includes(idx) ? a : [...a, idx]));
+  }, [idx]);
+
   return (
     <div
       className="fixed inset-0 z-0 overflow-hidden pointer-events-none"
       aria-hidden="true"
     >
-      {VIEWS.map((src, i) => (
+      {activated.map((i) => (
         <div
-          key={src}
+          key={i}
           className="absolute inset-0 bg-cover bg-center transition-opacity ease-in-out"
           style={{
-            backgroundImage: `url('${src}')`,
+            backgroundImage: `url('${VIEWS[i]}')`,
             opacity: i === idx ? 1 : 0,
             transitionDuration: "1500ms",
           }}

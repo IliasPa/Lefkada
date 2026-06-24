@@ -18,6 +18,11 @@ const DEFAULT_A11Y: A11ySettings = {
   largeText: false,
 };
 
+/** Center tabs the user can show/hide (Profile/account is always reachable via the logo). */
+export const HIDEABLE_TABS: TabKey[] = [
+  'home', 'culture', 'vote', 'health', 'financials', 'jobs', 'game', 'contacts',
+];
+
 interface AppContextValue {
   lang: Lang;
   setLang: (l: Lang) => void;
@@ -27,6 +32,10 @@ interface AppContextValue {
   setActiveTab: (tab: TabKey) => void;
   a11y: A11ySettings;
   setA11y: (patch: Partial<A11ySettings>) => void;
+  hiddenTabs: TabKey[];
+  toggleHiddenTab: (tab: TabKey) => void;
+  notifications: boolean;
+  setNotifications: (on: boolean) => void;
   t: (key: string) => string;
 }
 
@@ -37,6 +46,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<ThemeMode>('light');
   const [activeTab, setActiveTabState] = useState<TabKey>('home');
   const [a11y, setA11yState] = useState<A11ySettings>(DEFAULT_A11Y);
+  const [hiddenTabs, setHiddenTabsState] = useState<TabKey[]>([]);
+  const [notifications, setNotificationsState] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -55,6 +66,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       reduceMotion: prefersReduced,
       ...storageGet<Partial<A11ySettings>>(KEYS.a11y, {}),
     });
+    setHiddenTabsState(storageGet<TabKey[]>(KEYS.hiddenTabs, []));
+    setNotificationsState(storageGet<boolean>(KEYS.notifications, false));
 
     const params = new URLSearchParams(window.location.search);
     const tabParam = params.get('tab') as TabKey | null;
@@ -86,6 +99,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const toggleHiddenTab = useCallback((tab: TabKey) => {
+    setHiddenTabsState((prev) => {
+      const next = prev.includes(tab)
+        ? prev.filter((x) => x !== tab)
+        : [...prev, tab];
+      storageSet(KEYS.hiddenTabs, next);
+      return next;
+    });
+  }, []);
+
+  const setNotifications = useCallback((on: boolean) => {
+    setNotificationsState(on);
+    storageSet(KEYS.notifications, on);
+  }, []);
+
+  // If the current tab gets hidden, fall back to the first visible one.
+  useEffect(() => {
+    if (!mounted) return;
+    if (activeTab !== 'account' && hiddenTabs.includes(activeTab)) {
+      const fallback =
+        (['home', 'culture', 'vote', 'health', 'financials', 'jobs', 'game', 'contacts'] as TabKey[]).find(
+          (tk) => !hiddenTabs.includes(tk),
+        ) ?? 'account';
+      setActiveTabState(fallback);
+    }
+  }, [hiddenTabs, activeTab, mounted]);
+
   const setLang = useCallback((l: Lang) => {
     setLangState(l);
     storageSet(KEYS.lang, l);
@@ -115,7 +155,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AppContext.Provider
-      value={{ lang, setLang, theme, setTheme, activeTab, setActiveTab, a11y, setA11y, t }}
+      value={{ lang, setLang, theme, setTheme, activeTab, setActiveTab, a11y, setA11y, hiddenTabs, toggleHiddenTab, notifications, setNotifications, t }}
     >
       {children}
     </AppContext.Provider>

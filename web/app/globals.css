@@ -86,6 +86,14 @@ main {
   zoom: 1.15;
 }
 
+/* Default contrast — the lightest greys (gray-300/400) fail 4.5:1 on white, so
+   bump them to gray-500 in light mode by default (1.4.3). Dark mode already
+   passes on the dark background, and High contrast (.hc) overrides this further. */
+html:not(.dark):not(.hc) .text-gray-400,
+html:not(.dark):not(.hc) .text-gray-300 {
+  color: #6b7280;
+}
+
 /* High contrast — strengthen the muted greys that sit near the AA floor
    (1.4.3). Targets the common Tailwind muted utilities used in the app. */
 .hc .text-gray-400,

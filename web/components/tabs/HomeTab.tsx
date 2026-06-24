@@ -34,8 +34,8 @@ export default function HomeTab() {
       <NewsBackground />
 
       <div className="relative z-10">
-      {/* Sticky filter bars — centered */}
-      <div className="sticky top-0 z-10 bg-[#F2F5F9]/80 dark:bg-[#0B0F18]/80 backdrop-blur-md pt-4 pb-2 space-y-2">
+      {/* Sticky filter bars — translucent so the photo shows through up here too */}
+      <div className="sticky top-0 z-10 bg-[#F2F5F9]/25 dark:bg-[#0B0F18]/30 backdrop-blur-md pt-4 pb-2 space-y-2">
         {/* Reporter filter — above the theme filters */}
         <div className="flex justify-center overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
           <div className="flex gap-2 px-4">

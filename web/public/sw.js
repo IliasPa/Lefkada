@@ -1,4 +1,23 @@
-const CACHE_NAME = 'lefkada-v1.3';
+const CACHE_NAME = 'lefkada-v1.4';
+
+// Open the app/website when a risk-alert notification is tapped.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then((clients) => {
+        for (const c of clients) {
+          if ('focus' in c) {
+            c.navigate(url);
+            return c.focus();
+          }
+        }
+        if (self.clients.openWindow) return self.clients.openWindow(url);
+      })
+  );
+});
 
 // Only cache truly immutable static assets — NEVER the HTML shell
 const PRECACHE = [

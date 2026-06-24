@@ -5,7 +5,6 @@ import { AlertTriangle, Pencil, Check, X, ChevronDown, Phone, MapPin, Navigation
 import { useApp } from '@/context/AppContext';
 import { healthCategories, type ResultStatus, type YearlyResult } from '@/data/healthTests';
 import { pharmaciesData, pharmacyDirectionsUrl } from '@/data/pharmacies';
-import BowlOfHygieia from '@/components/BowlOfHygieia';
 import { storageGet, storageSet } from '@/lib/storage';
 
 const EXAMS_KEY = 'health_exams';
@@ -128,10 +127,10 @@ export default function HealthTab() {
             onClick={() => setShowPharmacies(true)}
             aria-label={t('health_pharmacy_aria')}
             title={t('health_pharmacy_aria')}
-            className="aspect-[3/1] self-stretch flex items-center justify-center gap-2 px-2 rounded-2xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/40 active:scale-95 transition-transform"
+            className="aspect-[3/1] self-stretch flex items-center justify-center gap-2 px-2 rounded-2xl bg-white dark:bg-white border border-green-300 dark:border-green-700 active:scale-95 transition-transform"
           >
-            <BowlOfHygieia size={26} className="text-green-600 dark:text-green-400 flex-shrink-0" />
-            <span className="text-[12px] font-bold text-green-700 dark:text-green-400 leading-tight">
+            <img src="/pharmacy-symbol.svg" alt="" className="w-7 h-7 flex-shrink-0" />
+            <span className="text-[12px] font-bold text-green-800 leading-tight">
               {t('health_pharmacies')}
             </span>
           </button>
@@ -143,8 +142,10 @@ export default function HealthTab() {
             const active = idx === activeCatIdx;
             return (
               <button key={cat.id} onClick={() => setActiveCatIdx(idx)}
+                aria-label={cat.label[lang]}
+                aria-pressed={active}
                 className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full text-[13px] font-bold transition-all active:scale-95 ${active ? 'bg-primary text-white shadow-sm' : 'bg-white dark:bg-[#141929] text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#252A3A]'}`}>
-                <span className="text-base">{cat.emoji}</span>
+                <span className="text-base" aria-hidden="true">{cat.emoji}</span>
                 {active && <span>{cat.label[lang]}</span>}
               </button>
             );
@@ -210,6 +211,7 @@ export default function HealthTab() {
                                   <select
                                     value={editValue}
                                     onChange={(e) => setEditValue(e.target.value)}
+                                    aria-label={`${test.name[lang]} — ${row.year}`}
                                     className="w-full appearance-none pl-3 pr-8 py-2 text-[13px] rounded-lg border border-gray-200 dark:border-[#3A4155] bg-gray-50 dark:bg-[#252A3A] text-gray-900 dark:text-white focus:outline-none focus:border-primary"
                                   >
                                     {test.selectOptions.map((opt) => (
@@ -224,6 +226,7 @@ export default function HealthTab() {
                                   autoFocus
                                   value={editValue}
                                   onChange={(e) => setEditValue(e.target.value)}
+                                  aria-label={`${test.name[lang]} — ${row.year}`}
                                   className="flex-1 px-2.5 py-1.5 text-[13px] rounded-lg border border-gray-200 dark:border-[#3A4155] bg-gray-50 dark:bg-[#252A3A] text-gray-900 dark:text-white focus:outline-none focus:border-primary"
                                   placeholder={test.unit || t('health_edit_value')}
                                   inputMode="decimal"
@@ -236,11 +239,6 @@ export default function HealthTab() {
                                 {STATUS_LABELS[previewStatus]}
                               </span>
                             </div>
-
-                            {/* Auto-status note */}
-                            <p className="text-[10px] text-gray-400 dark:text-gray-500 pl-10">
-                              {lang === 'el' ? 'Κατάσταση αυτόματα από την αποδεκτή τιμή' : 'Status auto-set from the acceptable range'}
-                            </p>
 
                             {/* Save / Cancel */}
                             <div className="flex gap-2 pl-10">
@@ -308,7 +306,9 @@ function PharmacyModal({
       <div className="relative w-full max-w-md bg-white dark:bg-[#141929] rounded-3xl shadow-2xl overflow-hidden animate-slide-up max-h-[80vh] flex flex-col">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-[#1E2D4E]">
           <div className="flex items-center gap-2">
-            <BowlOfHygieia size={20} className="text-green-600 dark:text-green-400" />
+            <span className="w-6 h-6 rounded bg-white flex items-center justify-center flex-shrink-0">
+              <img src="/pharmacy-symbol.svg" alt="" className="w-5 h-5" />
+            </span>
             <h3 className="font-bold text-[16px] text-gray-900 dark:text-white">
               {t('health_pharmacies')}
             </h3>

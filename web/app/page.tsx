@@ -1,17 +1,30 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { AppProvider, useApp, type TabKey } from '@/context/AppContext';
+import { showAlertNotification } from '@/lib/notify';
 import AppHeader from '@/components/AppHeader';
-import SettingsPanel from '@/components/SettingsPanel';
 import HomeTab from '@/components/tabs/HomeTab';
-import CultureTab from '@/components/tabs/CultureTab';
-import VoteTab from '@/components/tabs/VoteTab';
-import HealthTab from '@/components/tabs/HealthTab';
-import FinancialsTab from '@/components/tabs/FinancialsTab';
-import JobsTab from '@/components/tabs/JobsTab';
-import GameTab from '@/components/tabs/GameTab';
-import ContactsTab from '@/components/tabs/ContactsTab';
+
+// Code-split the non-landing tabs so the initial bundle stays small; each loads
+// the first time its tab is opened.
+const TabLoading = () => (
+  <div className="h-full flex items-center justify-center">
+    <div className="w-8 h-8 rounded-full border-4 border-primary-300 border-t-primary animate-spin" />
+  </div>
+);
+const lazy = (loader: () => Promise<{ default: React.ComponentType }>) =>
+  dynamic(loader, { ssr: false, loading: TabLoading });
+
+const CultureTab = lazy(() => import('@/components/tabs/CultureTab'));
+const VoteTab = lazy(() => import('@/components/tabs/VoteTab'));
+const HealthTab = lazy(() => import('@/components/tabs/HealthTab'));
+const FinancialsTab = lazy(() => import('@/components/tabs/FinancialsTab'));
+const JobsTab = lazy(() => import('@/components/tabs/JobsTab'));
+const GameTab = lazy(() => import('@/components/tabs/GameTab'));
+const ContactsTab = lazy(() => import('@/components/tabs/ContactsTab'));
+const SettingsPanel = lazy(() => import('@/components/SettingsPanel'));
 
 function ServiceWorkerRegistration() {
   useEffect(() => {
@@ -19,6 +32,16 @@ function ServiceWorkerRegistration() {
       navigator.serviceWorker.register('/sw.js').catch(() => {});
     }
   }, []);
+  return null;
+}
+
+// Re-sends the risk-alert notification on every app open (in case it was missed)
+// when notifications are enabled.
+function AlertNotifier() {
+  const { notifications, lang } = useApp();
+  useEffect(() => {
+    if (notifications) showAlertNotification(lang);
+  }, [notifications, lang]);
   return null;
 }
 
@@ -73,6 +96,7 @@ export default function Page() {
   return (
     <AppProvider>
       <ServiceWorkerRegistration />
+      <AlertNotifier />
       <AppShell />
     </AppProvider>
   );

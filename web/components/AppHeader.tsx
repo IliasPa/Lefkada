@@ -34,7 +34,8 @@ const TABS: TabDef[] = [
 ];
 
 export default function AppHeader() {
-  const { t, theme, activeTab, setActiveTab, a11y } = useApp();
+  const { t, theme, activeTab, setActiveTab, a11y, hiddenTabs } = useApp();
+  const visibleTabs = TABS.filter((tab) => !hiddenTabs.includes(tab.key));
   const tabRowRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const indRef = useRef<HTMLDivElement>(null);
@@ -50,7 +51,7 @@ export default function AppHeader() {
       const indicator = indRef.current;
       if (!row || !indicator) return;
 
-      const idx = TABS.findIndex((tb) => tb.key === activeTab);
+      const idx = visibleTabs.findIndex((tb) => tb.key === activeTab);
       const el = idx >= 0 ? tabRefs.current[idx] : null;
       if (!el) {
         // Profile/account active — no center tab, fade the indicator out.
@@ -77,7 +78,7 @@ export default function AppHeader() {
       }
       firstRef.current = false;
     },
-    [activeTab, a11y.reduceMotion],
+    [activeTab, a11y.reduceMotion, hiddenTabs],
   );
 
   useEffect(() => {
@@ -163,7 +164,7 @@ export default function AppHeader() {
             className="absolute pointer-events-none rounded-xl"
             style={{ top: 4, bottom: 4, left: 0, width: 0, opacity: 0, ...pillActive }}
           />
-          {TABS.map(({ key, Icon }, idx) => {
+          {visibleTabs.map(({ key, Icon }, idx) => {
             const active = activeTab === key;
             return (
               <button
@@ -173,6 +174,8 @@ export default function AppHeader() {
                 }}
                 role="tab"
                 aria-selected={active}
+                aria-label={t(`tab_${key}`)}
+                title={t(`tab_${key}`)}
                 onClick={() => setActiveTab(key)}
                 className={`
                   relative z-10 flex items-center justify-center w-10 h-10 flex-shrink-0

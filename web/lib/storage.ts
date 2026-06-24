@@ -32,6 +32,8 @@ export const KEYS = {
   theme: 'theme',
   lang: 'lang',
   a11y: 'a11y',
+  hiddenTabs: 'hidden_tabs',
+  notifications: 'notifications',
   profile: 'me_profile',
   votes: 'votes',
   myVotes: 'my_votes',

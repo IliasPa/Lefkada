@@ -23,10 +23,14 @@ export const viewport: Viewport = {
   ],
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  // Zoom enabled for accessibility (WCAG 1.4.4 resize text).
+  userScalable: true,
   viewportFit: 'cover',
 };
+
+// First news background photo — the LCP element on the landing tab.
+const FIRST_BG =
+  'https://commons.wikimedia.org/wiki/Special:FilePath/Porto_Katsiki_6108.JPG?width=1600';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -34,6 +38,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="apple-touch-icon" href="/PegasusFlag.png" />
         <link rel="icon" type="image/png" href="/PegasusFlag.png" />
+        {/* Preload only the first slideshow image (LCP); the rest load lazily */}
+        <link rel="preload" as="image" href={FIRST_BG} />
+        <link rel="preconnect" href="https://upload.wikimedia.org" crossOrigin="anonymous" />
         <meta name="format-detection" content="telephone=no" />
         <script
           dangerouslySetInnerHTML={{
