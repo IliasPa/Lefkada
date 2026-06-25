@@ -13,6 +13,7 @@ import {
   Check,
   Bell,
   LayoutGrid,
+  ExternalLink,
 } from "lucide-react";
 import { useApp, HIDEABLE_TABS } from "@/context/AppContext";
 import { requestNotificationPermission, showAlertNotification } from "@/lib/notify";
@@ -70,6 +71,7 @@ export default function SettingsMenu() {
       {open && (
         <div
           role="menu"
+          style={{ scrollbarWidth: "none" }}
           className="absolute right-0 top-10 z-50 w-64 p-3 rounded-2xl bg-white dark:bg-[#141929] border border-gray-200 dark:border-[#252A3A] shadow-2xl space-y-3 max-h-[78vh] overflow-y-auto"
         >
           {/* Language */}
@@ -151,11 +153,17 @@ export default function SettingsMenu() {
             </div>
           </Section>
 
-          {/* WCAG note */}
-          <div className="flex items-center gap-1.5 pt-1 border-t border-gray-100 dark:border-[#1E2D4E] text-[11px] font-semibold text-green-600 dark:text-green-400">
+          {/* WCAG note — links to Lighthouse */}
+          <a
+            href="https://achecks.org/achecker"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 pt-1 border-t border-gray-100 dark:border-[#1E2D4E] text-[11px] font-semibold text-green-600 dark:text-green-400 hover:underline"
+          >
             <Check size={13} className="flex-shrink-0" />
             {t("a11y_wcag")}
-          </div>
+            <ExternalLink size={11} className="flex-shrink-0" />
+          </a>
         </div>
       )}
     </div>

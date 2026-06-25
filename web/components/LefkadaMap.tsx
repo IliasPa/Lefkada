@@ -134,10 +134,6 @@ export default function LefkadaMap({ initialKind = "all" }: { initialKind?: Kind
         popupAnchor: [0, -18],
       });
       const m = L.marker([pt.lat, pt.lng], { icon }).addTo(map);
-      m.bindTooltip(
-        `<strong>${esc(pt.title)}</strong><br><span style="opacity:.7">${esc(pt.subtitle)}</span>`,
-        { direction: "top" },
-      );
       const linkHtml = pt.link
         ? `<a href="${pt.link.url}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-top:8px;font-weight:700;color:${color};text-decoration:none">${esc(pt.link.label)} →</a>`
         : "";
@@ -159,7 +155,7 @@ export default function LefkadaMap({ initialKind = "all" }: { initialKind?: Kind
     kind === "events"
       ? [{ key: "all", label: t("map_all") }, ...EVENT_CATEGORIES_ORDER.map((c) => ({ key: c, label: t("cat_" + c) }))]
       : kind === "places"
-      ? [{ key: "all", label: t("map_all") }, ...PLACE_CATS.map((c) => ({ key: c, label: t("place_" + c) }))]
+      ? [{ key: "all", label: t("map_all") }, ...PLACE_CATS.map((c) => ({ key: c, label: t("place_pl_" + c) }))]
       : [];
 
   return (

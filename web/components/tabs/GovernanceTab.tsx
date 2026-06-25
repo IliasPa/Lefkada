@@ -92,8 +92,8 @@ export default function GovernanceTab() {
           )}
         </div>
 
-        {/* Type filter (animated segmented) */}
-        <div className="overflow-x-auto mb-4" style={{ scrollbarWidth: "none" }}>
+        {/* Type filter (animated segmented, full-width so the indicator isn't clipped) */}
+        <div className="mb-4">
           <AnimatedSegmented
             options={[
               { key: "all", label: t("gov_f_all") },
@@ -102,6 +102,7 @@ export default function GovernanceTab() {
             value={type}
             onChange={(k) => setType(k as GovType | "all")}
             size="sm"
+            fullWidth
           />
         </div>
 

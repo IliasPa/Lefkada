@@ -6,7 +6,6 @@ import { animate, spring } from "animejs";
 import {
   Newspaper,
   Landmark,
-  Compass,
   Vote,
   Heart,
   BarChart3,
@@ -27,7 +26,6 @@ interface TabDef {
 const TABS: TabDef[] = [
   { key: "home", Icon: Newspaper },
   { key: "culture", Icon: Landmark },
-  { key: "explore", Icon: Compass },
   { key: "vote", Icon: Vote },
   { key: "health", Icon: Heart },
   { key: "financials", Icon: BarChart3 },
@@ -40,7 +38,8 @@ const TABS: TabDef[] = [
 export default function AppHeader() {
   const { t, theme, activeTab, setActiveTab, a11y, hiddenTabs } = useApp();
   const visibleTabs = TABS.filter((tab) => !hiddenTabs.includes(tab.key));
-  const tabRowRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const indRef = useRef<HTMLDivElement>(null);
   const firstRef = useRef(true);
@@ -51,9 +50,9 @@ export default function AppHeader() {
   // springs into place (anime.js); on first paint / resize it snaps instantly.
   const place = useCallback(
     (withSpring: boolean) => {
-      const row = tabRowRef.current;
+      const header = headerRef.current;
       const indicator = indRef.current;
-      if (!row || !indicator) return;
+      if (!header || !indicator) return;
 
       const idx = visibleTabs.findIndex((tb) => tb.key === activeTab);
       const el = idx >= 0 ? tabRefs.current[idx] : null;
@@ -63,9 +62,11 @@ export default function AppHeader() {
         return;
       }
 
-      const rRect = row.getBoundingClientRect();
+      // Measure relative to the (non-clipping) header so the spring's overshoot
+      // can breathe past the scrolling tab row instead of hitting its edge.
+      const hRect = header.getBoundingClientRect();
       const eRect = el.getBoundingClientRect();
-      const left = eRect.left - rRect.left + 3;
+      const left = eRect.left - hRect.left + 3;
       const width = eRect.width - 6;
 
       if (withSpring && !firstRef.current && !a11y.reduceMotion) {
@@ -95,6 +96,15 @@ export default function AppHeader() {
     return () => window.removeEventListener("resize", onResize);
   }, [place]);
 
+  // Keep the indicator aligned while the tab row scrolls horizontally.
+  useEffect(() => {
+    const sc = scrollRef.current;
+    if (!sc) return;
+    const onScroll = () => place(false);
+    sc.addEventListener("scroll", onScroll, { passive: true });
+    return () => sc.removeEventListener("scroll", onScroll);
+  }, [place]);
+
   const glass: React.CSSProperties = {
     background: isDark ? "rgba(11,15,24,0.88)" : "rgba(255,255,255,0.84)",
     backdropFilter: "blur(20px) saturate(200%)",
@@ -121,9 +131,18 @@ export default function AppHeader() {
 
   return (
     <header
-      className="flex items-center h-12 px-1.5 flex-shrink-0 z-20"
+      ref={headerRef}
+      className="relative flex items-center h-12 px-1.5 flex-shrink-0 z-20"
       style={glass}
     >
+      {/* Liquid-glass sliding indicator — lives at header level (outside the
+          scrolling tab row) so its spring overshoot can breathe unclipped. */}
+      <div
+        ref={indRef}
+        aria-hidden="true"
+        className="absolute pointer-events-none rounded-xl"
+        style={{ top: 8, bottom: 8, left: 0, width: 0, opacity: 0, ...pillActive }}
+      />
       {/* ── LEFT: Logo + title. Stacks (name under logo) on small screens so the
           tab row fits on one line; side-by-side from sm up. ── */}
       <button
@@ -155,19 +174,13 @@ export default function AppHeader() {
         </span>
       </button>
 
-      {/* ── CENTER: 6 tab icons — truly centered ── */}
+      {/* ── CENTER: tab icons — centered, horizontally scrollable ── */}
       <div
+        ref={scrollRef}
         className="flex-1 flex justify-center overflow-x-auto items-center h-full"
         style={{ scrollbarWidth: "none" }}
       >
-        <div ref={tabRowRef} className="relative flex items-center">
-          {/* Liquid-glass sliding indicator (anime.js spring) */}
-          <div
-            ref={indRef}
-            aria-hidden="true"
-            className="absolute pointer-events-none rounded-xl"
-            style={{ top: 4, bottom: 4, left: 0, width: 0, opacity: 0, ...pillActive }}
-          />
+        <div className="flex items-center">
           {visibleTabs.map(({ key, Icon }, idx) => {
             const active = activeTab === key;
             return (

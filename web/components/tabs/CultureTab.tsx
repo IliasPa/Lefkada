@@ -123,20 +123,19 @@ export default function CultureTab() {
         <h1 className="text-xs font-bold tracking-[0.12em] uppercase text-gray-400 dark:text-gray-500 ml-1 mb-2">
           {t("culture_title")}
         </h1>
-        <div className="overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-          <AnimatedSegmented
-            options={subtabs}
-            value={mode}
-            onChange={(k) => setMode(k as Mode)}
-            size="sm"
-          />
-        </div>
+        <AnimatedSegmented
+          options={subtabs}
+          value={mode}
+          onChange={(k) => setMode(k as Mode)}
+          size="sm"
+          fullWidth
+        />
       </div>
 
       {/* Content */}
       {mode === "map" ? (
         <div className="flex-1 min-h-0">
-          <LazyMap initialKind="events" />
+          <LazyMap initialKind="all" />
         </div>
       ) : (
         <div className="flex-1 min-h-0 scroll-area">

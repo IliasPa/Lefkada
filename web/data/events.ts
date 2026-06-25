@@ -93,7 +93,7 @@ export const eventsData: CultureEvent[] = [
   },
   {
     id: 'karya-folk-2026',
-    coords: [38.7361, 20.6500],
+    coords: [38.7500, 20.6327],
     title: { el: 'Λαϊκή Βραδιά Καρυάς', en: 'Karya Folk Night' },
     date: '2026-06-20',
     time: '21:00',
