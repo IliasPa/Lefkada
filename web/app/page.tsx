@@ -18,6 +18,8 @@ const lazy = (loader: () => Promise<{ default: React.ComponentType }>) =>
   dynamic(loader, { ssr: false, loading: TabLoading });
 
 const CultureTab = lazy(() => import('@/components/tabs/CultureTab'));
+const ExploreTab = lazy(() => import('@/components/tabs/ExploreTab'));
+const GovernanceTab = lazy(() => import('@/components/tabs/GovernanceTab'));
 const VoteTab = lazy(() => import('@/components/tabs/VoteTab'));
 const HealthTab = lazy(() => import('@/components/tabs/HealthTab'));
 const FinancialsTab = lazy(() => import('@/components/tabs/FinancialsTab'));
@@ -49,9 +51,11 @@ function TabContent({ tab }: { tab: TabKey }) {
   switch (tab) {
     case 'home':       return <HomeTab />;
     case 'culture':    return <CultureTab />;
+    case 'explore':    return <ExploreTab />;
     case 'vote':       return <VoteTab />;
     case 'health':     return <HealthTab />;
     case 'financials': return <FinancialsTab />;
+    case 'governance': return <GovernanceTab />;
     case 'jobs':       return <JobsTab />;
     case 'game':       return <GameTab />;
     case 'contacts':   return <ContactsTab />;

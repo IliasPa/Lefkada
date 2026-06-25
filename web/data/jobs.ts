@@ -18,6 +18,22 @@ export interface JobPosting {
 
 export const jobsData: JobPosting[] = [
   {
+    id: 'gov-lifeguard',
+    title: {
+      el: 'Ναυαγοσώστης Παραλιών (Εποχικός)',
+      en: 'Beach Lifeguard (Seasonal)',
+    },
+    company: { el: 'Δήμος Λευκάδος', en: 'Lefkada Municipality' },
+    description: {
+      el: 'Ναυαγοσωστική κάλυψη πολυσύχναστων παραλιών για τη θερινή περίοδο, στο πλαίσιο του δημοτικού διαγωνισμού. Απαιτείται έγκυρη άδεια ναυαγοσώστη.',
+      en: 'Lifeguard coverage of busy beaches for the summer season, under the municipal tender. A valid lifeguard licence is required.',
+    },
+    location: 'Παραλίες Λευκάδας / Lefkada beaches',
+    employmentType: 'Seasonal',
+    workMode: 'On-site',
+    postedAt: { el: 'Πριν 1 εβδομάδα', en: '1 week ago' },
+  },
+  {
     id: '1',
     title: {
       el: 'Υπεύθυνος Τουριστικής Πληροφόρησης',

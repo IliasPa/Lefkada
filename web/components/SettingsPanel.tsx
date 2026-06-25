@@ -19,6 +19,7 @@ import {
 import { useApp } from "@/context/AppContext";
 import { KEYS, storageGet, storageSet, storageRemove } from "@/lib/storage";
 import VetoOverlay from "@/components/VetoOverlay";
+import AnimatedSegmented from "@/components/AnimatedSegmented";
 
 interface Doctor {
   id: string;
@@ -534,30 +535,24 @@ export default function SettingsPanel() {
               ) : (
                 <div className="px-4 py-3 space-y-3">
                   <div className="flex items-center justify-between gap-2">
-                    {/* Anonymity — a compact, left-aligned segmented toggle (labels
-                        collapse to icons under 400px to leave room for 4MyCity) */}
-                    <div className="flex p-0.5 rounded-xl bg-gray-100 dark:bg-[#0F1219] border border-gray-200 dark:border-[#3A4155]">
-                      <button
-                        onClick={() => handleAnon(true)}
-                        aria-pressed={anonymous}
-                        className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-semibold transition-colors active:scale-95 ${anonymous ? "bg-primary text-white shadow-sm" : "text-gray-600 dark:text-gray-400"}`}
-                      >
-                        <EyeOff size={12} className="flex-shrink-0" />
-                        <span className="hidden min-[400px]:inline truncate">
-                          {t("settings_mayor_anonymous")}
-                        </span>
-                      </button>
-                      <button
-                        onClick={() => handleAnon(false)}
-                        aria-pressed={!anonymous}
-                        className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-semibold transition-colors active:scale-95 ${!anonymous ? "bg-primary text-white shadow-sm" : "text-gray-600 dark:text-gray-400"}`}
-                      >
-                        <User size={12} className="flex-shrink-0" />
-                        <span className="hidden min-[400px]:inline truncate">
-                          {t("settings_mayor_with_profile")}
-                        </span>
-                      </button>
-                    </div>
+                    {/* Anonymity — compact, left-aligned animated segmented toggle */}
+                    <AnimatedSegmented
+                      size="sm"
+                      options={[
+                        {
+                          key: "anon",
+                          label: t("settings_mayor_anonymous"),
+                          icon: <EyeOff size={12} />,
+                        },
+                        {
+                          key: "profile",
+                          label: t("settings_mayor_with_profile"),
+                          icon: <User size={12} />,
+                        },
+                      ]}
+                      value={anonymous ? "anon" : "profile"}
+                      onChange={(k) => handleAnon(k === "anon")}
+                    />
                     {/* 4MyCity — report a city issue to the municipality */}
                     <a
                       href="https://4mycity.lefkada.gov.gr/"

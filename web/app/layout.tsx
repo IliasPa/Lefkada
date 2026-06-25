@@ -38,6 +38,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="apple-touch-icon" href="/PegasusFlag.png" />
         <link rel="icon" type="image/png" href="/PegasusFlag.png" />
+        {/* Leaflet styles for the Explore/Culture map (the JS is lazy-loaded) */}
+        <link rel="stylesheet" href="/leaflet.css" />
         {/* Preload only the first slideshow image (LCP); the rest load lazily */}
         <link rel="preload" as="image" href={FIRST_BG} />
         <link rel="preconnect" href="https://upload.wikimedia.org" crossOrigin="anonymous" />

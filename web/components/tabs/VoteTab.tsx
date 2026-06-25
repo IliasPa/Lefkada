@@ -10,6 +10,7 @@ import {
   History,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
+import AnimatedSegmented from "@/components/AnimatedSegmented";
 import { pollsData, type Poll } from "@/data/voting";
 import { KEYS, storageGet, storageSet } from "@/lib/storage";
 
@@ -229,26 +230,21 @@ function PollBlock({
                   className="px-5 pb-5 pt-3"
                   style={{ background: "rgba(0,0,0,0.18)" }}
                 >
-                  {/* Length selector buttons (translated) */}
-                  <div className="flex gap-2 mb-4">
-                    <button
-                      onClick={() => setExplainLength("short")}
-                      className={`flex-1 px-3 py-2 rounded-lg text-[11px] font-bold transition-colors ${explainLength === "short" ? "bg-white/40 text-white" : "bg-white/10 text-blue-100 hover:bg-white/15"}`}
-                    >
-                      ⚡ {t("vote_explain_short")}
-                    </button>
-                    <button
-                      onClick={() => setExplainLength("medium")}
-                      className={`flex-1 px-3 py-2 rounded-lg text-[11px] font-bold transition-colors ${explainLength === "medium" ? "bg-white/40 text-white" : "bg-white/10 text-blue-100 hover:bg-white/15"}`}
-                    >
-                      🕐 {t("vote_explain_medium")}
-                    </button>
-                    <button
-                      onClick={() => setExplainLength("full")}
-                      className={`flex-1 px-3 py-2 rounded-lg text-[11px] font-bold transition-colors ${explainLength === "full" ? "bg-white/40 text-white" : "bg-white/10 text-blue-100 hover:bg-white/15"}`}
-                    >
-                      📖 {t("vote_explain_full")}
-                    </button>
+                  {/* Length selector (animated, on the blue card) */}
+                  <div className="mb-4">
+                    <AnimatedSegmented
+                      variant="onPrimary"
+                      fullWidth
+                      options={[
+                        { key: "short", label: `⚡ ${t("vote_explain_short")}` },
+                        { key: "medium", label: `🕐 ${t("vote_explain_medium")}` },
+                        { key: "full", label: `📖 ${t("vote_explain_full")}` },
+                      ]}
+                      value={explainLength}
+                      onChange={(k) =>
+                        setExplainLength(k as "short" | "medium" | "full")
+                      }
+                    />
                   </div>
 
                   {/* Explanation content */}

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useApp, HIDEABLE_TABS } from "@/context/AppContext";
 import { requestNotificationPermission, showAlertNotification } from "@/lib/notify";
+import AnimatedSegmented from "@/components/AnimatedSegmented";
 
 export default function SettingsMenu() {
   const {
@@ -73,7 +74,9 @@ export default function SettingsMenu() {
         >
           {/* Language */}
           <Section icon={<Languages size={13} />} label={t("settings_language")}>
-            <Segmented
+            <AnimatedSegmented
+              fullWidth
+              size="sm"
               options={[
                 { key: "el", label: "Ελληνικά" },
                 { key: "en", label: "English" },
@@ -88,7 +91,9 @@ export default function SettingsMenu() {
             icon={isDark ? <Moon size={13} /> : <Sun size={13} />}
             label={t("settings_theme")}
           >
-            <Segmented
+            <AnimatedSegmented
+              fullWidth
+              size="sm"
               options={[
                 { key: "light", label: t("toggle_light") },
                 { key: "dark", label: t("toggle_dark") },
@@ -173,33 +178,6 @@ function Section({
         {label}
       </div>
       {children}
-    </div>
-  );
-}
-
-function Segmented({
-  options,
-  value,
-  onChange,
-}: {
-  options: Array<{ key: string; label: string }>;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div className="flex p-0.5 rounded-xl bg-gray-100 dark:bg-[#0F1219]">
-      {options.map((o) => {
-        const active = o.key === value;
-        return (
-          <button
-            key={o.key}
-            onClick={() => onChange(o.key)}
-            className={`flex-1 px-2 py-1.5 rounded-lg text-[12px] font-bold transition-colors active:scale-95 ${active ? "bg-primary text-white shadow-sm" : "text-gray-600 dark:text-gray-400"}`}
-          >
-            {o.label}
-          </button>
-        );
-      })}
     </div>
   );
 }

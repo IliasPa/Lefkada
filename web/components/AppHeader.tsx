@@ -5,10 +5,12 @@ import Image from "next/image";
 import { animate, spring } from "animejs";
 import {
   Newspaper,
-  CalendarDays,
+  Landmark,
+  Compass,
   Vote,
   Heart,
   BarChart3,
+  Building2,
   Briefcase,
   Dices,
   Phone,
@@ -24,10 +26,12 @@ interface TabDef {
 
 const TABS: TabDef[] = [
   { key: "home", Icon: Newspaper },
-  { key: "culture", Icon: CalendarDays },
+  { key: "culture", Icon: Landmark },
+  { key: "explore", Icon: Compass },
   { key: "vote", Icon: Vote },
   { key: "health", Icon: Heart },
   { key: "financials", Icon: BarChart3 },
+  { key: "governance", Icon: Building2 },
   { key: "jobs", Icon: Briefcase },
   { key: "game", Icon: Dices },
   { key: "contacts", Icon: Phone },

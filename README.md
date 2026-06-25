@@ -17,10 +17,12 @@
 | Tab             | Description                                                                |
 | --------------- | -------------------------------------------------------------------------- |
 | 📰 **Αρχική**   | Municipal news over a full-screen Lefkada photo backdrop; live city alerts (water/power/fire/weather/road); reporter + social links and reporter/theme filters |
-| 🗓 **Εκδηλώσεις** | Cultural events as a photo-rich list or an interactive calendar with a per-day detail panel/popup |
+| 🏛 **Πολιτισμός** | Culture — Events list, Calendar, **Map**, and **Cultural spaces** (museums, galleries, churches) subtabs |
+| 🧭 **Εξερεύνηση** | Explore Lefkada — a map-first guide to beaches, villages, trails, museums, the Castle, churches & landmarks |
 | 🗳 **Ψήφος**    | Civic polls — live countdown, explainer video, official PDF, vote & see real-time results, browse older votings |
 | 🏥 **Υγεία**    | Health advisories, emergency 166 shortcut, pharmacy-on-duty finder, personal lab exam tracker |
 | 💰 **Δαπάνες**  | Municipal budget — Expenses & Income sub-tabs + a Διαύγεια/Transparency link; clickable line items with a detail popup |
+| 🏢 **Δήμος**    | Town Hall — searchable, type-filtered official acts: decisions, tenders (with countdown + job link), announcements, meetings (with video) |
 | 💼 **Θέσεις**   | Open job positions with type/location filtering                            |
 | 🎲 **Παιχνίδι** | Greek Wordle-style word game with daily word & win/loss tracking           |
 | 📞 **Επαφές**   | Searchable directory of municipal phones, emails and hours                 |
@@ -45,17 +47,40 @@
 
 ---
 
-### 🗓 Events — Cultural Calendar
+### 🏛 Culture
 
-**What it does:** Presents the island's cultural events (festivals, music, theatre, sports, religious feasts, food, arts) as either a photo-rich **list** or an interactive **calendar**.
+**What it does:** The island's cultural life across four subtabs: **Events** (was "List"), **Calendar**, **Map**, and **Cultural spaces**.
 
 **Why this design:**
 
-- **Two views, one toggle (List is the default):** The list answers "what's coming up?"; the calendar answers "what's happening on a given day?". A segmented control switches instantly.
-- **List shows only upcoming events**, sorted by date — so citizens aren't scrolling past things that already happened. Each card uses a category-themed photo as its header, with date, location, description and an optional programme PDF.
-- **Calendar shows every event, including past ones**, marking each day that has events with a colour dot. This keeps history browsable without cluttering the "what's next" list.
-- **Adaptive detail surface:** tapping a day with events opens a **side panel on large screens** (read the calendar and the day's details at once) and a **bottom-sheet popup on small screens** — same content, right ergonomics for each size, with a link to the programme PDF where one exists.
-- **Localized calendar:** Monday-first week, localized month and weekday names, and a ring on "today".
+- **Events (default):** only upcoming events, sorted by date, each a photo-headed card with date/location/description and optional programme PDF.
+- **Calendar:** a localized Monday-first month grid marking every event day (including past ones, which appear *only* here); per-day details open a **side panel** on large screens and a **bottom-sheet popup** on small screens.
+- **Map:** the shared Lefkada map centred on events (see "Shared map" below).
+- **Cultural spaces:** museums, art galleries, libraries, the open-air theatre and churches — real venues of the **Lefkada Cultural Center**, each linking to `lefkasculturalcenter.gr` and to Google Maps directions.
+
+---
+
+### 🧭 Explore Lefkada
+
+**What it does:** A map-first guide to the island — beaches, villages, trails, museums, the Castle of Agia Mavra, the canal entrance, churches and landmarks.
+
+**Why this design:**
+
+- **Map-first:** opens straight on the interactive map; a **List** subtab gives the accessible, browsable equivalent (filterable by category, with photos and directions). The map is never the *only* way to the information.
+- **One shared map, two datasets:** the same `LefkadaMap` component powers both this tab and Culture → Map. **Events** and **Places** are drawn in two distinct pin colours, with an All/Events/Places segmented filter plus a category filter so a crowded map clears out fast. **Hover** (desktop) shows a quick peek; **tap/click** opens the full detail popup with the same content as the list — and a link to the place (Cultural Center page or Google Maps directions).
+- Built on **Leaflet + OpenStreetMap** (lazy-loaded so it never weighs down the other tabs). *Tiles load from OSM's public servers — for production traffic you'd switch to a tile provider with a usage allowance.*
+
+---
+
+### 🏢 Town Hall — Official Acts
+
+**What it does:** The municipality's official governance feed, kept separate from journalistic News and from the cultural calendar.
+
+**Why this design:**
+
+- **One searchable feed, type-filtered:** Decisions · Tenders · Announcements · Meetings (animated segmented filter). Each card has a plain-language summary plus the official PDF — *the PDF stays the source of truth; summaries are written, not auto-generated.*
+- **Tenders** show a deadline countdown (open/closed). When a tender creates work — e.g. the **lifeguard tender** — it links straight to the matching posting in the **Jobs** tab (which also carries that posting).
+- **Meetings** keep their **own thread** (not mixed into the cultural calendar): agenda + minutes PDFs and an inline **"Watch"** recording (reusing the Vote YouTube embed).
 
 ---
 
@@ -171,7 +196,8 @@
 - **TypeScript** (strict mode)
 - **Tailwind CSS** — no external UI libraries
 - **lucide-react** — icons
-- **anime.js** — spring physics for the liquid-glass tab indicator
+- **anime.js** — spring physics for the liquid-glass indicator, now shared by **every** segmented control/subtab (header tabs, Culture/Explore subtabs, Budget Expenses/Income, the Vote explanation selector, Settings and the Mayor toggle) via a reusable `AnimatedSegmented` component
+- **Leaflet + OpenStreetMap** — the shared Lefkada map (lazy-loaded; CSS served locally from `public/leaflet.css`)
 - **PWA** — installable, offline-capable via Service Worker
 - **No backend** — all data persisted in `localStorage` (`lefkada_*` keys)
 

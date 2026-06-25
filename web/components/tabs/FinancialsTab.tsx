@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { TrendingUp, ExternalLink, X } from "lucide-react";
 import { useApp } from "@/context/AppContext";
+import AnimatedSegmented from "@/components/AnimatedSegmented";
 import {
   financialsData,
   incomeData,
@@ -656,20 +657,11 @@ export default function FinancialsTab() {
 
         {/* Sub-tabs (expenses / income) with the Transparency link on the other side */}
         <div className="px-4 mb-4 flex items-center justify-between gap-2">
-          <div className="inline-flex p-1 rounded-2xl bg-gray-100 dark:bg-[#0F1219] border border-gray-200 dark:border-[#252A3A]">
-            {SUBTABS.map(({ key, tKey }) => {
-              const active = sub === key;
-              return (
-                <button
-                  key={key}
-                  onClick={() => setSub(key)}
-                  className={`px-5 py-1.5 rounded-xl text-[13px] font-bold transition-all active:scale-95 ${active ? "bg-primary text-white shadow-sm" : "text-gray-500 dark:text-gray-400"}`}
-                >
-                  {t(tKey)}
-                </button>
-              );
-            })}
-          </div>
+          <AnimatedSegmented
+            options={SUBTABS.map(({ key, tKey }) => ({ key, label: t(tKey) }))}
+            value={sub}
+            onChange={(k) => setSub(k as SubTab)}
+          />
           <a
             href={DIAVGEIA_URL}
             target="_blank"

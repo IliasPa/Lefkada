@@ -23,6 +23,8 @@ export interface CultureEvent {
   category: EventCategory;
   /** Official programme PDF, if one exists. */
   pdfUrl?: string;
+  /** [lat, lng] for the shared Lefkada map. Omit for island-wide events. */
+  coords?: [number, number];
 }
 
 /** Banner image per category (relevant visual for each event). */
@@ -35,6 +37,10 @@ export const EVENT_IMAGES: Record<EventCategory, string> = {
   Food: '/events/food.png',
   Art: '/events/art.png',
 };
+
+export const EVENT_CATEGORIES_ORDER: EventCategory[] = [
+  'Festival', 'Music', 'Theatre', 'Sports', 'Religious', 'Food', 'Art',
+];
 
 export const EVENT_ACCENT: Record<EventCategory, string> = {
   Festival: '#D64836',
@@ -50,6 +56,7 @@ export const eventsData: CultureEvent[] = [
   // ── Past (visible only in the calendar) ──
   {
     id: 'carnival-2026',
+    coords: [38.8328, 20.7075],
     title: { el: 'Καρναβάλι Λευκάδας', en: 'Lefkada Carnival' },
     date: '2026-02-15',
     time: '11:00',
@@ -73,6 +80,7 @@ export const eventsData: CultureEvent[] = [
   },
   {
     id: 'mayday-2026',
+    coords: [38.8330, 20.7080],
     title: { el: 'Πρωτομαγιά — Γιορτή Λουλουδιών', en: 'May Day Flower Festival' },
     date: '2026-05-01',
     time: '10:00',
@@ -85,6 +93,7 @@ export const eventsData: CultureEvent[] = [
   },
   {
     id: 'karya-folk-2026',
+    coords: [38.7361, 20.6500],
     title: { el: 'Λαϊκή Βραδιά Καρυάς', en: 'Karya Folk Night' },
     date: '2026-06-20',
     time: '21:00',
@@ -99,6 +108,7 @@ export const eventsData: CultureEvent[] = [
   // ── Upcoming (visible in both the list and the calendar) ──
   {
     id: 'vassiliki-windsurf-2026',
+    coords: [38.6275, 20.6075],
     title: { el: 'Vassiliki Windsurf Open', en: 'Vassiliki Windsurf Open' },
     date: '2026-07-18',
     endDate: '2026-07-20',
@@ -112,6 +122,7 @@ export const eventsData: CultureEvent[] = [
   },
   {
     id: 'speech-arts-2026',
+    coords: [38.8325, 20.7070],
     title: { el: 'Γιορτές Λόγου & Τέχνης', en: 'Festival of Speech & Arts' },
     date: '2026-08-01',
     endDate: '2026-08-25',
@@ -125,6 +136,7 @@ export const eventsData: CultureEvent[] = [
   },
   {
     id: 'sardine-2026',
+    coords: [38.8189, 20.6990],
     title: { el: 'Γιορτή Σαρδέλας', en: 'Sardine Festival' },
     date: '2026-08-08',
     time: '20:00',
@@ -137,6 +149,7 @@ export const eventsData: CultureEvent[] = [
   },
   {
     id: 'faneromeni-2026',
+    coords: [38.8281, 20.6961],
     title: { el: 'Πανήγυρη Παναγίας Φανερωμένης', en: 'Faneromeni Monastery Feast' },
     date: '2026-08-15',
     location: { el: 'Μονή Φανερωμένης', en: 'Faneromeni Monastery' },
@@ -148,6 +161,7 @@ export const eventsData: CultureEvent[] = [
   },
   {
     id: 'nydri-sea-2026',
+    coords: [38.7036, 20.7106],
     title: { el: 'Φεστιβάλ Θάλασσας Νυδρίου', en: 'Nydri Festival of the Sea' },
     date: '2026-08-15',
     time: '19:00',
@@ -160,6 +174,7 @@ export const eventsData: CultureEvent[] = [
   },
   {
     id: 'folklore-2026',
+    coords: [38.8332, 20.7065],
     title: { el: 'Διεθνές Φεστιβάλ Φολκλόρ', en: 'International Folklore Festival' },
     date: '2026-08-20',
     endDate: '2026-08-26',
@@ -174,6 +189,7 @@ export const eventsData: CultureEvent[] = [
   },
   {
     id: 'christmas-2026',
+    coords: [38.8329, 20.7078],
     title: { el: 'Χριστουγεννιάτικο Χωριό', en: 'Lefkada Christmas Village' },
     date: '2026-12-20',
     endDate: '2027-01-03',

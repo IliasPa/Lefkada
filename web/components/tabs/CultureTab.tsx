@@ -1,10 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import {
   CalendarDays,
   List,
   MapPin,
+  Map as MapIcon,
+  Building2,
+  ExternalLink,
+  Navigation,
   Clock,
   Download,
   ChevronLeft,
@@ -18,8 +23,25 @@ import {
   EVENT_ACCENT,
   type CultureEvent,
 } from "@/data/events";
+import {
+  placesData,
+  CULTURAL_PLACE_CATEGORIES,
+  PLACE_IMAGES,
+  PLACE_ACCENT,
+  type Place,
+} from "@/data/places";
+import AnimatedSegmented from "@/components/AnimatedSegmented";
 
-type Mode = "list" | "calendar";
+const LazyMap = dynamic(() => import("@/components/LefkadaMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-full flex items-center justify-center">
+      <div className="w-7 h-7 rounded-full border-4 border-primary-300 border-t-primary animate-spin" />
+    </div>
+  ),
+});
+
+type Mode = "events" | "calendar" | "map" | "spaces";
 type Lang = "el" | "en";
 
 // ── date helpers (local, ISO yyyy-mm-dd) ─────────────────────────────────────
@@ -59,9 +81,14 @@ const WEEKDAYS: Record<Lang, string[]> = {
 
 export default function CultureTab() {
   const { t, lang } = useApp();
-  const [mode, setMode] = useState<Mode>("list");
+  const [mode, setMode] = useState<Mode>("events");
 
   const todayKey = toKey(new Date());
+
+  const culturalSpaces = useMemo(
+    () => placesData.filter((p) => CULTURAL_PLACE_CATEGORIES.includes(p.category)),
+    [],
+  );
 
   // Map every calendar day -> events occurring that day (covers multi-day spans).
   const eventsByDay = useMemo(() => {
@@ -82,60 +109,128 @@ export default function CultureTab() {
     [todayKey],
   );
 
+  const subtabs = [
+    { key: "events", label: t("culture_view_list"), icon: <List size={13} /> },
+    { key: "calendar", label: t("culture_view_calendar"), icon: <CalendarDays size={13} /> },
+    { key: "map", label: t("culture_view_map"), icon: <MapIcon size={13} /> },
+    { key: "spaces", label: t("culture_view_spaces"), icon: <Building2 size={13} /> },
+  ];
+
   return (
-    <div className="h-full scroll-area">
-      <div className="px-4 pt-4 pb-6 max-w-3xl mx-auto">
-        {/* Header + view toggle */}
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-xs font-bold tracking-[0.12em] uppercase text-gray-400 dark:text-gray-500 ml-1">
-            {t("culture_title")}
-          </h1>
-          <div className="inline-flex p-1 rounded-xl bg-gray-100 dark:bg-[#0F1219] border border-gray-200 dark:border-[#252A3A]">
-            <ToggleBtn active={mode === "list"} onClick={() => setMode("list")}>
-              <List size={13} />
-              {t("culture_view_list")}
-            </ToggleBtn>
-            <ToggleBtn
-              active={mode === "calendar"}
-              onClick={() => setMode("calendar")}
-            >
-              <CalendarDays size={13} />
-              {t("culture_view_calendar")}
-            </ToggleBtn>
+    <div className="h-full flex flex-col">
+      {/* Header + subtabs */}
+      <div className="px-4 pt-4 pb-2 max-w-3xl mx-auto w-full flex-shrink-0">
+        <h1 className="text-xs font-bold tracking-[0.12em] uppercase text-gray-400 dark:text-gray-500 ml-1 mb-2">
+          {t("culture_title")}
+        </h1>
+        <div className="overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+          <AnimatedSegmented
+            options={subtabs}
+            value={mode}
+            onChange={(k) => setMode(k as Mode)}
+            size="sm"
+          />
+        </div>
+      </div>
+
+      {/* Content */}
+      {mode === "map" ? (
+        <div className="flex-1 min-h-0">
+          <LazyMap initialKind="events" />
+        </div>
+      ) : (
+        <div className="flex-1 min-h-0 scroll-area">
+          <div className="px-4 pt-2 pb-6 max-w-3xl mx-auto">
+            {mode === "events" && <ListView events={upcoming} lang={lang} t={t} />}
+            {mode === "calendar" && (
+              <CalendarView
+                eventsByDay={eventsByDay}
+                todayKey={todayKey}
+                lang={lang}
+                t={t}
+              />
+            )}
+            {mode === "spaces" && (
+              <SpacesView places={culturalSpaces} lang={lang} t={t} />
+            )}
           </div>
         </div>
-
-        {mode === "list" ? (
-          <ListView events={upcoming} lang={lang} t={t} />
-        ) : (
-          <CalendarView
-            eventsByDay={eventsByDay}
-            todayKey={todayKey}
-            lang={lang}
-            t={t}
-          />
-        )}
-      </div>
+      )}
     </div>
   );
 }
 
-function ToggleBtn({
-  active,
-  onClick,
-  children,
+// ── Cultural spaces (cultural centre venues, museums, churches) ──────────────
+function SpacesView({
+  places,
+  lang,
+  t,
 }: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
+  places: Place[];
+  lang: Lang;
+  t: (k: string) => string;
 }) {
   return (
-    <button
-      onClick={onClick}
-      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold transition-all active:scale-95 ${active ? "bg-primary text-white shadow-sm" : "text-gray-500 dark:text-gray-400"}`}
-    >
-      {children}
-    </button>
+    <>
+      <p className="text-[11px] font-bold tracking-[0.12em] uppercase text-gray-400 dark:text-gray-500 mb-3 ml-1">
+        {t("culture_view_spaces")}
+      </p>
+      <div className="space-y-3">
+        {places.map((p) => {
+          const accent = PLACE_ACCENT[p.category];
+          const directions = `https://www.google.com/maps/dir/?api=1&destination=${p.coords[0]},${p.coords[1]}`;
+          return (
+            <article
+              key={p.id}
+              className="rounded-2xl overflow-hidden border border-gray-100 dark:border-[#1E2D4E] bg-white dark:bg-[#141929] shadow-sm"
+            >
+              <div className="flex">
+                <div
+                  className="w-24 flex-shrink-0 bg-cover bg-center"
+                  style={{ backgroundImage: `url('${PLACE_IMAGES[p.category]}')` }}
+                />
+                <div className="p-3.5 min-w-0 flex-1">
+                  <span
+                    className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                    style={{ backgroundColor: accent + "18", color: accent }}
+                  >
+                    {t("place_" + p.category)}
+                  </span>
+                  <h3 className="font-bold text-[14px] text-gray-900 dark:text-white leading-snug mt-1.5">
+                    {p.name[lang]}
+                  </h3>
+                  <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-relaxed mt-1">
+                    {p.description[lang]}
+                  </p>
+                  <div className="flex items-center gap-2 mt-2.5">
+                    {p.url && (
+                      <a
+                        href={p.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold text-primary dark:text-primary-300 bg-primary-50 dark:bg-primary-900/20 hover:bg-primary-100 dark:hover:bg-primary-900/30 transition-colors active:scale-95"
+                      >
+                        <ExternalLink size={12} />
+                        {t("map_more")}
+                      </a>
+                    )}
+                    <a
+                      href={directions}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-[#252A3A] hover:bg-gray-200 dark:hover:bg-[#2E3548] transition-colors active:scale-95"
+                    >
+                      <Navigation size={12} />
+                      {t("map_directions")}
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </>
   );
 }
 
