@@ -173,13 +173,37 @@ function SpacesView({
   lang: Lang;
   t: (k: string) => string;
 }) {
+  const [cat, setCat] = useState<string>("all");
+  // Categories actually present, kept in a stable display order.
+  const cats = CULTURAL_PLACE_CATEGORIES.filter((c) =>
+    places.some((p) => p.category === c),
+  );
+  const shown = cat === "all" ? places : places.filter((p) => p.category === cat);
+
   return (
     <>
-      <p className="text-[11px] font-bold tracking-[0.12em] uppercase text-gray-400 dark:text-gray-500 mb-3 ml-1">
+      <p className="text-[11px] font-bold tracking-[0.12em] uppercase text-gray-400 dark:text-gray-500 mb-2 ml-1">
         {t("culture_view_spaces")}
       </p>
+
+      {/* Category (tag) filter */}
+      <div className="flex gap-2 overflow-x-auto pb-2 mb-1" style={{ scrollbarWidth: "none" }}>
+        {[{ key: "all", label: t("map_all") }, ...cats.map((c) => ({ key: c, label: t("place_pl_" + c) }))].map((o) => {
+          const active = cat === o.key;
+          return (
+            <button
+              key={o.key}
+              onClick={() => setCat(o.key)}
+              className={`flex-shrink-0 px-3 py-1 rounded-full text-[11px] font-semibold border transition-all active:scale-95 ${active ? "bg-primary text-white border-primary" : "bg-white dark:bg-[#141929] text-gray-500 dark:text-gray-400 border-gray-200 dark:border-[#252A3A]"}`}
+            >
+              {o.label}
+            </button>
+          );
+        })}
+      </div>
+
       <div className="space-y-3">
-        {places.map((p) => {
+        {shown.map((p) => {
           const accent = PLACE_ACCENT[p.category];
           const directions = `https://www.google.com/maps/dir/?api=1&destination=${p.coords[0]},${p.coords[1]}`;
           return (

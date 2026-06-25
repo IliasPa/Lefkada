@@ -21,9 +21,9 @@
 | 🗳 **Ψήφος**    | Civic polls — live countdown, explainer video, official PDF, vote & see real-time results, browse older votings |
 | 🏥 **Υγεία**    | Health advisories, emergency 166 shortcut, pharmacy-on-duty finder, personal lab exam tracker |
 | 💰 **Δαπάνες**  | Municipal budget — Expenses & Income sub-tabs + a Διαύγεια/Transparency link; clickable line items with a detail popup |
-| 🏢 **Δήμος**    | Town Hall — **Acts** (decisions, tenders, announcements, meetings) and **Council** (interactive composition: Mayor, Deputy Mayors, committees, disclosures) subtabs |
-| ℹ️ **Το Νησί**  | About Lefkada — municipal units & their communities, twinned cities, and how to reach the island (road, air, KTEL, ferries) |
-| 🤝 **Υπηρεσίες** | Citizen services — e-services (gov.gr), 4MyCity reporting, projects map, social grocery/community centre/port fund, water analyses, emergency numbers, whistleblowing |
+| 🏢 **Δήμος**    | Town Hall — **Acts** (decisions, tenders, announcements, meetings) and **Council** (interactive composition with per-term tabs: Mayor, Deputy Mayors, committees, asset disclosures) subtabs |
+| ⛰ **Το Νησί**  | About Lefkada — municipal units & their (tappable) communities, twinned cities (tap for the twinning decision/date/mayor), and how to reach the island (road, air, KTEL, ferries) |
+| 🤝 **Υπηρεσίες** | Citizen services — gov.gr e-services, e-payments, 4MyCity reporting, social grocery/community centre/port fund, waste & recycling, water analyses, emergency numbers, whistleblowing |
 | 💼 **Θέσεις**   | Open job positions with type/location filtering                            |
 | 🎲 **Παιχνίδι** | Greek Wordle-style word game with daily word & win/loss tracking           |
 | 📞 **Επαφές**   | Searchable directory of municipal phones, emails and hours                 |
@@ -57,7 +57,7 @@
 - **Events (default):** only upcoming events, sorted by date, each a photo-headed card with date/location/description and optional programme PDF.
 - **Calendar:** a localized Monday-first month grid marking every event day (including past ones, which appear *only* here); per-day details open a **side panel** on large screens and a **bottom-sheet popup** on small screens.
 - **History (new):** historical & religious references adapted from the municipality's "Presentation of the Municipality" section, grouped into **History** (Ancient Lefkas, Santa Maura castle, Cape Lefkatas, union with Greece, letters & arts) and **Religion** (Faneromeni Monastery, Ionian churches, festivals).
-- **Cultural spaces:** museums, art galleries, **libraries** (a dedicated tag — Charamoglios & Nikos Svoronos), the open-air theatre and churches — real venues of the **Lefkada Cultural Center**, each linking to its **own page** on `lefkasculturalcenter.gr` and to Google Maps directions. v0.7 adds the Kavalos Folklore Museum, the IFF Memorabilia Museum, the Takis Efstathiou / Theodoros Stamos / Conference / Foyer halls and the Ex Libris exhibition.
+- **Cultural spaces:** museums, art galleries, **libraries** (a dedicated tag — Charamoglios, Nikos Svoronos and the main **Public Library of Lefkada**), the open-air theatre and churches — real venues of the **Lefkada Cultural Center**, each linking to its **own page** on `lefkasculturalcenter.gr` and to Google Maps directions. A **category (tag) filter** narrows the list; v0.7 adds the Kavalos Folklore Museum, the IFF Memorabilia Museum, the Takis Efstathiou / Theodoros Stamos / Conference / Foyer halls and the Ex Libris exhibition, with the Cultural-Center venues re-pinned to their real location.
 - **Map (shared Lefkada map):** the whole island — **Events** *and* **Places** of interest (beaches, villages, trails, museums, libraries, the Castle of Agia Mavra, the canal entrance, churches, landmarks) drawn in two distinct pin colours. An **All / Events / Places** segmented filter plus a (plural-labelled) category filter clears a crowded map fast. **Tapping a pin** opens its detail popup with a link to the place (Cultural Center page or Google Maps directions). Built on **Leaflet + OpenStreetMap**, lazy-loaded so it never weighs down other tabs. *Coordinates come from OpenStreetMap/Nominatim; tiles load from OSM's public servers — for production traffic you'd switch to a tile provider with a usage allowance.*
 
 ---
@@ -71,7 +71,7 @@
 - **Acts:** a searchable feed filtered by a **type segmented control — Decisions · Tenders · Announcements · Meetings** (the old "All" option was removed so the filter always reflects one clear category). Each card has a plain-language summary plus the official PDF — *the PDF stays the source of truth; summaries are written, not auto-generated.*
   - **Tenders** show a deadline countdown (open/closed). When a tender creates work — e.g. the **lifeguard tender** — it links to the matching posting in the **Jobs** tab.
   - **Meetings** keep their **own thread**: agenda + minutes PDFs and an inline **"Watch"** recording.
-- **Council (new):** an **interactive composition** of the municipal authority — the **Mayor** and **Secretary General** as leadership cards, the **ten Deputy Mayors** as a tappable grid (initials avatars), the **committees** (Executive, Finance, Quality-of-Life), and reference cards for the **full councillor list**, **asset disclosures (Πόθεν Έσχες → pothen.gr)** and **past councils**. Tapping any person/committee opens a bottom-sheet with their role, a short note, contact and the official page. *Per-person CVs, photos and individual disclosure files aren't published openly by the municipality, so those link out rather than being embedded — see the v0.7 notes.*
+- **Council (new):** an **interactive composition** of the municipal authority with **per-term tabs** (labelled by the year each council took office; the take-office date shows at the top). The current term lists the **Mayor** and **Secretary General** as leadership cards, the **ten Deputy Mayors** as a tappable grid (initials avatars) and the **committees** (Executive, Finance, Quality-of-Life); past terms list the mayor + take-office date. Tapping a person/committee opens an **in-app** bottom-sheet (no link back to the site being replaced). Only **asset disclosures** link out — to the national **Πόθεν Έσχες** registry `pothen.gr`, where the actual documents live. *Per-person CVs, photos and individual disclosure files aren't published openly by the municipality, and full historical rosters for past terms aren't recorded in-app yet — see the v0.7 notes.*
 
 ---
 
@@ -127,22 +127,25 @@
 
 **Why this design:**
 
-- **Villages:** the seven **municipal units** (Lefkada, Apollonioi, Ellomenos, Karya, Sfakiotes, and the island units **Kalamos** & **Kastos**) as an accordion. Each shows its seat and expands to chips of its **communities** — the full Kallikratis subdivision, so a resident can find their own village.
-- **Twinning:** the eight **sister cities** (Strážnice, Paralimni, Shinjuku, Nahariya, Ploiești, Leucate, Primorskyi/Odessa, Zhoushan) with flag, year and the reason for each bond.
-- **Access:** how to reach the island — **road & floating bridge**, **air** (Aktio/Preveza), **KTEL bus** and **ferries to Kalamos/Kastos** — each card carrying an **"Updated"** review date and, for seasonal schedules, a **"Valid until"** date, plus a link to the live operator (timetables change, so the app links out rather than freezing times).
+- **Villages:** the seven **municipal units** (Lefkada, Apollonioi, Ellomenos, Karya, Sfakiotes, and the island units **Kalamos** & **Kastos**) as an accordion. Each shows its seat and expands to its **communities** — the full Kallikratis subdivision. **Tapping a community** opens a popup with a short description of that village.
+- **Twinning:** the nine **sister cities** (Emmaboda, Strážnice, Paralimni, Shinjuku, Nahariya, Ploiești, Leucate, Primorskyi/Odessa, Zhoushan). **Tapping a city** opens its full registry entry — **date of twinning**, the **Municipal Council decision** and the **mayor's office** that signed it.
+- **Access:** how to reach the island — **road & floating bridge**, **air** (Aktio/Preveza), **KTEL bus** and **ferries to Kalamos/Kastos**, with a link to the live KTEL timetables.
 
 ---
 
 ### 🤝 Services — Citizen Services
 
-**What it does:** A one-screen hub for the practical things a citizen needs, grouped into **Digital**, **Social**, and **Safety & integrity**.
+**What it does:** A one-screen hub for the practical things a citizen needs. Functional services link out to the real portal that performs them; informational items are shown **in-app** (no link back to the municipal site that this app is meant to replace).
 
 **Why this design:**
 
-- **Digital:** **e-services** (gov.gr + KEP), **4MyCity** "report a problem" promoted to a first-class entry point (it was previously only a deep link from the Profile), and **Projects on a map** (NSRF/Recovery-Fund works).
-- **Social:** **Social Grocery & DEKOKAL**, **Community Centre**, **Municipal Port Fund**, and periodic **drinking-water analyses**.
-- **Safety & integrity:** the **whistleblowing** channel (EU Directive 2019/1937) and a red **emergency quick-dial** card (112, the municipal 967 line, Police 100, Fire 199, EKAB 166, Coast Guard 108, municipal Civil Protection) — every number is a one-tap `tel:` link.
-- *Where the municipality doesn't publish a stable deep link for a section, the card links to the official portal landing rather than a guessed URL — see the v0.7 notes.*
+- **Report a problem (4MyCity):** promoted to a first-class entry point (it was previously only a deep link from the Profile).
+- **e-Services (gov.gr):** the municipality's real gov.gr links, broken into **small per-task cards** grouped by **Registry certificates**, **Citizen registry** and **Civil registry** (births/marriages/deaths) — 12 direct gov.gr deep links.
+- **e-Payments:** the actual `eservices.lefkada.gov.gr` portal — **pay certified debts** (municipal fees & fines), **pay non-certified debts**, and **childcare applications**.
+- **Social:** **Social Grocery & DEKOKAL**, **Community Centre**, **Municipal Port Fund** — in-app info cards.
+- **Cleanliness & Water:** **waste & recycling** (recycling streams, an indicative per-area collection schedule and bulky-waste drop-off points) and **drinking-water analyses**.
+- **Safety & integrity:** a red **emergency quick-dial** card (112, the municipal 967 line, Police 100, Fire 199, EKAB 166, Coast Guard 108, municipal Civil Protection — every number a one-tap `tel:` link) and the **whistleblowing** channel (EU Directive 2019/1937).
+- *The "Projects on a map" card was removed (there's no usable public projects-map platform/dataset to drive it); the per-area waste schedule is **indicative**; and the water-analyses / whistleblowing items await an official link — see the v0.7 notes.*
 
 ---
 

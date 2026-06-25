@@ -72,7 +72,7 @@ export default function SettingsMenu() {
         <div
           role="menu"
           style={{ scrollbarWidth: "none" }}
-          className="absolute right-0 top-10 z-50 w-64 p-3 rounded-2xl bg-white dark:bg-[#141929] border border-gray-200 dark:border-[#252A3A] shadow-2xl space-y-3 max-h-[78vh] overflow-y-auto"
+          className="absolute right-0 top-10 z-50 w-64 p-3 rounded-2xl bg-white dark:bg-[#141929] border border-gray-200 dark:border-[#252A3A] shadow-2xl space-y-3 max-h-[calc(100vh-3.5rem-var(--sat))] overflow-y-auto"
         >
           {/* Language */}
           <Section icon={<Languages size={13} />} label={t("settings_language")}>

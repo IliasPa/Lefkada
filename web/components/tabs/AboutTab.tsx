@@ -11,9 +11,12 @@ import {
   Ship,
   Plane,
   Car,
-  CalendarClock,
   ExternalLink,
   Anchor,
+  X,
+  Gavel,
+  CalendarDays,
+  UserRound,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import {
@@ -21,6 +24,8 @@ import {
   twinCities,
   accessRoutes,
   type AccessMode,
+  type Community,
+  type TwinCity,
 } from "@/data/about";
 import AnimatedSegmented from "@/components/AnimatedSegmented";
 
@@ -38,7 +43,7 @@ function fmtDate(s: string, lang: Lang) {
   const [y, m, d] = s.split("-").map(Number);
   return new Date(y, m - 1, d).toLocaleDateString(lang === "el" ? "el-GR" : "en-GB", {
     day: "numeric",
-    month: "short",
+    month: "long",
     year: "numeric",
   });
 }
@@ -81,6 +86,7 @@ export default function AboutTab() {
 
 function VillagesView({ lang, t }: { lang: Lang; t: (k: string) => string }) {
   const [open, setOpen] = useState<string | null>("lefkada");
+  const [community, setCommunity] = useState<Community | null>(null);
   return (
     <div className="space-y-2.5">
       {municipalUnits.map((u) => {
@@ -121,30 +127,49 @@ function VillagesView({ lang, t }: { lang: Lang; t: (k: string) => string }) {
             </button>
             {isOpen && (
               <div className="px-3.5 pb-3.5 -mt-1 flex flex-wrap gap-1.5">
-                {u.communities.map((c) => (
-                  <span
-                    key={c.en}
-                    className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-gray-100 dark:bg-[#252A3A] text-gray-600 dark:text-gray-300"
+                {u.communities.map((com) => (
+                  <button
+                    key={com.name.en}
+                    onClick={() => setCommunity(com)}
+                    className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-gray-100 dark:bg-[#252A3A] text-gray-600 dark:text-gray-300 active:scale-95 transition-transform"
                   >
-                    {c[lang]}
-                  </span>
+                    {com.name[lang]}
+                  </button>
                 ))}
               </div>
             )}
           </div>
         );
       })}
+
+      {community && (
+        <Sheet onClose={() => setCommunity(null)}>
+          <div className="flex items-center gap-2.5 mb-2">
+            <span className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "#16A34A18", color: "#16A34A" }}>
+              <MapPin size={17} />
+            </span>
+            <h3 className="font-bold text-[16px] text-gray-900 dark:text-white leading-snug">
+              {community.name[lang]}
+            </h3>
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            {community.description[lang]}
+          </p>
+        </Sheet>
+      )}
     </div>
   );
 }
 
 function TwinningView({ lang, t }: { lang: Lang; t: (k: string) => string }) {
+  const [twin, setTwin] = useState<TwinCity | null>(null);
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
       {twinCities.map((c) => (
-        <article
+        <button
           key={c.id}
-          className="rounded-2xl border border-gray-100 dark:border-[#1E2D4E] bg-white dark:bg-[#141929] shadow-sm p-3.5"
+          onClick={() => setTwin(c)}
+          className="text-left rounded-2xl border border-gray-100 dark:border-[#1E2D4E] bg-white dark:bg-[#141929] shadow-sm p-3.5 active:scale-[0.98] transition-transform"
         >
           <div className="flex items-center gap-2.5">
             <span className="text-2xl leading-none">{c.flag}</span>
@@ -156,12 +181,47 @@ function TwinningView({ lang, t }: { lang: Lang; t: (k: string) => string }) {
                 {c.country[lang]} · {c.year}
               </p>
             </div>
+            <ChevronDown size={15} className="text-gray-300 dark:text-gray-600 -rotate-90" />
           </div>
           <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-relaxed mt-2">
             {c.reason[lang]}
           </p>
-        </article>
+        </button>
       ))}
+
+      {twin && (
+        <Sheet onClose={() => setTwin(null)}>
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-3xl leading-none">{twin.flag}</span>
+            <div className="min-w-0">
+              <h3 className="font-bold text-[17px] text-gray-900 dark:text-white leading-snug">
+                {twin.city[lang]}
+              </h3>
+              <p className="text-[12px] text-gray-500 dark:text-gray-400">{twin.country[lang]}</p>
+            </div>
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-3">
+            {twin.reason[lang]}
+          </p>
+          <dl className="space-y-2">
+            <DetailRow icon={<CalendarDays size={14} />} label={t("twin_date")} value={fmtDate(twin.twinningDate, lang)} />
+            <DetailRow icon={<Gavel size={14} />} label={t("twin_decision")} value={twin.decision} />
+            <DetailRow icon={<UserRound size={14} />} label={t("twin_mayor")} value={twin.mayor[lang]} />
+          </dl>
+        </Sheet>
+      )}
+    </div>
+  );
+}
+
+function DetailRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-start gap-2.5 py-1.5 border-t border-gray-100 dark:border-[#1E2D4E]">
+      <span className="text-gray-400 dark:text-gray-500 mt-0.5 flex-shrink-0">{icon}</span>
+      <div className="min-w-0">
+        <dt className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">{label}</dt>
+        <dd className="text-[13.5px] font-semibold text-gray-800 dark:text-gray-200">{value}</dd>
+      </div>
     </div>
   );
 }
@@ -188,33 +248,40 @@ function AccessView({ lang, t }: { lang: Lang; t: (k: string) => string }) {
           <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed mt-2.5">
             {r.body[lang]}
           </p>
-          <div className="flex items-center flex-wrap gap-2 mt-3">
-            {r.updated && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-[#252A3A] px-2 py-1 rounded-lg">
-                <CalendarClock size={12} />
-                {t("about_updated")}: {fmtDate(r.updated, lang)}
-              </span>
-            )}
-            {r.validUntil && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded-lg">
-                <CalendarClock size={12} />
-                {t("about_valid_until")}: {fmtDate(r.validUntil, lang)}
-              </span>
-            )}
-            {r.url && (
-              <a
-                href={r.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg text-primary dark:text-primary-300 bg-primary-50 dark:bg-primary-900/20 hover:bg-primary-100 dark:hover:bg-primary-900/30 transition-colors active:scale-95"
-              >
-                <ExternalLink size={12} />
-                {r.urlLabel ? r.urlLabel[lang] : t("map_more")}
-              </a>
-            )}
-          </div>
+          {r.url && (
+            <a
+              href={r.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 mt-3 text-[11px] font-bold px-2.5 py-1 rounded-lg text-primary dark:text-primary-300 bg-primary-50 dark:bg-primary-900/20 hover:bg-primary-100 dark:hover:bg-primary-900/30 transition-colors active:scale-95"
+            >
+              <ExternalLink size={12} />
+              {r.urlLabel ? r.urlLabel[lang] : t("map_more")}
+            </a>
+          )}
         </article>
       ))}
+    </div>
+  );
+}
+
+function Sheet({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+  const { t } = useApp();
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-md bg-white dark:bg-[#141929] rounded-t-3xl shadow-2xl max-h-[80vh] overflow-y-auto animate-slide-up">
+        <div className="sticky top-0 flex items-center justify-end px-3 py-2 bg-white/90 dark:bg-[#141929]/90 backdrop-blur">
+          <button
+            onClick={onClose}
+            aria-label={t("close")}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 active:scale-90"
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <div className="px-4 pb-6">{children}</div>
+      </div>
     </div>
   );
 }

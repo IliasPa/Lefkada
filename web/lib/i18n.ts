@@ -352,6 +352,7 @@ const el: Record<string, string> = {
   council_archive: "Παλαιότερα Συμβούλια",
   council_archive_sub: "Αρχείο θητειών",
   council_official_page: "Επίσημη σελίδα",
+  council_in_office: "Ανέλαβε",
 
   about_title: "Γνωρίστε τη Λευκάδα",
   about_villages: "Χωριά",
@@ -362,8 +363,23 @@ const el: Record<string, string> = {
   about_communities: "κοινότητες",
   about_updated: "Ενημ.",
   about_valid_until: "Ισχύει έως",
+  twin_date: "Ημερομηνία αδελφοποίησης",
+  twin_decision: "Απόφαση Δημοτικού Συμβουλίου",
+  twin_mayor: "Δημαρχία",
 
   services_title: "Υπηρεσίες προς τον Πολίτη",
+  services_engage: "Εξυπηρέτηση Πολίτη",
+  services_report: "Αναφορά Προβλήματος",
+  services_report_desc: "Αναφέρετε ένα πρόβλημα της πόλης (λακκούβα, φωτισμός, καθαριότητα) και παρακολουθήστε το αίτημά σας.",
+  services_eservices: "Ηλεκτρονικές Υπηρεσίες (gov.gr)",
+  services_eservices_desc: "Πιστοποιητικά και ληξιαρχικές πράξεις μέσω της Ενιαίας Ψηφιακής Πύλης gov.gr.",
+  services_epayments: "Ηλεκτρονικές Πληρωμές",
+  services_social: "Κοινωνικές Υπηρεσίες",
+  services_environment: "Καθαριότητα & Νερό",
+  services_safety: "Ασφάλεια & Διαφάνεια",
+  services_waste: "Αποκομιδή & Ανακύκλωση",
+  services_waste_areas: "Ενδεικτικό πρόγραμμα ανά περιοχή",
+  services_waste_note: "Ενδεικτικά. Το ακριβές πρόγραμμα ανά περιοχή ορίζεται εποχικά από την Υπηρεσία Καθαριότητας.",
   services_emergency: "Τηλέφωνα Έκτακτης Ανάγκης",
 };
 
@@ -678,7 +694,7 @@ const en: Record<string, string> = {
     "The classic Wordle game, but with Greek words related to the Municipality — Lefkada place names, services and traditions. The goal is to engage citizens in a fun way and help them get to know their place.",
 
   // ── v0.7: tabs, history, council, about, services ──
-  tab_about: "About",
+  tab_about: "About Lefkada",
   tab_services: "Services",
 
   place_Library: "Library",
@@ -701,6 +717,7 @@ const en: Record<string, string> = {
   council_archive: "Past Councils",
   council_archive_sub: "Archive of terms",
   council_official_page: "Official page",
+  council_in_office: "In office",
 
   about_title: "About Lefkada",
   about_villages: "Villages",
@@ -711,8 +728,23 @@ const en: Record<string, string> = {
   about_communities: "communities",
   about_updated: "Updated",
   about_valid_until: "Valid until",
+  twin_date: "Date of twinning",
+  twin_decision: "Municipal Council decision",
+  twin_mayor: "Mayor's office",
 
   services_title: "Citizen Services",
+  services_engage: "Citizen Engagement",
+  services_report: "Report a Problem",
+  services_report_desc: "Report a city issue (pothole, lighting, cleanliness) and track your request.",
+  services_eservices: "E-Services (gov.gr)",
+  services_eservices_desc: "Certificates and civil-registry acts through the gov.gr national portal.",
+  services_epayments: "E-Payments",
+  services_social: "Social Services",
+  services_environment: "Cleanliness & Water",
+  services_safety: "Safety & Integrity",
+  services_waste: "Collection & Recycling",
+  services_waste_areas: "Indicative schedule by area",
+  services_waste_note: "Indicative. The exact per-area schedule is set seasonally by the Cleanliness Service.",
   services_emergency: "Emergency Numbers",
 };
 

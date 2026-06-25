@@ -1,144 +1,161 @@
 import type { BilingualText } from './news';
 
-export type ServiceGroup = 'digital' | 'social' | 'safety';
+// ── gov.gr e-services (real links from lefkada.gov.gr/e-ypiresies) ────────────
+export type EServiceGroup = 'cert' | 'registry' | 'lixiarcheio';
 
-export type ServiceIcon =
-  | 'eservices'
-  | 'report'
-  | 'projects'
-  | 'grocery'
-  | 'community'
-  | 'port'
-  | 'water'
-  | 'whistle';
-
-export interface ServiceItem {
+export interface EService {
   id: string;
-  group: ServiceGroup;
-  icon: ServiceIcon;
+  group: EServiceGroup;
   title: BilingualText;
-  description: BilingualText;
-  href: string;
-  cta?: BilingualText;
+  url: string;
 }
 
-export interface EmergencyNumber {
-  id: string;
-  label: BilingualText;
-  number: string;
-}
-
-export const SERVICE_GROUP_LABEL: Record<ServiceGroup, BilingualText> = {
-  digital: { el: 'Ψηφιακές Υπηρεσίες', en: 'Digital Services' },
-  social: { el: 'Κοινωνικές Υπηρεσίες & Φορείς', en: 'Social Services & Bodies' },
-  safety: { el: 'Ασφάλεια & Διαφάνεια', en: 'Safety & Integrity' },
+export const ESERVICE_GROUP_LABEL: Record<EServiceGroup, BilingualText> = {
+  cert: { el: 'Πιστοποιητικά Δημοτολογίου', en: 'Registry Certificates' },
+  registry: { el: 'Δημοτολόγιο', en: 'Citizen Registry' },
+  lixiarcheio: { el: 'Ληξιαρχείο', en: 'Civil Registry (Births/Marriages/Deaths)' },
 };
 
-export const services: ServiceItem[] = [
-  // ── Digital ──
-  {
-    id: 'eservices',
-    group: 'digital',
-    icon: 'eservices',
-    title: { el: 'Ηλεκτρονικές Υπηρεσίες (gov.gr)', en: 'E-Services (gov.gr)' },
-    description: {
-      el: 'Πιστοποιητικά, βεβαιώσεις και ηλεκτρονικά αιτήματα μέσω της Ενιαίας Ψηφιακής Πύλης gov.gr και των ΚΕΠ του Δήμου.',
-      en: 'Certificates, attestations and electronic requests through the gov.gr national portal and the Municipality’s Citizen Service Centres (KEP).',
-    },
-    href: 'https://www.gov.gr/',
-    cta: { el: 'Άνοιγμα gov.gr', en: 'Open gov.gr' },
-  },
-  {
-    id: 'report',
-    group: 'digital',
-    icon: 'report',
-    title: { el: 'Αναφορά Προβλήματος (4MyCity)', en: 'Report a Problem (4MyCity)' },
-    description: {
-      el: 'Αναφέρετε ένα πρόβλημα της πόλης — λακκούβα, φωτισμός, καθαριότητα — και παρακολουθήστε την πορεία του αιτήματός σας.',
-      en: 'Report a city issue — pothole, lighting, cleanliness — and track the progress of your request.',
-    },
-    href: 'https://4mycity.lefkada.gov.gr/',
-    cta: { el: 'Νέα αναφορά', en: 'New report' },
-  },
-  {
-    id: 'projects-map',
-    group: 'digital',
-    icon: 'projects',
-    title: { el: 'Έργα στον Χάρτη (ΕΣΠΑ)', en: 'Projects on a Map (NSRF/EU)' },
-    description: {
-      el: 'Δείτε στον χάρτη τα συγχρηματοδοτούμενα έργα (ΕΣΠΑ/Ταμείο Ανάκαμψης) που υλοποιεί ο Δήμος σε όλο το νησί.',
-      en: 'See on a map the co-funded (NSRF / Recovery Fund) projects the Municipality is delivering across the island.',
-    },
-    href: 'https://lefkada.gov.gr/',
-    cta: { el: 'Άνοιγμα χάρτη έργων', en: 'Open projects map' },
-  },
+export const govEServices: EService[] = [
+  { id: 'es-residence', group: 'cert', title: { el: 'Βεβαίωση μόνιμης κατοικίας', en: 'Permanent residence certificate' }, url: 'https://www.gov.gr/ipiresies/polites-kai-kathemerinoteta/dieuthunse-katoikias-kai-epikoinonias/bebaiose-monimes-katoikias' },
+  { id: 'es-birth-cert', group: 'cert', title: { el: 'Πιστοποιητικό γέννησης', en: 'Birth certificate' }, url: 'https://www.gov.gr/ipiresies/oikogeneia/gennese/pistopoietiko-genneses' },
+  { id: 'es-family', group: 'cert', title: { el: 'Πιστοποιητικό οικογενειακής κατάστασης', en: 'Family status certificate' }, url: 'https://www.gov.gr/ipiresies/oikogeneia/oikogeneiake-katastase/pistopoietiko-oikogeneiakes-katastases' },
+  { id: 'es-relatives', group: 'cert', title: { el: 'Πιστοποιητικό εγγυτέρων συγγενών', en: 'Next-of-kin certificate' }, url: 'https://www.gov.gr/ipiresies/oikogeneia/apoleia/pistopoietiko-egguteron-suggenon' },
+  { id: 'es-nationality', group: 'cert', title: { el: 'Πιστοποιητικό ιθαγένειας', en: 'Citizenship certificate' }, url: 'https://www.gov.gr/ipiresies/oikogeneia/oikogeneiake-katastase/pistopoietiko-ithageneias' },
+  { id: 'es-origin', group: 'cert', title: { el: 'Πιστοποιητικό εντοπιότητας', en: 'Certificate of local origin' }, url: 'https://www.gov.gr/ipiresies/oikogeneia/oikogeneiake-katastase/pistopoietiko-entopiotetas' },
 
-  // ── Social ──
+  { id: 'es-eterodimotes', group: 'registry', title: { el: 'Ειδικοί Εκλογικοί Κατάλογοι Ετεροδημοτών', en: 'Special electoral rolls (out-of-municipality voters)' }, url: 'https://aitiseis.eterodimotes.gov.gr/' },
+  { id: 'es-civil-marriage', group: 'registry', title: { el: 'Αίτηση Άδειας Πολιτικού Γάμου', en: 'Civil marriage licence application' }, url: 'https://dilosi.services.gov.gr/templates/ADEIA-POLITIKOU-GAMOU/create' },
+
+  { id: 'es-birth-act', group: 'lixiarcheio', title: { el: 'Ληξιαρχική πράξη γέννησης', en: 'Birth registration act' }, url: 'https://www.gov.gr/ipiresies/oikogeneia/gennese/lexiarkhike-praxe-genneses' },
+  { id: 'es-marriage-act', group: 'lixiarcheio', title: { el: 'Ληξιαρχική πράξη γάμου', en: 'Marriage registration act' }, url: 'https://www.gov.gr/ipiresies/oikogeneia/gamos-sumbiose/lexiarkhike-praxe-gamou' },
+  { id: 'es-death-act', group: 'lixiarcheio', title: { el: 'Ληξιαρχική πράξη θανάτου', en: 'Death registration act' }, url: 'https://www.gov.gr/ipiresies/oikogeneia/apoleia/lexiarkhike-praxe-thanatou' },
+  { id: 'es-partnership-act', group: 'lixiarcheio', title: { el: 'Ληξιαρχική πράξη συμφώνου συμβίωσης', en: 'Civil partnership registration act' }, url: 'https://www.gov.gr/ipiresies/oikogeneia/gamos-sumbiose/lexiarkhike-praxe-sumphonou-sumbioses' },
+];
+
+// ── e-Payments (eservices.lefkada.gov.gr — functional payment portal) ─────────
+export interface EPayment {
+  id: string;
+  title: BilingualText;
+  description: BilingualText;
+  url: string;
+}
+
+export const ePayments: EPayment[] = [
+  {
+    id: 'pay-certified',
+    title: { el: 'Πληρωμή Βεβαιωμένων Οφειλών', en: 'Pay certified debts' },
+    description: { el: 'Δημοτικά τέλη, πρόστιμα και λοιπές βεβαιωμένες οφειλές με κάρτα.', en: 'Municipal fees, fines and other certified debts, paid by card.' },
+    url: 'https://eservices.lefkada.gov.gr/egwebapps/home',
+  },
+  {
+    id: 'pay-uncertified',
+    title: { el: 'Πληρωμή Μη Βεβαιωμένων Οφειλών', en: 'Pay non-certified debts' },
+    description: { el: 'Εξόφληση οφειλών που δεν έχουν ακόμη βεβαιωθεί, μέσω του συστήματος του Δήμου.', en: 'Settle debts not yet certified, via the municipal system.' },
+    url: 'https://eservices.lefkada.gov.gr/egwebapps/home',
+  },
+  {
+    id: 'pay-childcare',
+    title: { el: 'Αιτήσεις Παιδικών/Βρεφονηπιακών Σταθμών', en: 'Childcare / nursery applications' },
+    description: { el: 'Ηλεκτρονική υποβολή αιτήσεων εγγραφής στους δημοτικούς παιδικούς σταθμούς.', en: 'Online enrolment applications for the municipal childcare facilities.' },
+    url: 'https://eservices.lefkada.gov.gr/egwebapps/domes/aitiseis/1',
+  },
+];
+
+// ── In-app informational services (no external municipal-site link) ───────────
+export type InfoIcon = 'grocery' | 'community' | 'port' | 'water' | 'whistle';
+
+export interface InfoService {
+  id: string;
+  icon: InfoIcon;
+  title: BilingualText;
+  description: BilingualText;
+}
+
+export const infoServices: InfoService[] = [
   {
     id: 'grocery',
-    group: 'social',
     icon: 'grocery',
     title: { el: 'Κοινωνικό Παντοπωλείο & ΔΕΚΟΚΑΛ', en: 'Social Grocery & DEKOKAL' },
     description: {
-      el: 'Στήριξη ευάλωτων νοικοκυριών με τρόφιμα και είδη πρώτης ανάγκης, μέσω της κοινωφελούς επιχείρησης του Δήμου (ΔΕΚΟΚΑΛ).',
-      en: 'Support for vulnerable households with food and basic goods, run by the Municipality’s public-benefit enterprise (DEKOKAL).',
+      el: 'Στήριξη ευάλωτων νοικοκυριών με τρόφιμα και είδη πρώτης ανάγκης, μέσω της κοινωφελούς επιχείρησης του Δήμου (ΔΕΚΟΚΑΛ). Η αίτηση γίνεται στην Κοινωνική Υπηρεσία του Δήμου.',
+      en: 'Support for vulnerable households with food and basic goods, run by the Municipality’s public-benefit enterprise (DEKOKAL). Apply at the Municipality’s Social Service.',
     },
-    href: 'https://lefkada.gov.gr/',
-    cta: { el: 'Περισσότερα', en: 'Learn more' },
   },
   {
     id: 'community-centre',
-    group: 'social',
     icon: 'community',
     title: { el: 'Κέντρο Κοινότητας', en: 'Community Centre' },
     description: {
       el: 'Υπηρεσία υποδοχής και κοινωνικής υποστήριξης: ενημέρωση για επιδόματα, διασύνδεση με προνοιακές δομές και συμβουλευτική.',
       en: 'A reception and social-support service: guidance on benefits, referral to welfare structures and counselling.',
     },
-    href: 'https://lefkada.gov.gr/',
-    cta: { el: 'Περισσότερα', en: 'Learn more' },
   },
   {
     id: 'port-fund',
-    group: 'social',
     icon: 'port',
     title: { el: 'Δημοτικό Λιμενικό Ταμείο', en: 'Municipal Port Fund' },
     description: {
       el: 'Διαχείριση και αξιοποίηση των λιμενικών υποδομών του Δήμου — προβλήτες, μαρίνες και χώροι ελλιμενισμού.',
       en: 'Management of the Municipality’s port infrastructure — quays, marinas and mooring areas.',
     },
-    href: 'https://lefkada.gov.gr/',
-    cta: { el: 'Περισσότερα', en: 'Learn more' },
   },
   {
     id: 'water-analyses',
-    group: 'social',
     icon: 'water',
     title: { el: 'Αναλύσεις Πόσιμου Νερού', en: 'Drinking-Water Analyses' },
     description: {
-      el: 'Οι περιοδικές αναλύσεις ποιότητας του πόσιμου νερού ανά οικισμό, όπως δημοσιεύονται από τον Δήμο.',
-      en: 'Periodic drinking-water quality analyses per settlement, as published by the Municipality.',
+      el: 'Οι περιοδικές αναλύσεις ποιότητας του πόσιμου νερού ανά οικισμό δημοσιεύονται από τη Δ.Ε.Υ.Α. Λευκάδας. (Σύνδεσμος προς τις εκθέσεις θα προστεθεί όταν δοθεί επίσημος.)',
+      en: 'Periodic drinking-water quality analyses per settlement are published by DEYAL (the Lefkada water utility). (A link to the reports will be added once an official one is provided.)',
     },
-    href: 'https://lefkada.gov.gr/',
-    cta: { el: 'Δείτε αναλύσεις', en: 'View analyses' },
   },
-
-  // ── Safety & integrity ──
   {
     id: 'whistleblowing',
-    group: 'safety',
     icon: 'whistle',
     title: { el: 'Αναφορές Παρατυπιών (Whistleblowing)', en: 'Whistleblowing Channel' },
     description: {
-      el: 'Εμπιστευτικό κανάλι αναφοράς παραβιάσεων, σύμφωνα με την Οδηγία (ΕΕ) 2019/1937 για την προστασία όσων καταγγέλλουν.',
-      en: 'A confidential channel for reporting breaches, under EU Directive 2019/1937 protecting whistleblowers.',
+      el: 'Εμπιστευτικό κανάλι αναφοράς παραβιάσεων, σύμφωνα με την Οδηγία (ΕΕ) 2019/1937. Η αναφορά υποβάλλεται στον Υπεύθυνο Παραλαβής & Παρακολούθησης Αναφορών (Υ.Π.Π.Α.) του Δήμου. (Επίσημο κανάλι/φόρμα θα συνδεθεί όταν δοθεί.)',
+      en: 'A confidential channel for reporting breaches under EU Directive 2019/1937. Reports go to the Municipality’s designated Reports Officer. (An official channel/form will be linked once provided.)',
     },
-    href: 'https://lefkada.gov.gr/',
-    cta: { el: 'Υποβολή αναφοράς', en: 'Submit a report' },
   },
 ];
 
-/** Civil-protection & emergency numbers surfaced as a quick-dial card. */
+// ── Waste & recycling ────────────────────────────────────────────────────────
+export interface WasteArea {
+  id: string;
+  area: BilingualText;
+  /** Indicative collection pattern — confirm with the Cleanliness Service. */
+  schedule: BilingualText;
+}
+
+export const recyclingStreams: BilingualText[] = [
+  { el: 'Μπλε κάδος: χαρτί, πλαστικό, μέταλλο, γυαλί', en: 'Blue bin: paper, plastic, metal, glass' },
+  { el: 'Καφέ κάδος: οργανικά / βιοαπόβλητα (όπου υπάρχει)', en: 'Brown bin: organic / bio-waste (where available)' },
+  { el: 'Πράσινος κάδος: σύμμεικτα οικιακά απορρίμματα', en: 'Green bin: mixed household waste' },
+];
+
+/** Indicative — the exact per-area weekday schedule is set seasonally by the
+ *  Cleanliness Service and should be confirmed there. */
+export const wasteAreas: WasteArea[] = [
+  { id: 'town', area: { el: 'Χώρα Λευκάδας', en: 'Lefkada Town' }, schedule: { el: 'Σύμμεικτα: καθημερινά (θερινή περίοδος) · Ανακύκλωση: 2–3 φορές/εβδομάδα', en: 'Mixed: daily (summer) · Recycling: 2–3×/week' } },
+  { id: 'ellomenos', area: { el: 'Νυδρί & Ελλομένου', en: 'Nydri & Ellomenos' }, schedule: { el: 'Σύμμεικτα: εναλλάξ ημέρες · Ανακύκλωση: εβδομαδιαία', en: 'Mixed: alternate days · Recycling: weekly' } },
+  { id: 'apollonia', area: { el: 'Βασιλική & Απολλωνίων', en: 'Vasiliki & Apollonioi' }, schedule: { el: 'Σύμμεικτα: εναλλάξ ημέρες · Ανακύκλωση: εβδομαδιαία', en: 'Mixed: alternate days · Recycling: weekly' } },
+  { id: 'mountain', area: { el: 'Ορεινά χωριά (Σφακιώτες/Καρυά)', en: 'Mountain villages (Sfakiotes/Karya)' }, schedule: { el: 'Σύμμεικτα: 2–3 φορές/εβδομάδα', en: 'Mixed: 2–3×/week' } },
+];
+
+/** Bulky-waste & branches drop-off points (per municipal-unit). */
+export const bulkyWasteNote: BilingualText = {
+  el: 'Ογκώδη (έπιπλα, στρώματα) και κλαδέματα: κατόπιν συνεννόησης με την Υπηρεσία Καθαριότητας ή στα οριζόμενα σημεία προσωρινής εναπόθεσης στις ενότητες Λευκάδας, Απολλωνίων και Ελλομένου.',
+  en: 'Bulky waste (furniture, mattresses) and branches: by arrangement with the Cleanliness Service, or at the designated temporary drop-off points in the Lefkada, Apollonioi and Ellomenos units.',
+};
+
+// ── Civil-protection & emergency numbers ─────────────────────────────────────
+export interface EmergencyNumber {
+  id: string;
+  label: BilingualText;
+  number: string;
+}
+
 export const emergencyNumbers: EmergencyNumber[] = [
   { id: 'eu', label: { el: 'Ευρωπαϊκός Αριθμός Έκτακτης Ανάγκης', en: 'European Emergency Number' }, number: '112' },
   { id: 'municipal', label: { el: 'Δήμος — Γραμμή Έκτακτης Ανάγκης', en: 'Municipality — Emergency Line' }, number: '967' },

@@ -13,7 +13,7 @@ import {
   Briefcase,
   Dices,
   Phone,
-  Info,
+  Mountain,
   HeartHandshake,
   type LucideIcon,
 } from "lucide-react";
@@ -32,7 +32,7 @@ const TABS: TabDef[] = [
   { key: "health", Icon: Heart },
   { key: "financials", Icon: BarChart3 },
   { key: "governance", Icon: Building2 },
-  { key: "about", Icon: Info },
+  { key: "about", Icon: Mountain },
   { key: "services", Icon: HeartHandshake },
   { key: "jobs", Icon: Briefcase },
   { key: "game", Icon: Dices },
