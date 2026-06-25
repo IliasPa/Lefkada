@@ -63,7 +63,7 @@ export const ePayments: EPayment[] = [
 ];
 
 // ── In-app informational services (no external municipal-site link) ───────────
-export type InfoIcon = 'grocery' | 'community' | 'port' | 'water' | 'whistle';
+export type InfoIcon = 'grocery' | 'community' | 'port';
 
 export interface InfoService {
   id: string;
@@ -100,25 +100,31 @@ export const infoServices: InfoService[] = [
       en: 'Management of the Municipality’s port infrastructure — quays, marinas and mooring areas.',
     },
   },
-  {
-    id: 'water-analyses',
-    icon: 'water',
-    title: { el: 'Αναλύσεις Πόσιμου Νερού', en: 'Drinking-Water Analyses' },
-    description: {
-      el: 'Οι περιοδικές αναλύσεις ποιότητας του πόσιμου νερού ανά οικισμό δημοσιεύονται από τη Δ.Ε.Υ.Α. Λευκάδας. (Σύνδεσμος προς τις εκθέσεις θα προστεθεί όταν δοθεί επίσημος.)',
-      en: 'Periodic drinking-water quality analyses per settlement are published by DEYAL (the Lefkada water utility). (A link to the reports will be added once an official one is provided.)',
-    },
-  },
-  {
-    id: 'whistleblowing',
-    icon: 'whistle',
-    title: { el: 'Αναφορές Παρατυπιών (Whistleblowing)', en: 'Whistleblowing Channel' },
-    description: {
-      el: 'Εμπιστευτικό κανάλι αναφοράς παραβιάσεων, σύμφωνα με την Οδηγία (ΕΕ) 2019/1937. Η αναφορά υποβάλλεται στον Υπεύθυνο Παραλαβής & Παρακολούθησης Αναφορών (Υ.Π.Π.Α.) του Δήμου. (Επίσημο κανάλι/φόρμα θα συνδεθεί όταν δοθεί.)',
-      en: 'A confidential channel for reporting breaches under EU Directive 2019/1937. Reports go to the Municipality’s designated Reports Officer. (An official channel/form will be linked once provided.)',
-    },
-  },
 ];
+
+// ── NSRF / ΕΣΠΑ co-funded projects ───────────────────────────────────────────
+export const nsrfProjects = {
+  title: { el: 'Έργα ΕΣΠΑ / Ταμείου Ανάκαμψης', en: 'NSRF / Recovery-Fund Projects' } as BilingualText,
+  description: {
+    el: 'Τα συγχρηματοδοτούμενα έργα που υλοποιεί ο Δήμος (ΕΣΠΑ 2021–2027, Ταμείο Ανάκαμψης, GReco Islands) — προϋπολογισμοί, πρόοδος και τεκμηρίωση.',
+    en: 'The Municipality’s co-funded projects (NSRF 2021–2027, Recovery Fund, GReco Islands) — budgets, progress and documentation.',
+  } as BilingualText,
+  url: 'https://lefkada.gov.gr/erga-espa/',
+};
+
+// ── Whistleblowing (Law 4990/2022, transposing EU Directive 2019/1937) ───────
+export const whistleblowing = {
+  title: { el: 'Αναφορές Παρατυπιών (Whistleblowing)', en: 'Whistleblowing Channel' } as BilingualText,
+  description: {
+    el: 'Εμπιστευτικό κανάλι αναφοράς παραβιάσεων δικαίου, σύμφωνα με τον Ν. 4990/2022 (ενσωμάτωση της Οδηγίας (ΕΕ) 2019/1937), μέσω της πλατφόρμας του Υπευθύνου Παραλαβής & Παρακολούθησης Αναφορών (Υ.Π.Π.Α.) του Δήμου.',
+    en: 'A confidential channel for reporting breaches of law under Greek Law 4990/2022 (transposing EU Directive 2019/1937), via the platform of the Municipality’s designated Reports Officer (Y.P.P.A.).',
+  } as BilingualText,
+  urlEl: 'https://pbplatform.crowdapps.net/yppa-lefkada/',
+  urlEn: 'https://pbplatform.crowdapps.net/yppa-lefkada-en/',
+};
+
+/** Cleanliness Department phone (bulky-waste & branches collection). */
+export const bulkyWastePhone = '+302645360580';
 
 // ── Waste & recycling ────────────────────────────────────────────────────────
 export interface WasteArea {

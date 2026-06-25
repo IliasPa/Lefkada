@@ -157,4 +157,45 @@ export const governanceData: GovItem[] = [
     youtubeId: 'aqz-KE-bpKQ',
     minutesPdf: '/docs/poll-bridge-2025.pdf',
   },
+
+  // ── Real council-session invitations (category "Δημοτικό Συμβούλιο") ──
+  {
+    id: 'ds-2026-03-02',
+    type: 'Meeting',
+    title: {
+      el: 'Πρόσκληση σε τακτική συνεδρίαση Δημοτικού Συμβουλίου',
+      en: 'Invitation to a regular Municipal Council session',
+    },
+    summary: {
+      el: 'Τακτική δημόσια συνεδρίαση του Δημοτικού Συμβουλίου Λευκάδας, με τα θέματα της ημερήσιας διάταξης.',
+      en: 'Regular public session of the Lefkada Municipal Council, with the items on the agenda.',
+    },
+    date: '2026-03-02',
+  },
+  {
+    id: 'ds-2026-02-26',
+    type: 'Meeting',
+    title: {
+      el: 'Ειδική Συνεδρίαση Λογοδοσίας της Δημοτικής Αρχής',
+      en: 'Special Accountability Session of the Municipal Authority',
+    },
+    summary: {
+      el: 'Ειδική συνεδρίαση λογοδοσίας της δημοτικής αρχής για το διμηνιαίο διάστημα, ανοιχτή σε ερωτήσεις πολιτών.',
+      en: 'Special accountability session of the municipal authority for the two-month period, open to citizen questions.',
+    },
+    date: '2026-02-26',
+  },
+  {
+    id: 'ds-2026-02-20',
+    type: 'Meeting',
+    title: {
+      el: 'Δημόσια, ειδική, δια ζώσης συνεδρίαση Δημοτικού Συμβουλίου',
+      en: 'Public special in-person Municipal Council session',
+    },
+    summary: {
+      el: 'Δημόσια ειδική δια ζώσης συνεδρίαση του Δημοτικού Συμβουλίου.',
+      en: 'A public special in-person session of the Municipal Council.',
+    },
+    date: '2026-02-20',
+  },
 ];

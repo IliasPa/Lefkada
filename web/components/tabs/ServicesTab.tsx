@@ -7,13 +7,13 @@ import {
   ShoppingBasket,
   HandHeart,
   Anchor,
-  Droplets,
   ShieldAlert,
   Recycle,
   FileText,
   ExternalLink,
   Phone,
   Trash2,
+  MapPinned,
   type LucideIcon,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
@@ -25,10 +25,14 @@ import {
   recyclingStreams,
   wasteAreas,
   bulkyWasteNote,
+  bulkyWastePhone,
+  nsrfProjects,
+  whistleblowing,
   emergencyNumbers,
   type EServiceGroup,
   type InfoIcon,
 } from "@/data/services";
+import WaterAnalysesCard from "@/components/WaterAnalysesCard";
 
 type Lang = "el" | "en";
 
@@ -38,8 +42,6 @@ const INFO_ICONS: Record<InfoIcon, LucideIcon> = {
   grocery: ShoppingBasket,
   community: HandHeart,
   port: Anchor,
-  water: Droplets,
-  whistle: ShieldAlert,
 };
 
 const ESERVICE_ORDER: EServiceGroup[] = ["cert", "registry", "lixiarcheio"];
@@ -75,6 +77,29 @@ export default function ServicesTab() {
           </p>
           <span className="inline-flex items-center gap-1.5 mt-3 text-[12px] font-bold text-primary dark:text-primary-300">
             4MyCity <ExternalLink size={13} />
+          </span>
+        </a>
+
+        {/* ── NSRF / ΕΣΠΑ projects ── */}
+        <a
+          href={nsrfProjects.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block rounded-2xl border border-gray-100 dark:border-[#1E2D4E] bg-white dark:bg-[#141929] shadow-sm p-4 mb-5 active:scale-[0.99] transition-transform"
+        >
+          <div className="flex items-center gap-3">
+            <span className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "#6D44C818", color: "#6D44C8" }}>
+              <MapPinned size={18} />
+            </span>
+            <h3 className="font-bold text-[14px] text-gray-900 dark:text-white leading-snug flex-1">
+              {nsrfProjects.title[lang]}
+            </h3>
+          </div>
+          <p className="text-[12.5px] text-gray-500 dark:text-gray-400 leading-relaxed mt-2.5">
+            {nsrfProjects.description[lang]}
+          </p>
+          <span className="inline-flex items-center gap-1.5 mt-3 text-[12px] font-bold" style={{ color: "#6D44C8" }}>
+            {t("services_projects_cta")} <ExternalLink size={13} />
           </span>
         </a>
 
@@ -152,22 +177,32 @@ export default function ServicesTab() {
         <SectionLabel accent="#0EA5E9">{t("services_environment")}</SectionLabel>
         <div className="space-y-2 mb-5">
           <WasteCard lang={lang} t={t} />
-          {infoServices
-            .filter((s) => s.id === "water-analyses")
-            .map((s) => (
-              <InfoCard key={s.id} icon={INFO_ICONS[s.icon]} accent="#0EA5E9" title={s.title[lang]} desc={s.description[lang]} />
-            ))}
+          <WaterAnalysesCard />
         </div>
 
         {/* ── Safety & integrity ── */}
         <SectionLabel accent="#DC2626">{t("services_safety")}</SectionLabel>
         <div className="space-y-2">
           <EmergencyCard lang={lang} t={t} />
-          {infoServices
-            .filter((s) => s.id === "whistleblowing")
-            .map((s) => (
-              <InfoCard key={s.id} icon={INFO_ICONS[s.icon]} accent="#DC2626" title={s.title[lang]} desc={s.description[lang]} />
-            ))}
+          <a
+            href={lang === "el" ? whistleblowing.urlEl : whistleblowing.urlEn}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block rounded-2xl border border-gray-100 dark:border-[#1E2D4E] bg-white dark:bg-[#141929] shadow-sm p-4 active:scale-[0.99] transition-transform"
+          >
+            <div className="flex items-center gap-3">
+              <span className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "#DC262618", color: "#DC2626" }}>
+                <ShieldAlert size={17} />
+              </span>
+              <h3 className="font-bold text-[13.5px] text-gray-900 dark:text-white leading-snug flex-1">
+                {whistleblowing.title[lang]}
+              </h3>
+              <ExternalLink size={13} className="text-gray-300 dark:text-gray-600 flex-shrink-0" />
+            </div>
+            <p className="text-[12.5px] text-gray-500 dark:text-gray-400 leading-relaxed mt-2.5">
+              {whistleblowing.description[lang]}
+            </p>
+          </a>
         </div>
       </div>
     </div>
@@ -236,9 +271,13 @@ function WasteCard({ lang, t }: { lang: Lang; t: (k: string) => string }) {
         <FileText size={11} className="inline mr-1 -mt-0.5" />
         {bulkyWasteNote[lang]}
       </p>
-      <p className="text-[10.5px] text-gray-400 dark:text-gray-500 italic mt-1.5">
-        {t("services_waste_note")}
-      </p>
+      <a
+        href={`tel:${bulkyWastePhone}`}
+        className="inline-flex items-center gap-1.5 mt-2.5 px-3 py-1.5 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-[12px] font-bold active:scale-95"
+      >
+        <Phone size={13} />
+        {t("services_bulky_call")}: {bulkyWastePhone}
+      </a>
     </div>
   );
 }

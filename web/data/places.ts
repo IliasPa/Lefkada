@@ -253,7 +253,7 @@ export const placesData: Place[] = [
     id: 'cc-takis-efstathiou',
     name: { el: 'Αίθουσα «Τάκης Ευσταθίου»', en: '"Takis Efstathiou" Hall' },
     category: 'CulturalSpace',
-    coords: [38.8355, 20.7066],
+    coords: [38.8350, 20.7042],
     description: {
       el: 'Αίθουσα εκθέσεων και εκδηλώσεων του Πνευματικού Κέντρου, αφιερωμένη στον δωρητή Τάκη Ευσταθίου.',
       en: 'An exhibition and events hall of the Cultural Center, named after the benefactor Takis Efstathiou.',
@@ -264,7 +264,7 @@ export const placesData: Place[] = [
     id: 'cc-conference-hall',
     name: { el: 'Αίθουσα Συνεδρίων', en: 'Conference Hall' },
     category: 'CulturalSpace',
-    coords: [38.8356, 20.7069],
+    coords: [38.8351, 20.7044],
     description: {
       el: 'Η κεντρική αίθουσα συνεδρίων του Πνευματικού Κέντρου, για ομιλίες, ημερίδες και προβολές.',
       en: 'The main conference hall of the Cultural Center, hosting talks, symposia and screenings.',
@@ -275,7 +275,7 @@ export const placesData: Place[] = [
     id: 'cc-foyer',
     name: { el: 'Φουαγιέ', en: 'Foyer' },
     category: 'CulturalSpace',
-    coords: [38.8354, 20.7067],
+    coords: [38.8349, 20.7043],
     description: {
       el: 'Ο χώρος υποδοχής του Πνευματικού Κέντρου, που φιλοξενεί μικρές εκθέσεις και εκδηλώσεις.',
       en: 'The reception space of the Cultural Center, hosting small exhibitions and events.',
@@ -286,7 +286,7 @@ export const placesData: Place[] = [
     id: 'cc-stamos-hall',
     name: { el: 'Αίθουσα Τέχνης «Θεόδωρος Στάμος»', en: '"Theodoros Stamos" Art Hall' },
     category: 'CulturalSpace',
-    coords: [38.8353, 20.7070],
+    coords: [38.8350, 20.7040],
     description: {
       el: 'Αίθουσα τέχνης αφιερωμένη στον λευκάδιο ζωγράφο Θεόδωρο Στάμο, σημαντικό εκπρόσωπο του αφηρημένου εξπρεσιονισμού.',
       en: 'An art hall dedicated to Lefkadian-descended painter Theodoros Stamos, a key abstract-expressionist figure.',
@@ -297,7 +297,7 @@ export const placesData: Place[] = [
     id: 'cc-ex-libris',
     name: { el: 'Έκθεση Ex Libris', en: 'Ex Libris Exhibition' },
     category: 'CulturalSpace',
-    coords: [38.8357, 20.7065],
+    coords: [38.8352, 20.7042],
     description: {
       el: 'Μόνιμη έκθεση χαρακτικών «Ex Libris» (βιβλιόσημα) από καλλιτέχνες απ’ όλο τον κόσμο.',
       en: 'A permanent "Ex Libris" (bookplate) print exhibition with works by artists from around the world.',
@@ -321,7 +321,7 @@ export const placesData: Place[] = [
     id: 'museum-dff-memorabilia',
     name: { el: 'Μουσείο Ενθυμημάτων Δ.Φ.Φ.', en: 'I.F.F. Memorabilia Museum' },
     category: 'Museum',
-    coords: [38.8354, 20.7064],
+    coords: [38.8349, 20.7045],
     description: {
       el: 'Μουσείο ενθυμημάτων του Διεθνούς Φεστιβάλ Φολκλόρ Λευκάδας, με δώρα και κειμήλια από συμμετέχουσες αποστολές.',
       en: 'Memorabilia museum of Lefkada’s International Folklore Festival, with gifts and keepsakes from visiting delegations.',
@@ -345,7 +345,7 @@ export const placesData: Place[] = [
     id: 'cc-svoronos-library',
     name: { el: 'Βιβλιοθήκη Νίκου Σβορώνου', en: 'Nikos Svoronos Library' },
     category: 'Library',
-    coords: [38.8355, 20.7071],
+    coords: [38.8351, 20.7041],
     description: {
       el: 'Βιβλιοθήκη αφιερωμένη στον λευκάδιο ιστορικό Νίκο Σβορώνο, με ιστορικές και επιστημονικές εκδόσεις.',
       en: 'A library dedicated to the Lefkadian historian Nikos Svoronos, holding historical and scholarly editions.',

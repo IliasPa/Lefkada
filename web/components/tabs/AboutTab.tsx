@@ -27,6 +27,7 @@ import {
   type Community,
   type TwinCity,
 } from "@/data/about";
+import { communityCouncillors } from "@/data/councillors";
 import AnimatedSegmented from "@/components/AnimatedSegmented";
 
 type Mode = "villages" | "twinning" | "access";
@@ -155,6 +156,25 @@ function VillagesView({ lang, t }: { lang: Lang; t: (k: string) => string }) {
           <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
             {community.description[lang]}
           </p>
+          {communityCouncillors[community.name.en]?.length && (
+            <div className="mt-4">
+              <p className="text-[11px] font-bold tracking-[0.12em] uppercase text-gray-400 dark:text-gray-500 mb-2">
+                {t("about_councillors")}
+              </p>
+              <div className="space-y-1.5">
+                {communityCouncillors[community.name.en].map((m) => (
+                  <div key={m.name} className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-gray-50 dark:bg-[#10141F]">
+                    <span className="text-[12.5px] font-semibold text-gray-800 dark:text-gray-200">{m.name}</span>
+                    {m.president && (
+                      <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "#16A34A18", color: "#16A34A" }}>
+                        {t("about_president")}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </Sheet>
       )}
     </div>

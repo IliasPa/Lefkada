@@ -12,6 +12,8 @@ export interface Contact {
   id: string;
   name: BilingualText;
   phone?: string;
+  /** Additional phone numbers (rendered as extra call buttons). */
+  phones?: string[];
   email?: string;
   /** Opening hours. When omitted, the contact keeps the STANDARD office hours
    *  (marked with a ★ in the UI to avoid repeating the same line everywhere). */
@@ -30,7 +32,20 @@ export const contactsData: Contact[] = [
     id: 'mayor',
     name: { el: 'Γραφείο Δημάρχου', en: "Mayor's Office" },
     phone: '+302645360500',
+    phones: ['+302645360507', '+302645360511'],
     email: 'dimarxos@lefkada.gov.gr',
+    category: 'Administration',
+  },
+  {
+    id: 'secretary-general',
+    name: { el: 'Γενικός Γραμματέας', en: 'Secretary General' },
+    phone: '+302645360519',
+    category: 'Administration',
+  },
+  {
+    id: 'legal',
+    name: { el: 'Νομική Υπηρεσία', en: 'Legal Service' },
+    phone: '+302645360588',
     category: 'Administration',
   },
   {

@@ -161,3 +161,99 @@ export const councilTerms: CouncilTerm[] = [
 /** Asset declarations live on the national registry (the source of the actual
  *  documents), not on the municipality's site. */
 export const ASSET_DISCLOSURES_URL = 'https://www.pothen.gr/';
+
+/** The official decision (document) appointing the current Deputy Mayors. */
+export const DEPUTY_ASSIGNMENT_DECISION =
+  'https://lefkada.gov.gr/wp-content/uploads/2026/04/8321-26-98fpoli-itha.pdf';
+
+/** The Mayor's published Curriculum Vitae. */
+export const MAYOR_CV_URL = 'https://lefkada.gov.gr/municipality/viografiko-dimarchou/';
+
+// ── City Council (Δημοτικό Συμβούλιο) composition ────────────────────────────
+export interface CityCouncil {
+  president: string;
+  vicePresident: string;
+  secretary: string;
+  councillors: string[];
+}
+
+export const cityCouncil: CityCouncil = {
+  president: 'Σκλαβενίτης Ευστάθιος',
+  vicePresident: 'Μπελεγρίνος Σπυρίδων',
+  secretary: 'Θερμός Ευάγγελος',
+  councillors: [
+    'Καραγιάννης Αθανάσιος', 'Σκληρός Φίλιππος', 'Κάτσενου Θεοδώρα', 'Βεργίνης Σπυρίδων',
+    'Μαργέλη Μαρία', 'Μπακογιώργος Χρήστος', 'Κονιδάρης Κωνσταντίνος', 'Αρματάς Γεράσιμος',
+    'Λάζαρης Αρίστος', 'Γαντζίας Ιωάννης', 'Κωνσταντινίδη Σεβαστή', 'Σολδάτος Γεώργιος',
+    'Λάζαρης Νικόλαος', 'Αραβανή Χριστίνα', 'Γιαννιώτης Παναγιώτης', 'Γιαννούτσος Χαράλαμπος',
+    'Καλός Χαράλαμπος', 'Λύγδας Σπυρίδων', 'Τσιρογιάννης Γεώργιος', 'Πεντεσπίτης Νικόλαος',
+    'Γαζής Γεώργιος', 'Αργυρός Νικόλαος', 'Δρακονταειδής Κωνσταντίνος', 'Σέρβος Κωνσταντίνος',
+    'Βερροιώτης Ευάγγελος', 'Βεροιώτης Αλέξανδρος',
+  ],
+};
+
+// ── Organisational tree (δομή του Δήμου) ─────────────────────────────────────
+export interface OrgNode {
+  name: BilingualText;
+  children?: OrgNode[];
+}
+
+const n = (el: string, en: string, children?: OrgNode[]): OrgNode => ({ name: { el, en }, children });
+
+export const orgTree: OrgNode[] = [
+  n('Υπηρεσίες υπαγόμενες στον Δήμαρχο', 'Services under the Mayor', [
+    n('Ιδιαίτερο Γραφείο Δημάρχου', "Mayor's Private Office"),
+    n('Αυτοτελές Γραφείο Επικοινωνίας και Δημοσίων Σχέσεων', 'Communication & Public Relations Office'),
+    n('Νομική Υπηρεσία', 'Legal Service'),
+    n('Αυτοτελές Γραφείο Εσωτερικού Ελέγχου', 'Internal Audit Office'),
+    n('Αυτοτελές Γραφείο Διαφάνειας', 'Transparency Office'),
+    n('Αυτοτελές Γραφείο Διοικητικής Βοήθειας', 'Administrative Assistance Office'),
+    n('Αυτοτελές Τμήμα Δημοτικής Αστυνομίας', 'Municipal Police Department', [
+      n('Γραφείο Επιχειρησιακού Σχεδιασμού', 'Operational Planning Office'),
+      n('Γραφείο Αστυνόμευσης', 'Policing Office'),
+    ]),
+  ]),
+  n('Αυτοτελές Τμήμα Προγραμματισμού, Οργάνωσης και Πληροφορικής', 'Planning, Organization & IT Department', [
+    n('Γραφείο Προγραμματισμού, Ανάπτυξης και Οργάνωσης', 'Planning, Development & Organization Office'),
+    n('Γραφείο Τεχνολογιών Πληροφορικής και Επικοινωνιών', 'IT & Communications Office'),
+  ]),
+  n('Αυτοτελές Τμήμα Τοπικής Οικονομικής Ανάπτυξης', 'Local Economic Development Department', [
+    n('Γραφείο Αγροτικής Παραγωγής', 'Agricultural Production Office'),
+    n('Γραφείο Αλιείας', 'Fisheries Office'),
+    n('Γραφείο Αδειοδοτήσεων και Ρύθμισης Εμπορικών Δραστηριοτήτων', 'Licensing & Commercial Activities Office'),
+    n('Γραφείο Φυσικών Πόρων, Ενέργειας και Βιομηχανίας', 'Natural Resources, Energy & Industry Office'),
+    n('Γραφείο Απασχόλησης και Τουρισμού', 'Employment & Tourism Office'),
+  ]),
+  n('Διεύθυνση Πολεοδομίας και Περιβάλλοντος', 'Directorate of Urban Planning & Environment', [
+    n('Τμήμα Πολεοδομίας', 'Urban Planning Department'),
+    n('Τμήμα Πολεοδομικών Εφαρμογών', 'Urban Planning Applications Department'),
+    n('Τμήμα Περιβάλλοντος και Πολιτικής Προστασίας', 'Environment & Civil Protection Department'),
+    n('Τμήμα Καθαριότητας, Ανακύκλωσης και Συντήρησης Πρασίνου', 'Cleanliness, Recycling & Green Maintenance Department'),
+  ]),
+  n('Αυτοτελές Τμήμα Κοινωνικής Προστασίας, Παιδείας και Πολιτισμού', 'Social Protection, Education & Culture Department', [
+    n('Γραφείο Κοινωνικής Πολιτικής και Ισότητας των Φύλων', 'Social Policy & Gender Equality Office'),
+    n('Γραφείο Προστασίας και Προαγωγής της Δημόσιας Υγείας', 'Public Health Office'),
+    n('Γραφείο Παιδείας, Διά Βίου Μάθησης και Πολιτισμού', 'Education, Lifelong Learning & Culture Office'),
+  ]),
+  n('Διεύθυνση Διοικητικών Υπηρεσιών', 'Directorate of Administrative Services', [
+    n('Τμήμα Υποστήριξης Πολιτικών Οργάνων', 'Political Bodies Support Department'),
+    n('Τμήμα Δημοτικής Κατάστασης, Ληξιαρχείου και Μετανάστευσης', 'Registry, Records & Migration Department'),
+    n('Τμήμα Ανθρώπινου Δυναμικού', 'Human Resources Department'),
+    n('Τμήμα Διοικητικής Μέριμνας', 'Administrative Care Department'),
+  ]),
+  n('Διεύθυνση Οικονομικών Υπηρεσιών', 'Directorate of Financial Services', [
+    n('Τμήμα Προϋπολογισμού, Λογιστηρίου και Προμηθειών', 'Budget, Accounting & Procurement Department'),
+    n('Τμήμα Εσόδων, Περιουσίας και Ταμείου', 'Revenue, Property & Treasury Department'),
+  ]),
+  n('Διεύθυνση Τεχνικών Υπηρεσιών', 'Directorate of Technical Services', [
+    n('Τμήμα Τεχνικών Έργων', 'Technical Works Department'),
+    n('Τμήμα Ηλεκτρομηχανολογικών Έργων και Συγκοινωνιών', 'Electromechanical Works & Transport Department'),
+    n('Τμήμα Διαχείρισης και Συντήρησης Οχημάτων', 'Vehicle Management & Maintenance Department'),
+    n('Τμήμα Ύδρευσης και Αποχέτευσης', 'Water Supply & Sewerage Department'),
+  ]),
+  n('Διεύθυνση ΚΕΠ', 'Directorate of Citizen Service Centres (KEP)', [
+    n('Τμήμα Εξυπηρέτησης Πολιτών', 'Citizen Service Department'),
+    n('Τμήμα Εσωτερικής Ανταπόκρισης', 'Internal Correspondence Department'),
+    n('Τμήμα Αποκεντρωμένων Υπηρεσιών', 'Decentralized Services Department'),
+  ]),
+];

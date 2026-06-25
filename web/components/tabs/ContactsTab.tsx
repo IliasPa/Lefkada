@@ -140,6 +140,16 @@ function ContactCard({
             {c.phone}
           </a>
         )}
+        {c.phones?.map((p) => (
+          <a
+            key={p}
+            href={`tel:${p}`}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary/10 text-primary dark:text-primary-300 text-[12px] font-bold hover:bg-primary/20 active:scale-95 transition-all"
+          >
+            <Phone size={13} />
+            {p}
+          </a>
+        ))}
         {c.email && (
           <a
             href={`mailto:${c.email}`}

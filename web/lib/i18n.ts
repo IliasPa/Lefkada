@@ -381,6 +381,27 @@ const el: Record<string, string> = {
   services_waste_areas: "Ενδεικτικό πρόγραμμα ανά περιοχή",
   services_waste_note: "Ενδεικτικά. Το ακριβές πρόγραμμα ανά περιοχή ορίζεται εποχικά από την Υπηρεσία Καθαριότητας.",
   services_emergency: "Τηλέφωνα Έκτακτης Ανάγκης",
+  services_projects_cta: "Άνοιγμα έργων ΕΣΠΑ",
+  services_bulky_call: "Ογκώδη/κλαδέματα",
+
+  water_title: "Αναλύσεις Πόσιμου Νερού",
+  water_sub: "Ανά έτος, ενότητα & κοινότητα",
+  water_micro: "Μικροβιολογική",
+  water_physico: "Φυσικοχημική",
+  water_collapse: "Σύμπτυξη",
+
+  council_decision: "Απόφαση ορισμού",
+  council_cv: "Βιογραφικό",
+  council_members: "Δημοτικό Συμβούλιο",
+  council_members_count: "μέλη",
+  council_president: "Πρόεδρος",
+  council_vice_president: "Αντιπρόεδρος",
+  council_secretary: "Γραμματέας",
+  council_structure: "Δομή / Οργανόγραμμα Δήμου",
+  council_structure_sub: "Διευθύνσεις, τμήματα & γραφεία",
+
+  about_councillors: "Σύμβουλοι Κοινότητας",
+  about_president: "Πρόεδρος",
 };
 
 const en: Record<string, string> = {
@@ -746,6 +767,27 @@ const en: Record<string, string> = {
   services_waste_areas: "Indicative schedule by area",
   services_waste_note: "Indicative. The exact per-area schedule is set seasonally by the Cleanliness Service.",
   services_emergency: "Emergency Numbers",
+  services_projects_cta: "Open NSRF projects",
+  services_bulky_call: "Bulky/branches",
+
+  water_title: "Drinking-Water Analyses",
+  water_sub: "By year, unit & community",
+  water_micro: "Microbiological",
+  water_physico: "Physico-chemical",
+  water_collapse: "Collapse",
+
+  council_decision: "Appointment decision",
+  council_cv: "Curriculum Vitae",
+  council_members: "City Council",
+  council_members_count: "members",
+  council_president: "President",
+  council_vice_president: "Vice-President",
+  council_secretary: "Secretary",
+  council_structure: "Municipal Structure",
+  council_structure_sub: "Directorates, departments & offices",
+
+  about_councillors: "Community Councillors",
+  about_president: "President",
 };
 
 export const translations = { el, en } as const;

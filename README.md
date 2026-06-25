@@ -71,7 +71,7 @@
 - **Acts:** a searchable feed filtered by a **type segmented control — Decisions · Tenders · Announcements · Meetings** (the old "All" option was removed so the filter always reflects one clear category). Each card has a plain-language summary plus the official PDF — *the PDF stays the source of truth; summaries are written, not auto-generated.*
   - **Tenders** show a deadline countdown (open/closed). When a tender creates work — e.g. the **lifeguard tender** — it links to the matching posting in the **Jobs** tab.
   - **Meetings** keep their **own thread**: agenda + minutes PDFs and an inline **"Watch"** recording.
-- **Council (new):** an **interactive composition** of the municipal authority with **per-term tabs** (labelled by the year each council took office; the take-office date shows at the top). The current term lists the **Mayor** and **Secretary General** as leadership cards, the **ten Deputy Mayors** as a tappable grid (initials avatars) and the **committees** (Executive, Finance, Quality-of-Life); past terms list the mayor + take-office date. Tapping a person/committee opens an **in-app** bottom-sheet (no link back to the site being replaced). Only **asset disclosures** link out — to the national **Πόθεν Έσχες** registry `pothen.gr`, where the actual documents live. *Per-person CVs, photos and individual disclosure files aren't published openly by the municipality, and full historical rosters for past terms aren't recorded in-app yet — see the v0.7 notes.*
+- **Council (new):** an **interactive composition** of the municipal authority with **per-term tabs** (labelled by the year each council took office; the take-office date shows at the top). The current term lists the **Mayor** and **Secretary General** as leadership cards (the Mayor's sheet links to the official **CV**), the **ten Deputy Mayors** as a grid where each card carries an **Appointment-decision** button (the official decision PDF — no role line, no sheet), and the **committees** (Executive, Finance, Quality-of-Life). It also includes the full **City Council** roster (President, V-P, Secretary + 26 councillors) and a collapsible **Municipal Structure** org-tree (directorates → departments → offices). Past terms list the mayor + take-office date. Detail sheets are **in-app**; the only external links are **documents** — asset disclosures to the national **Πόθεν Έσχες** registry `pothen.gr`, the deputies' appointment-decision PDF and the Mayor's CV. *Per-person deputy CVs and full historical rosters for past terms aren't published openly — see the v0.7 notes.*
 
 ---
 
@@ -127,7 +127,7 @@
 
 **Why this design:**
 
-- **Villages:** the seven **municipal units** (Lefkada, Apollonioi, Ellomenos, Karya, Sfakiotes, and the island units **Kalamos** & **Kastos**) as an accordion. Each shows its seat and expands to its **communities** — the full Kallikratis subdivision. **Tapping a community** opens a popup with a short description of that village.
+- **Villages:** the seven **municipal units** (Lefkada, Apollonioi, Ellomenos, Karya, Sfakiotes, and the island units **Kalamos** & **Kastos**) as an accordion. Each shows its seat and expands to its **communities** — the full Kallikratis subdivision. **Tapping a community** opens a popup with a short description **and that community's elected councillors** (president highlighted), harvested per community from the municipality.
 - **Twinning:** the nine **sister cities** (Emmaboda, Strážnice, Paralimni, Shinjuku, Nahariya, Ploiești, Leucate, Primorskyi/Odessa, Zhoushan). **Tapping a city** opens its full registry entry — **date of twinning**, the **Municipal Council decision** and the **mayor's office** that signed it.
 - **Access:** how to reach the island — **road & floating bridge**, **air** (Aktio/Preveza), **KTEL bus** and **ferries to Kalamos/Kastos**, with a link to the live KTEL timetables.
 
@@ -142,10 +142,11 @@
 - **Report a problem (4MyCity):** promoted to a first-class entry point (it was previously only a deep link from the Profile).
 - **e-Services (gov.gr):** the municipality's real gov.gr links, broken into **small per-task cards** grouped by **Registry certificates**, **Citizen registry** and **Civil registry** (births/marriages/deaths) — 12 direct gov.gr deep links.
 - **e-Payments:** the actual `eservices.lefkada.gov.gr` portal — **pay certified debts** (municipal fees & fines), **pay non-certified debts**, and **childcare applications**.
+- **NSRF / ΕΣΠΑ projects:** a card linking to the municipality's co-funded-projects page.
 - **Social:** **Social Grocery & DEKOKAL**, **Community Centre**, **Municipal Port Fund** — in-app info cards.
-- **Cleanliness & Water:** **waste & recycling** (recycling streams, an indicative per-area collection schedule and bulky-waste drop-off points) and **drinking-water analyses**.
-- **Safety & integrity:** a red **emergency quick-dial** card (112, the municipal 967 line, Police 100, Fire 199, EKAB 166, Coast Guard 108, municipal Civil Protection — every number a one-tap `tel:` link) and the **whistleblowing** channel (EU Directive 2019/1937).
-- *The "Projects on a map" card was removed (there's no usable public projects-map platform/dataset to drive it); the per-area waste schedule is **indicative**; and the water-analyses / whistleblowing items await an official link — see the v0.7 notes.*
+- **Cleanliness & Water:** **waste & recycling** (recycling streams, an indicative per-area collection schedule, bulky-waste drop-off points and a **call button** for the Cleanliness Dept) and an **interactive drinking-water-analyses card** — year buttons (2025, 2024) expand to **Municipal Units → Communities → Microbiological / Physico-chemical PDF buttons** (≈480 real PDFs harvested per community).
+- **Safety & integrity:** a red **emergency quick-dial** card (112, the municipal 967 line, Police 100, Fire 199, EKAB 166, Coast Guard 108, municipal Civil Protection — every number a one-tap `tel:` link) and the **whistleblowing** channel (Greek **Law 4990/2022**, transposing EU 2019/1937) linking the real EL/EN reporting platform.
+- *The NSRF project list is JS-rendered so the card links out; the per-area waste schedule is **indicative**; 2026 water analyses aren't published yet — see the v0.7 notes.*
 
 ---
 
@@ -249,7 +250,7 @@ Targeted Lighthouse fixes: **zoom re-enabled** (`user-scalable` no longer disabl
 
 ## Data & content
 
-All content is static and lives in `web/data/*.ts` — `news`, `events`, `voting`, `financials` (expenses + income), `jobs`, `contacts`, `pharmacies`, `alerts`, `healthTests`, `places`, and (v0.7) `history`, `council`, `about`, `services`. There is **no backend**: the public directories that would normally feed some of this (e.g. the pharmacy list at `lefkadaopen.gr`) block automated fetching and a static export can't call them at runtime, so these lists are **curated locally in their data file** and edited there. A future version would move changing content (events, alerts, pharmacy duty roster) to a small CMS/database so non-developers can update it without a code change.
+All content is static and lives in `web/data/*.ts` — `news`, `events`, `voting`, `financials` (expenses + income), `jobs`, `contacts`, `pharmacies`, `alerts`, `healthTests`, `places`, and (v0.7) `history`, `council`, `about`, `services`, `water`, `councillors`. There is **no backend**: the public directories that would normally feed some of this (e.g. the pharmacy list at `lefkadaopen.gr`) block automated fetching and a static export can't call them at runtime, so these lists are **curated locally in their data file** and edited there. A future version would move changing content (events, alerts, pharmacy duty roster) to a small CMS/database so non-developers can update it without a code change.
 
 ## Run locally
 
