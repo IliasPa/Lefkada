@@ -4,7 +4,7 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import { KEYS, storageGet, storageSet } from '@/lib/storage';
 import { translations, type Lang } from '@/lib/i18n';
 
-export type TabKey = 'home' | 'culture' | 'vote' | 'health' | 'financials' | 'governance' | 'jobs' | 'game' | 'contacts' | 'account';
+export type TabKey = 'home' | 'culture' | 'vote' | 'health' | 'financials' | 'governance' | 'about' | 'services' | 'jobs' | 'game' | 'contacts' | 'account';
 export type ThemeMode = 'light' | 'dark';
 
 export interface A11ySettings {
@@ -20,7 +20,7 @@ const DEFAULT_A11Y: A11ySettings = {
 
 /** Center tabs the user can show/hide (Profile/account is always reachable via the logo). */
 export const HIDEABLE_TABS: TabKey[] = [
-  'home', 'culture', 'vote', 'health', 'financials', 'governance', 'jobs', 'game', 'contacts',
+  'home', 'culture', 'vote', 'health', 'financials', 'governance', 'about', 'services', 'jobs', 'game', 'contacts',
 ];
 
 interface AppContextValue {
@@ -71,7 +71,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const params = new URLSearchParams(window.location.search);
     const tabParam = params.get('tab') as TabKey | null;
-    if (tabParam && ['home', 'culture', 'vote', 'health', 'financials', 'governance', 'jobs', 'game', 'contacts', 'account'].includes(tabParam)) {
+    if (tabParam && ['home', 'culture', 'vote', 'health', 'financials', 'governance', 'about', 'services', 'jobs', 'game', 'contacts', 'account'].includes(tabParam)) {
       setActiveTabState(tabParam);
     }
     setMounted(true);

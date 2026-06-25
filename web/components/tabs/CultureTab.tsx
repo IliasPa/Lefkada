@@ -8,6 +8,7 @@ import {
   MapPin,
   Map as MapIcon,
   Building2,
+  ScrollText,
   ExternalLink,
   Navigation,
   Clock,
@@ -30,6 +31,7 @@ import {
   PLACE_ACCENT,
   type Place,
 } from "@/data/places";
+import { historyData, HISTORY_ACCENT, type HistoryEntry } from "@/data/history";
 import AnimatedSegmented from "@/components/AnimatedSegmented";
 
 const LazyMap = dynamic(() => import("@/components/LefkadaMap"), {
@@ -41,7 +43,7 @@ const LazyMap = dynamic(() => import("@/components/LefkadaMap"), {
   ),
 });
 
-type Mode = "events" | "calendar" | "map" | "spaces";
+type Mode = "events" | "calendar" | "history" | "spaces" | "map";
 type Lang = "el" | "en";
 
 // ── date helpers (local, ISO yyyy-mm-dd) ─────────────────────────────────────
@@ -112,8 +114,9 @@ export default function CultureTab() {
   const subtabs = [
     { key: "events", label: t("culture_view_list"), icon: <List size={13} /> },
     { key: "calendar", label: t("culture_view_calendar"), icon: <CalendarDays size={13} /> },
-    { key: "map", label: t("culture_view_map"), icon: <MapIcon size={13} /> },
+    { key: "history", label: t("culture_view_history"), icon: <ScrollText size={13} /> },
     { key: "spaces", label: t("culture_view_spaces"), icon: <Building2 size={13} /> },
+    { key: "map", label: t("culture_view_map"), icon: <MapIcon size={13} /> },
   ];
 
   return (
@@ -149,6 +152,7 @@ export default function CultureTab() {
                 t={t}
               />
             )}
+            {mode === "history" && <HistoryView lang={lang} t={t} />}
             {mode === "spaces" && (
               <SpacesView places={culturalSpaces} lang={lang} t={t} />
             )}
@@ -230,6 +234,67 @@ function SpacesView({
         })}
       </div>
     </>
+  );
+}
+
+// ── History & religious references ───────────────────────────────────────────
+function HistoryView({
+  lang,
+  t,
+}: {
+  lang: Lang;
+  t: (k: string) => string;
+}) {
+  const groups: { kind: HistoryEntry["kind"]; label: string }[] = [
+    { kind: "History", label: t("culture_hist_history") },
+    { kind: "Religion", label: t("culture_hist_religion") },
+  ];
+  return (
+    <div className="space-y-5">
+      {groups.map((g) => {
+        const items = historyData.filter((h) => h.kind === g.kind);
+        const accent = HISTORY_ACCENT[g.kind];
+        return (
+          <div key={g.kind}>
+            <p
+              className="text-[11px] font-bold tracking-[0.12em] uppercase mb-2 ml-1"
+              style={{ color: accent }}
+            >
+              {g.label}
+            </p>
+            <div className="space-y-3">
+              {items.map((h) => (
+                <article
+                  key={h.id}
+                  className="rounded-2xl border border-gray-100 dark:border-[#1E2D4E] bg-white dark:bg-[#141929] shadow-sm overflow-hidden"
+                >
+                  <div className="h-1 w-full" style={{ backgroundColor: accent }} />
+                  <div className="p-4">
+                    <h3 className="font-bold text-[15px] text-gray-900 dark:text-white leading-snug">
+                      {h.title[lang]}
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed mt-1.5 whitespace-pre-line">
+                      {h.body[lang]}
+                    </p>
+                    {h.url && (
+                      <a
+                        href={h.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 mt-3 px-2.5 py-1 rounded-lg text-[11px] font-bold text-primary dark:text-primary-300 bg-primary-50 dark:bg-primary-900/20 hover:bg-primary-100 dark:hover:bg-primary-900/30 transition-colors active:scale-95"
+                      >
+                        <ExternalLink size={12} />
+                        {t("map_more")}
+                      </a>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 

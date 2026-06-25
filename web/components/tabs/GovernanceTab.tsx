@@ -12,6 +12,8 @@ import {
   Briefcase,
   CalendarDays,
   FileText,
+  Users,
+  FolderOpen,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import {
@@ -22,8 +24,10 @@ import {
   type GovType,
 } from "@/data/governance";
 import AnimatedSegmented from "@/components/AnimatedSegmented";
+import CouncilView from "@/components/CouncilView";
 
 type Lang = "el" | "en";
+type Section = "acts" | "council";
 
 const TYPE_ICON: Record<GovType, React.ReactNode> = {
   Decision: <Gavel size={13} />,
@@ -46,13 +50,14 @@ function fmtDate(s: string, lang: Lang) {
 
 export default function GovernanceTab() {
   const { t, lang } = useApp();
-  const [type, setType] = useState<GovType | "all">("all");
+  const [section, setSection] = useState<Section>("acts");
+  const [type, setType] = useState<GovType>("Decision");
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return governanceData
-      .filter((g) => type === "all" || g.type === type)
+      .filter((g) => g.type === type)
       .filter((g) => {
         if (!q) return true;
         return [g.title.el, g.title.en, g.summary.el, g.summary.en]
@@ -70,52 +75,69 @@ export default function GovernanceTab() {
           {t("gov_title")}
         </h1>
 
-        {/* Search */}
-        <div className="relative mb-3">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            type="search"
-            placeholder={t("gov_search")}
-            aria-label={t("gov_search")}
-            className="w-full pl-10 pr-10 py-2.5 rounded-xl text-[14px] bg-white dark:bg-[#141929] border border-gray-200 dark:border-[#252A3A] text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-colors"
-          />
-          {query && (
-            <button
-              onClick={() => setQuery("")}
-              aria-label={t("close")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-[#252A3A] active:scale-90"
-            >
-              <X size={15} />
-            </button>
-          )}
-        </div>
-
-        {/* Type filter (animated segmented, full-width so the indicator isn't clipped) */}
+        {/* Acts vs Council */}
         <div className="mb-4">
           <AnimatedSegmented
             options={[
-              { key: "all", label: t("gov_f_all") },
-              ...GOV_TYPES.map((ty) => ({ key: ty, label: t("gov_f_" + ty), icon: TYPE_ICON[ty] })),
+              { key: "acts", label: t("gov_sec_acts"), icon: <FolderOpen size={13} /> },
+              { key: "council", label: t("gov_sec_council"), icon: <Users size={13} /> },
             ]}
-            value={type}
-            onChange={(k) => setType(k as GovType | "all")}
+            value={section}
+            onChange={(k) => setSection(k as Section)}
             size="sm"
             fullWidth
           />
         </div>
 
-        {filtered.length === 0 ? (
-          <p className="text-center text-gray-400 dark:text-gray-500 py-12 text-sm">
-            {t("gov_no_results")}
-          </p>
+        {section === "council" ? (
+          <CouncilView />
         ) : (
-          <div className="space-y-3">
-            {filtered.map((g) => (
-              <GovCard key={g.id} g={g} lang={lang} t={t} />
-            ))}
-          </div>
+          <>
+            {/* Search */}
+            <div className="relative mb-3">
+              <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                type="search"
+                placeholder={t("gov_search")}
+                aria-label={t("gov_search")}
+                className="w-full pl-10 pr-10 py-2.5 rounded-xl text-[14px] bg-white dark:bg-[#141929] border border-gray-200 dark:border-[#252A3A] text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-colors"
+              />
+              {query && (
+                <button
+                  onClick={() => setQuery("")}
+                  aria-label={t("close")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-[#252A3A] active:scale-90"
+                >
+                  <X size={15} />
+                </button>
+              )}
+            </div>
+
+            {/* Type filter (animated segmented, full-width so the indicator isn't clipped) */}
+            <div className="mb-4">
+              <AnimatedSegmented
+                options={GOV_TYPES.map((ty) => ({ key: ty, label: t("gov_f_" + ty), icon: TYPE_ICON[ty] }))}
+                value={type}
+                onChange={(k) => setType(k as GovType)}
+                size="sm"
+                fullWidth
+              />
+            </div>
+
+            {filtered.length === 0 ? (
+              <p className="text-center text-gray-400 dark:text-gray-500 py-12 text-sm">
+                {t("gov_no_results")}
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {filtered.map((g) => (
+                  <GovCard key={g.id} g={g} lang={lang} t={t} />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

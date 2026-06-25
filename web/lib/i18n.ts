@@ -84,7 +84,7 @@ const el: Record<string, string> = {
   place_pl_Church: "Εκκλησίες",
   place_pl_Castle: "Κάστρα",
   place_pl_Landmark: "Αξιοθέατα",
-  gov_title: "Δημαρχείο — Επίσημες Πράξεις",
+  gov_title: "Δημαρχείο",
   gov_search: "Αναζήτηση αποφάσεων, διαγωνισμών…",
   gov_no_results: "Δεν βρέθηκαν αποτελέσματα.",
   gov_f_all: "Όλα",
@@ -327,6 +327,44 @@ const el: Record<string, string> = {
   game_title: "Wordle Ελληνικά",
   game_info_tooltip:
     "Το κλασικό παιχνίδι Wordle, αλλά με ελληνικές λέξεις σχετικές με τον Δήμο — τοπωνύμια, υπηρεσίες και παράδοση της Λευκάδας. Στόχος είναι να εμπλέξει τους πολίτες με διασκεδαστικό τρόπο και να τους εξοικειώσει με τον τόπο τους.",
+
+  // ── v0.7: tabs, history, council, about, services ──
+  tab_about: "Το Νησί",
+  tab_services: "Υπηρεσίες",
+
+  place_Library: "Βιβλιοθήκη",
+  place_pl_Library: "Βιβλιοθήκες",
+
+  culture_view_history: "Ιστορία",
+  culture_hist_history: "Ιστορία",
+  culture_hist_religion: "Θρησκεία",
+
+  gov_sec_acts: "Πράξεις",
+  gov_sec_council: "Συμβούλιο",
+  council_leadership: "Ηγεσία",
+  council_deputies: "Αντιδήμαρχοι",
+  council_bodies: "Όργανα & Στοιχεία",
+  council_full_list: "Δημοτικό Συμβούλιο",
+  council_full_list_sub: "Πλήρης σύνθεση συμβούλων",
+  council_committee: "Επιτροπή",
+  council_disclosures: "Δηλώσεις «Πόθεν Έσχες»",
+  council_disclosures_sub: "Εθνική πύλη pothen.gr",
+  council_archive: "Παλαιότερα Συμβούλια",
+  council_archive_sub: "Αρχείο θητειών",
+  council_official_page: "Επίσημη σελίδα",
+
+  about_title: "Γνωρίστε τη Λευκάδα",
+  about_villages: "Χωριά",
+  about_twinning: "Αδελφοποιήσεις",
+  about_access: "Πρόσβαση",
+  about_island: "Νησί",
+  about_seat: "Έδρα",
+  about_communities: "κοινότητες",
+  about_updated: "Ενημ.",
+  about_valid_until: "Ισχύει έως",
+
+  services_title: "Υπηρεσίες προς τον Πολίτη",
+  services_emergency: "Τηλέφωνα Έκτακτης Ανάγκης",
 };
 
 const en: Record<string, string> = {
@@ -409,7 +447,7 @@ const en: Record<string, string> = {
   place_pl_Church: "Churches",
   place_pl_Castle: "Castles",
   place_pl_Landmark: "Landmarks",
-  gov_title: "Town Hall — Official Acts",
+  gov_title: "Town Hall",
   gov_search: "Search decisions, tenders…",
   gov_no_results: "No results found.",
   gov_f_all: "All",
@@ -638,6 +676,44 @@ const en: Record<string, string> = {
   game_title: "Greek Wordle",
   game_info_tooltip:
     "The classic Wordle game, but with Greek words related to the Municipality — Lefkada place names, services and traditions. The goal is to engage citizens in a fun way and help them get to know their place.",
+
+  // ── v0.7: tabs, history, council, about, services ──
+  tab_about: "About",
+  tab_services: "Services",
+
+  place_Library: "Library",
+  place_pl_Library: "Libraries",
+
+  culture_view_history: "History",
+  culture_hist_history: "History",
+  culture_hist_religion: "Religion",
+
+  gov_sec_acts: "Acts",
+  gov_sec_council: "Council",
+  council_leadership: "Leadership",
+  council_deputies: "Deputy Mayors",
+  council_bodies: "Bodies & Records",
+  council_full_list: "Municipal Council",
+  council_full_list_sub: "Full list of councillors",
+  council_committee: "Committee",
+  council_disclosures: "Asset Disclosures (Pothen Esches)",
+  council_disclosures_sub: "National portal pothen.gr",
+  council_archive: "Past Councils",
+  council_archive_sub: "Archive of terms",
+  council_official_page: "Official page",
+
+  about_title: "About Lefkada",
+  about_villages: "Villages",
+  about_twinning: "Twinning",
+  about_access: "Access",
+  about_island: "Island",
+  about_seat: "Seat",
+  about_communities: "communities",
+  about_updated: "Updated",
+  about_valid_until: "Valid until",
+
+  services_title: "Citizen Services",
+  services_emergency: "Emergency Numbers",
 };
 
 export const translations = { el, en } as const;

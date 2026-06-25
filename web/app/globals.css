@@ -81,8 +81,14 @@ main {
   }
 }
 
-/* Larger text — scale the scrollable content (resize support, 1.4.4) */
+/* Larger text — scale the scrollable content and the header chrome (logo, tab
+   icons, settings) together so the whole UI grows (resize support, 1.4.4). The
+   sliding indicators are positioned in layout space (offsetLeft), so zoom does
+   not throw them off. */
 .a11y-large main {
+  zoom: 1.15;
+}
+.a11y-large header {
   zoom: 1.15;
 }
 

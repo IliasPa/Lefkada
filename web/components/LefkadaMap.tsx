@@ -12,7 +12,7 @@ type Kind = "all" | "events" | "places";
 const KIND_COLOR = { event: "#E11D48", place: "#0D5EAF" } as const;
 
 const PLACE_CATS: PlaceCategory[] = [
-  "Beach", "Village", "Trail", "Museum", "CulturalSpace", "Church", "Castle", "Landmark",
+  "Beach", "Village", "Trail", "Museum", "CulturalSpace", "Library", "Church", "Castle", "Landmark",
 ];
 
 interface Pt {

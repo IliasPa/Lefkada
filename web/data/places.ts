@@ -6,6 +6,7 @@ export type PlaceCategory =
   | 'Trail'
   | 'Museum'
   | 'CulturalSpace'
+  | 'Library'
   | 'Church'
   | 'Castle'
   | 'Landmark';
@@ -25,6 +26,7 @@ export interface Place {
 export const CULTURAL_PLACE_CATEGORIES: PlaceCategory[] = [
   'CulturalSpace',
   'Museum',
+  'Library',
   'Church',
 ];
 
@@ -34,6 +36,7 @@ export const PLACE_IMAGES: Record<PlaceCategory, string> = {
   Trail: '/events/sports.png',
   Museum: '/events/art.png',
   CulturalSpace: '/events/theatre.png',
+  Library: '/events/art.png',
   Church: '/events/religious.png',
   Castle: '/events/festival.png',
   Landmark: '/backgrounds/lefkada-2-sunset.png',
@@ -45,6 +48,7 @@ export const PLACE_ACCENT: Record<PlaceCategory, string> = {
   Trail: '#65A30D',
   Museum: '#9333EA',
   CulturalSpace: '#A61E34',
+  Library: '#2563EB',
   Church: '#C4963C',
   Castle: '#B45309',
   Landmark: '#E4802C',
@@ -246,15 +250,107 @@ export const placesData: Place[] = [
     url: 'https://lefkasculturalcenter.gr/en/venue/open-lefkada-theatre/',
   },
   {
+    id: 'cc-takis-efstathiou',
+    name: { el: 'Αίθουσα «Τάκης Ευσταθίου»', en: '"Takis Efstathiou" Hall' },
+    category: 'CulturalSpace',
+    coords: [38.8334, 20.7050],
+    description: {
+      el: 'Αίθουσα εκθέσεων και εκδηλώσεων του Πνευματικού Κέντρου, αφιερωμένη στον δωρητή Τάκη Ευσταθίου.',
+      en: 'An exhibition and events hall of the Cultural Center, named after the benefactor Takis Efstathiou.',
+    },
+    url: 'https://lefkasculturalcenter.gr/ethousa-taki-efstathiou/',
+  },
+  {
+    id: 'cc-conference-hall',
+    name: { el: 'Αίθουσα Συνεδρίων', en: 'Conference Hall' },
+    category: 'CulturalSpace',
+    coords: [38.8338, 20.7047],
+    description: {
+      el: 'Η κεντρική αίθουσα συνεδρίων του Πνευματικού Κέντρου, για ομιλίες, ημερίδες και προβολές.',
+      en: 'The main conference hall of the Cultural Center, hosting talks, symposia and screenings.',
+    },
+    url: 'https://lefkasculturalcenter.gr/venue/ethousa-synedrion/',
+  },
+  {
+    id: 'cc-foyer',
+    name: { el: 'Φουαγιέ', en: 'Foyer' },
+    category: 'CulturalSpace',
+    coords: [38.8337, 20.7049],
+    description: {
+      el: 'Ο χώρος υποδοχής του Πνευματικού Κέντρου, που φιλοξενεί μικρές εκθέσεις και εκδηλώσεις.',
+      en: 'The reception space of the Cultural Center, hosting small exhibitions and events.',
+    },
+    url: 'https://lefkasculturalcenter.gr/venue/fouagie/',
+  },
+  {
+    id: 'cc-stamos-hall',
+    name: { el: 'Αίθουσα Τέχνης «Θεόδωρος Στάμος»', en: '"Theodoros Stamos" Art Hall' },
+    category: 'CulturalSpace',
+    coords: [38.8331, 20.7046],
+    description: {
+      el: 'Αίθουσα τέχνης αφιερωμένη στον λευκάδιο ζωγράφο Θεόδωρο Στάμο, σημαντικό εκπρόσωπο του αφηρημένου εξπρεσιονισμού.',
+      en: 'An art hall dedicated to Lefkadian-descended painter Theodoros Stamos, a key abstract-expressionist figure.',
+    },
+    url: 'https://lefkasculturalcenter.gr/venue/ethousa-technis-theodorou-stamos/',
+  },
+  {
+    id: 'cc-ex-libris',
+    name: { el: 'Έκθεση Ex Libris', en: 'Ex Libris Exhibition' },
+    category: 'CulturalSpace',
+    coords: [38.8333, 20.7053],
+    description: {
+      el: 'Μόνιμη έκθεση χαρακτικών «Ex Libris» (βιβλιόσημα) από καλλιτέχνες απ’ όλο τον κόσμο.',
+      en: 'A permanent "Ex Libris" (bookplate) print exhibition with works by artists from around the world.',
+    },
+    url: 'https://lefkasculturalcenter.gr/ekthesi-ex-libris/',
+  },
+
+  // ── Museums ──
+  {
+    id: 'museum-kavalos-folklore',
+    name: { el: 'Λαογραφικό Μουσείο Καβάλου', en: 'Folklore Museum of Kavalos' },
+    category: 'Museum',
+    coords: [38.7958, 20.6720],
+    description: {
+      el: 'Λαογραφική συλλογή στο χωριό Κάβαλος, με αντικείμενα της αγροτικής και οικιακής ζωής της Λευκάδας.',
+      en: 'A folklore collection in the village of Kavalos, with objects from Lefkada’s rural and domestic life.',
+    },
+    url: 'https://lefkasculturalcenter.gr/laografiko-mousio-kavalou/',
+  },
+  {
+    id: 'museum-dff-memorabilia',
+    name: { el: 'Μουσείο Ενθυμημάτων Δ.Φ.Φ.', en: 'I.F.F. Memorabilia Museum' },
+    category: 'Museum',
+    coords: [38.8335, 20.7044],
+    description: {
+      el: 'Μουσείο ενθυμημάτων του Διεθνούς Φεστιβάλ Φολκλόρ Λευκάδας, με δώρα και κειμήλια από συμμετέχουσες αποστολές.',
+      en: 'Memorabilia museum of Lefkada’s International Folklore Festival, with gifts and keepsakes from visiting delegations.',
+    },
+    url: 'https://lefkasculturalcenter.gr/mousio-enthymimaton-dff/',
+  },
+
+  // ── Libraries ──
+  {
     id: 'cc-library',
     name: { el: 'Χαραμόγλειος Βιβλιοθήκη', en: 'Charamoglios Library' },
-    category: 'CulturalSpace',
+    category: 'Library',
     coords: [38.8330, 20.7058],
     description: {
       el: 'Ιστορική βιβλιοθήκη με ειδική λευκαδίτικη συλλογή και σπάνιες εκδόσεις.',
       en: 'A historic library with a special Lefkadian collection and rare editions.',
     },
     url: 'https://lefkasculturalcenter.gr/',
+  },
+  {
+    id: 'cc-svoronos-library',
+    name: { el: 'Βιβλιοθήκη Νίκου Σβορώνου', en: 'Nikos Svoronos Library' },
+    category: 'Library',
+    coords: [38.8336, 20.7051],
+    description: {
+      el: 'Βιβλιοθήκη αφιερωμένη στον λευκάδιο ιστορικό Νίκο Σβορώνο, με ιστορικές και επιστημονικές εκδόσεις.',
+      en: 'A library dedicated to the Lefkadian historian Nikos Svoronos, holding historical and scholarly editions.',
+    },
+    url: 'https://lefkasculturalcenter.gr/vivliothiki-nikou-svoronou/',
   },
 
   // ── Churches ──

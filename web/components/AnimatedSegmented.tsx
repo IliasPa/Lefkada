@@ -49,10 +49,12 @@ export default function AnimatedSegmented({
         ind.style.opacity = "0";
         return;
       }
-      const r = row.getBoundingClientRect();
-      const e = el.getBoundingClientRect();
-      const left = e.left - r.left;
-      const width = e.width;
+      // Measure in layout space (offsetLeft/offsetWidth) rather than screen
+      // space (getBoundingClientRect). The indicator and the buttons share the
+      // same positioned ancestor (this row), so layout coordinates align even
+      // when the content is CSS-zoomed by the "Larger text" setting.
+      const left = el.offsetLeft;
+      const width = el.offsetWidth;
       if (withSpring && !firstRef.current && !a11y.reduceMotion) {
         animate(ind, {
           left,
@@ -67,7 +69,7 @@ export default function AnimatedSegmented({
       }
       firstRef.current = false;
     },
-    [value, options, a11y.reduceMotion],
+    [value, options, a11y.reduceMotion, a11y.largeText],
   );
 
   useEffect(() => {

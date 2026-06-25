@@ -13,6 +13,8 @@ import {
   Briefcase,
   Dices,
   Phone,
+  Info,
+  HeartHandshake,
   type LucideIcon,
 } from "lucide-react";
 import { useApp, type TabKey } from "@/context/AppContext";
@@ -30,6 +32,8 @@ const TABS: TabDef[] = [
   { key: "health", Icon: Heart },
   { key: "financials", Icon: BarChart3 },
   { key: "governance", Icon: Building2 },
+  { key: "about", Icon: Info },
+  { key: "services", Icon: HeartHandshake },
   { key: "jobs", Icon: Briefcase },
   { key: "game", Icon: Dices },
   { key: "contacts", Icon: Phone },
@@ -62,12 +66,13 @@ export default function AppHeader() {
         return;
       }
 
-      // Measure relative to the (non-clipping) header so the spring's overshoot
-      // can breathe past the scrolling tab row instead of hitting its edge.
-      const hRect = header.getBoundingClientRect();
-      const eRect = el.getBoundingClientRect();
-      const left = eRect.left - hRect.left + 3;
-      const width = eRect.width - 6;
+      // Measure in layout space (offsetLeft) relative to the shared positioned
+      // ancestor (the header), minus the tab row's horizontal scroll. This stays
+      // correct when the "Larger text" setting CSS-zooms the header, and lets the
+      // spring's overshoot breathe past the scrolling row instead of being clipped.
+      const scrollLeft = scrollRef.current?.scrollLeft ?? 0;
+      const left = el.offsetLeft - scrollLeft + 3;
+      const width = el.offsetWidth - 6;
 
       if (withSpring && !firstRef.current && !a11y.reduceMotion) {
         animate(indicator, {
@@ -83,7 +88,7 @@ export default function AppHeader() {
       }
       firstRef.current = false;
     },
-    [activeTab, a11y.reduceMotion, hiddenTabs],
+    [activeTab, a11y.reduceMotion, a11y.largeText, hiddenTabs],
   );
 
   useEffect(() => {

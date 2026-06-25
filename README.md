@@ -17,11 +17,13 @@
 | Tab             | Description                                                                |
 | --------------- | -------------------------------------------------------------------------- |
 | 📰 **Αρχική**   | Municipal news over a full-screen Lefkada photo backdrop; live city alerts (water/power/fire/weather/road); reporter + social links and reporter/theme filters |
-| 🏛 **Πολιτισμός** | Culture — Events, Calendar, **Map** (events + places of interest), and **Cultural spaces** (museums, galleries, churches) subtabs |
+| 🏛 **Πολιτισμός** | Culture — Events, Calendar, **History** (historical & religious references), **Cultural spaces** (museums, galleries, **libraries**, churches) and **Map** subtabs |
 | 🗳 **Ψήφος**    | Civic polls — live countdown, explainer video, official PDF, vote & see real-time results, browse older votings |
 | 🏥 **Υγεία**    | Health advisories, emergency 166 shortcut, pharmacy-on-duty finder, personal lab exam tracker |
 | 💰 **Δαπάνες**  | Municipal budget — Expenses & Income sub-tabs + a Διαύγεια/Transparency link; clickable line items with a detail popup |
-| 🏢 **Δήμος**    | Town Hall — searchable, type-filtered official acts: decisions, tenders (with countdown + job link), announcements, meetings (with video) |
+| 🏢 **Δήμος**    | Town Hall — **Acts** (decisions, tenders, announcements, meetings) and **Council** (interactive composition: Mayor, Deputy Mayors, committees, disclosures) subtabs |
+| ℹ️ **Το Νησί**  | About Lefkada — municipal units & their communities, twinned cities, and how to reach the island (road, air, KTEL, ferries) |
+| 🤝 **Υπηρεσίες** | Citizen services — e-services (gov.gr), 4MyCity reporting, projects map, social grocery/community centre/port fund, water analyses, emergency numbers, whistleblowing |
 | 💼 **Θέσεις**   | Open job positions with type/location filtering                            |
 | 🎲 **Παιχνίδι** | Greek Wordle-style word game with daily word & win/loss tracking           |
 | 📞 **Επαφές**   | Searchable directory of municipal phones, emails and hours                 |
@@ -48,26 +50,28 @@
 
 ### 🏛 Culture
 
-**What it does:** The island's cultural life across four subtabs: **Events** (was "List"), **Calendar**, **Map**, and **Cultural spaces** — all reachable from one tab (there is no separate Explore tab).
+**What it does:** The island's cultural life across five subtabs: **Events** (was "List"), **Calendar**, **History**, **Cultural spaces**, and **Map** — all reachable from one tab (there is no separate Explore tab).
 
 **Why this design:**
 
 - **Events (default):** only upcoming events, sorted by date, each a photo-headed card with date/location/description and optional programme PDF.
 - **Calendar:** a localized Monday-first month grid marking every event day (including past ones, which appear *only* here); per-day details open a **side panel** on large screens and a **bottom-sheet popup** on small screens.
-- **Map (shared Lefkada map):** the whole island — **Events** *and* **Places** of interest (beaches, villages, trails, museums, the Castle of Agia Mavra, the canal entrance, churches, landmarks) drawn in two distinct pin colours. An **All / Events / Places** segmented filter plus a (plural-labelled) category filter clears a crowded map fast. **Tapping a pin** opens its detail popup with a link to the place (Cultural Center page or Google Maps directions). Built on **Leaflet + OpenStreetMap**, lazy-loaded so it never weighs down other tabs. *Coordinates come from OpenStreetMap/Nominatim; tiles load from OSM's public servers — for production traffic you'd switch to a tile provider with a usage allowance.*
-- **Cultural spaces:** museums, art galleries, libraries, the open-air theatre and churches — real venues of the **Lefkada Cultural Center**, each linking to its **own page** on `lefkasculturalcenter.gr` and to Google Maps directions.
+- **History (new):** historical & religious references adapted from the municipality's "Presentation of the Municipality" section, grouped into **History** (Ancient Lefkas, Santa Maura castle, Cape Lefkatas, union with Greece, letters & arts) and **Religion** (Faneromeni Monastery, Ionian churches, festivals).
+- **Cultural spaces:** museums, art galleries, **libraries** (a dedicated tag — Charamoglios & Nikos Svoronos), the open-air theatre and churches — real venues of the **Lefkada Cultural Center**, each linking to its **own page** on `lefkasculturalcenter.gr` and to Google Maps directions. v0.7 adds the Kavalos Folklore Museum, the IFF Memorabilia Museum, the Takis Efstathiou / Theodoros Stamos / Conference / Foyer halls and the Ex Libris exhibition.
+- **Map (shared Lefkada map):** the whole island — **Events** *and* **Places** of interest (beaches, villages, trails, museums, libraries, the Castle of Agia Mavra, the canal entrance, churches, landmarks) drawn in two distinct pin colours. An **All / Events / Places** segmented filter plus a (plural-labelled) category filter clears a crowded map fast. **Tapping a pin** opens its detail popup with a link to the place (Cultural Center page or Google Maps directions). Built on **Leaflet + OpenStreetMap**, lazy-loaded so it never weighs down other tabs. *Coordinates come from OpenStreetMap/Nominatim; tiles load from OSM's public servers — for production traffic you'd switch to a tile provider with a usage allowance.*
 
 ---
 
-### 🏢 Town Hall — Official Acts
+### 🏢 Town Hall — Acts & Council
 
-**What it does:** The municipality's official governance feed, kept separate from journalistic News and from the cultural calendar.
+**What it does:** The municipality's official governance feed and its political composition, kept separate from journalistic News and from the cultural calendar. A top-level **Acts / Council** segmented control splits the two.
 
 **Why this design:**
 
-- **One searchable feed, type-filtered:** Decisions · Tenders · Announcements · Meetings (animated segmented filter). Each card has a plain-language summary plus the official PDF — *the PDF stays the source of truth; summaries are written, not auto-generated.*
-- **Tenders** show a deadline countdown (open/closed). When a tender creates work — e.g. the **lifeguard tender** — it links straight to the matching posting in the **Jobs** tab (which also carries that posting).
-- **Meetings** keep their **own thread** (not mixed into the cultural calendar): agenda + minutes PDFs and an inline **"Watch"** recording (reusing the Vote YouTube embed).
+- **Acts:** a searchable feed filtered by a **type segmented control — Decisions · Tenders · Announcements · Meetings** (the old "All" option was removed so the filter always reflects one clear category). Each card has a plain-language summary plus the official PDF — *the PDF stays the source of truth; summaries are written, not auto-generated.*
+  - **Tenders** show a deadline countdown (open/closed). When a tender creates work — e.g. the **lifeguard tender** — it links to the matching posting in the **Jobs** tab.
+  - **Meetings** keep their **own thread**: agenda + minutes PDFs and an inline **"Watch"** recording.
+- **Council (new):** an **interactive composition** of the municipal authority — the **Mayor** and **Secretary General** as leadership cards, the **ten Deputy Mayors** as a tappable grid (initials avatars), the **committees** (Executive, Finance, Quality-of-Life), and reference cards for the **full councillor list**, **asset disclosures (Πόθεν Έσχες → pothen.gr)** and **past councils**. Tapping any person/committee opens a bottom-sheet with their role, a short note, contact and the official page. *Per-person CVs, photos and individual disclosure files aren't published openly by the municipality, so those link out rather than being embedded — see the v0.7 notes.*
 
 ---
 
@@ -114,6 +118,31 @@
 - **Trend lines (2022–2025):** Shows patterns over time; citizens can spot whether budgets are growing or shrinking per category.
 - **Dual visualization:** Visual learners use the charts; detail-oriented users drill into the table for line-item inspection.
 - **Category filtering:** Reduces cognitive load; users can focus on one area (e.g., "Infrastructure") without seeing all line items at once.
+
+---
+
+### ℹ️ About Lefkada — The Island
+
+**What it does:** Introduces the place itself across three subtabs: **Villages**, **Twinning**, and **Access**.
+
+**Why this design:**
+
+- **Villages:** the seven **municipal units** (Lefkada, Apollonioi, Ellomenos, Karya, Sfakiotes, and the island units **Kalamos** & **Kastos**) as an accordion. Each shows its seat and expands to chips of its **communities** — the full Kallikratis subdivision, so a resident can find their own village.
+- **Twinning:** the eight **sister cities** (Strážnice, Paralimni, Shinjuku, Nahariya, Ploiești, Leucate, Primorskyi/Odessa, Zhoushan) with flag, year and the reason for each bond.
+- **Access:** how to reach the island — **road & floating bridge**, **air** (Aktio/Preveza), **KTEL bus** and **ferries to Kalamos/Kastos** — each card carrying an **"Updated"** review date and, for seasonal schedules, a **"Valid until"** date, plus a link to the live operator (timetables change, so the app links out rather than freezing times).
+
+---
+
+### 🤝 Services — Citizen Services
+
+**What it does:** A one-screen hub for the practical things a citizen needs, grouped into **Digital**, **Social**, and **Safety & integrity**.
+
+**Why this design:**
+
+- **Digital:** **e-services** (gov.gr + KEP), **4MyCity** "report a problem" promoted to a first-class entry point (it was previously only a deep link from the Profile), and **Projects on a map** (NSRF/Recovery-Fund works).
+- **Social:** **Social Grocery & DEKOKAL**, **Community Centre**, **Municipal Port Fund**, and periodic **drinking-water analyses**.
+- **Safety & integrity:** the **whistleblowing** channel (EU Directive 2019/1937) and a red **emergency quick-dial** card (112, the municipal 967 line, Police 100, Fire 199, EKAB 166, Coast Guard 108, municipal Civil Protection) — every number is a one-tap `tel:` link.
+- *Where the municipality doesn't publish a stable deep link for a section, the card links to the official portal landing rather than a guessed URL — see the v0.7 notes.*
 
 ---
 
@@ -183,7 +212,7 @@
 - **TypeScript** (strict mode)
 - **Tailwind CSS** — no external UI libraries
 - **lucide-react** — icons
-- **anime.js** — spring physics for the liquid-glass indicator, now shared by **every** segmented control/subtab (header tabs, Culture subtabs, Budget Expenses/Income, the Vote explanation selector, the Town Hall filter, Settings and the Mayor toggle) via a reusable `AnimatedSegmented` component. In the header, the indicator lives **outside** the scrolling tab row (at header level) so its spring overshoot can breathe unclipped instead of hitting the scroll-container edge
+- **anime.js** — spring physics for the liquid-glass indicator, now shared by **every** segmented control/subtab (header tabs, Culture subtabs, Budget Expenses/Income, the Vote explanation selector, the Town Hall Acts/Council + type controls, Settings and the Mayor toggle) via a reusable `AnimatedSegmented` component. In the header, the indicator lives **outside** the scrolling tab row (at header level) so its spring overshoot can breathe unclipped instead of hitting the scroll-container edge. As of v0.7 the indicator is positioned in **layout space (`offsetLeft`/`offsetWidth`)** rather than screen space, so it stays aligned even when the **Larger text** setting CSS-zooms the UI
 - **Leaflet + OpenStreetMap** — the shared Lefkada map (lazy-loaded; CSS served locally from `public/leaflet.css`)
 - **PWA** — installable, offline-capable via Service Worker
 - **No backend** — all data persisted in `localStorage` (`lefkada_*` keys)
@@ -203,7 +232,7 @@ The app is built and reviewed against **WCAG 2.2 level AA**. The ⚙️ Settings
 
 - **Reduce motion** — pauses the news photo-slideshow and the tab indicator spring, and (via CSS) neutralizes animations/transitions across the app. It **defaults on** when the OS reports `prefers-reduced-motion: reduce`, and the CSS honours that media query regardless. *(WCAG 2.3.3, 2.2.2)*
 - **High contrast** — strengthens the muted grey text and placeholders so secondary text comfortably clears the 4.5:1 AA threshold. *(1.4.3)*
-- **Larger text** — scales the scrollable content ~115% without breaking the layout. *(1.4.4)*
+- **Larger text** — scales the scrollable content **and the header chrome** (logo, tab icons, settings) ~115% together, so the whole UI grows uniformly without breaking the layout or the sliding indicators. *(1.4.4)*
 
 Baseline conformance also covered: semantic buttons/links, visible `:focus-visible` rings, `aria-label`s on icon-only controls (incl. the header tab buttons and health category chips), `role="switch"`/`aria-pressed` on toggles, labelled form fields, `lang` attribute, dialogs dismissible via backdrop/Escape, and ≥44px primary tap targets. *(Note: WCAG **3.0** is still a W3C draft and doesn't define "AA"; 2.2 AA is the current finished bar and the legal standard for EU public-sector sites.)*
 
@@ -217,7 +246,7 @@ Targeted Lighthouse fixes: **zoom re-enabled** (`user-scalable` no longer disabl
 
 ## Data & content
 
-All content is static and lives in `web/data/*.ts` — `news`, `events`, `voting`, `financials` (expenses + income), `jobs`, `contacts`, `pharmacies`, `alerts`, `healthTests`. There is **no backend**: the public directories that would normally feed some of this (e.g. the pharmacy list at `lefkadaopen.gr`) block automated fetching and a static export can't call them at runtime, so these lists are **curated locally in their data file** and edited there. A future version would move changing content (events, alerts, pharmacy duty roster) to a small CMS/database so non-developers can update it without a code change.
+All content is static and lives in `web/data/*.ts` — `news`, `events`, `voting`, `financials` (expenses + income), `jobs`, `contacts`, `pharmacies`, `alerts`, `healthTests`, `places`, and (v0.7) `history`, `council`, `about`, `services`. There is **no backend**: the public directories that would normally feed some of this (e.g. the pharmacy list at `lefkadaopen.gr`) block automated fetching and a static export can't call them at runtime, so these lists are **curated locally in their data file** and edited there. A future version would move changing content (events, alerts, pharmacy duty roster) to a small CMS/database so non-developers can update it without a code change.
 
 ## Run locally
 
