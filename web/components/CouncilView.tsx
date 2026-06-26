@@ -195,6 +195,18 @@ export default function CouncilView() {
             <>
               <h3 className="font-bold text-[16px] text-gray-900 dark:text-white leading-snug mb-2">{committee.name[lang]}</h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{committee.description[lang]}</p>
+              {committee.members && (
+                <div className="mt-4 space-y-3">
+                  {committee.members.president && (
+                    <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-primary-50 dark:bg-primary-900/20">
+                      <span className="text-[12.5px] font-bold text-gray-800 dark:text-gray-200">{committee.members.president}</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-primary dark:text-primary-300">{t("council_president")}</span>
+                    </div>
+                  )}
+                  <MemberList label={t("council_members_regular")} names={committee.members.regular} />
+                  <MemberList label={t("council_members_alternate")} names={committee.members.alternate} />
+                </div>
+              )}
             </>
           )}
         </DetailSheet>
@@ -296,6 +308,20 @@ function OrgBranch({ node, lang, depth }: { node: OrgNode; lang: Lang; depth: nu
         </span>
       </button>
       {open && node.children?.map((ch, i) => <OrgBranch key={i} node={ch} lang={lang} depth={depth + 1} />)}
+    </div>
+  );
+}
+
+function MemberList({ label, names }: { label: string; names: string[] }) {
+  if (!names.length) return null;
+  return (
+    <div>
+      <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">{label}</p>
+      <div className="flex flex-wrap gap-1.5">
+        {names.map((n) => (
+          <span key={n} className="text-[11.5px] font-medium px-2.5 py-1 rounded-full bg-gray-100 dark:bg-[#252A3A] text-gray-700 dark:text-gray-300">{n}</span>
+        ))}
+      </div>
     </div>
   );
 }

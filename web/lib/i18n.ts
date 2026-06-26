@@ -399,6 +399,9 @@ const el: Record<string, string> = {
   council_secretary: "Γραμματέας",
   council_structure: "Δομή / Οργανόγραμμα Δήμου",
   council_structure_sub: "Διευθύνσεις, τμήματα & γραφεία",
+  council_members_regular: "Τακτικά Μέλη",
+  council_members_alternate: "Αναπληρωματικά Μέλη",
+  gov_body_all: "Όλα τα όργανα",
 
   about_councillors: "Σύμβουλοι Κοινότητας",
   about_president: "Πρόεδρος",
@@ -785,6 +788,9 @@ const en: Record<string, string> = {
   council_secretary: "Secretary",
   council_structure: "Municipal Structure",
   council_structure_sub: "Directorates, departments & offices",
+  council_members_regular: "Regular Members",
+  council_members_alternate: "Alternate Members",
+  gov_body_all: "All bodies",
 
   about_councillors: "Community Councillors",
   about_president: "President",

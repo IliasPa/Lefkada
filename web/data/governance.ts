@@ -2,9 +2,50 @@ import type { BilingualText } from './news';
 
 export type GovType = 'Decision' | 'Tender' | 'Announcement' | 'Meeting';
 
+/** Collective body a meeting/invitation belongs to. */
+export type GovBody =
+  | 'council'      // Δημοτικό Συμβούλιο
+  | 'executive'    // Εκτελεστική Επιτροπή
+  | 'finance'      // Οικονομική Επιτροπή
+  | 'qol'          // Επιτροπή Ποιότητας Ζωής
+  | 'municipal'    // Δημοτική Επιτροπή
+  | 'consultation' // Δημοτική Επιτροπή Διαβούλευσης
+  | 'tourism';     // Επιτροπή Τουριστικής Ανάπτυξης & Προβολής
+
+export interface GovBodyMeta {
+  key: GovBody;
+  /** Short badge code, e.g. Δ.Σ. / Ε.Ε. */
+  tag: BilingualText;
+  name: BilingualText;
+}
+
+/** All collective bodies, in display order. The Meetings sub-filter only shows
+ *  the ones that actually have meetings present. */
+export const GOV_BODIES: GovBodyMeta[] = [
+  { key: 'council', tag: { el: 'Δ.Σ.', en: 'Council' }, name: { el: 'Δημοτικό Συμβούλιο', en: 'Municipal Council' } },
+  { key: 'municipal', tag: { el: 'Δ.Ε.', en: 'Munic.' }, name: { el: 'Δημοτική Επιτροπή', en: 'Municipal Committee' } },
+  { key: 'executive', tag: { el: 'Ε.Ε.', en: 'Exec.' }, name: { el: 'Εκτελεστική Επιτροπή', en: 'Executive Committee' } },
+  { key: 'finance', tag: { el: 'Ο.Ε.', en: 'Finance' }, name: { el: 'Οικονομική Επιτροπή', en: 'Finance Committee' } },
+  { key: 'qol', tag: { el: 'Ε.Π.Ζ.', en: 'QoL' }, name: { el: 'Επιτροπή Ποιότητας Ζωής', en: 'Quality-of-Life Committee' } },
+  { key: 'consultation', tag: { el: 'Δ.Ε.Δ.', en: 'Consult.' }, name: { el: 'Δημοτική Επιτροπή Διαβούλευσης', en: 'Consultation Committee' } },
+  { key: 'tourism', tag: { el: 'Ε.Τ.Α.Π.', en: 'Tourism' }, name: { el: 'Επιτροπή Τουριστικής Ανάπτυξης & Προβολής', en: 'Tourism Development & Promotion Committee' } },
+];
+
+export const GOV_BODY_ACCENT: Record<GovBody, string> = {
+  council: '#16A34A',
+  municipal: '#0D5EAF',
+  executive: '#6D44C8',
+  finance: '#E4802C',
+  qol: '#0EA5E9',
+  consultation: '#A61E34',
+  tourism: '#C4963C',
+};
+
 export interface GovItem {
   id: string;
   type: GovType;
+  /** For meetings — which collective body it belongs to. */
+  body?: GovBody;
   title: BilingualText;
   /** Plain-language summary; the PDF stays the source of truth. */
   summary: BilingualText;
@@ -129,6 +170,7 @@ export const governanceData: GovItem[] = [
   {
     id: 'meeting-2026-07',
     type: 'Meeting',
+    body: 'council',
     title: {
       el: 'Συνεδρίαση Δημοτικού Συμβουλίου — Ιούλιος',
       en: 'Municipal Council Session — July',
@@ -144,6 +186,7 @@ export const governanceData: GovItem[] = [
   {
     id: 'meeting-2026-06',
     type: 'Meeting',
+    body: 'council',
     title: {
       el: 'Συνεδρίαση Δημοτικού Συμβουλίου — Ιούνιος',
       en: 'Municipal Council Session — June',
@@ -162,6 +205,7 @@ export const governanceData: GovItem[] = [
   {
     id: 'ds-2026-03-02',
     type: 'Meeting',
+    body: 'council',
     title: {
       el: 'Πρόσκληση σε τακτική συνεδρίαση Δημοτικού Συμβουλίου',
       en: 'Invitation to a regular Municipal Council session',
@@ -175,6 +219,7 @@ export const governanceData: GovItem[] = [
   {
     id: 'ds-2026-02-26',
     type: 'Meeting',
+    body: 'council',
     title: {
       el: 'Ειδική Συνεδρίαση Λογοδοσίας της Δημοτικής Αρχής',
       en: 'Special Accountability Session of the Municipal Authority',
@@ -188,6 +233,7 @@ export const governanceData: GovItem[] = [
   {
     id: 'ds-2026-02-20',
     type: 'Meeting',
+    body: 'council',
     title: {
       el: 'Δημόσια, ειδική, δια ζώσης συνεδρίαση Δημοτικού Συμβουλίου',
       en: 'Public special in-person Municipal Council session',
@@ -197,5 +243,79 @@ export const governanceData: GovItem[] = [
       en: 'A public special in-person session of the Municipal Council.',
     },
     date: '2026-02-20',
+  },
+
+  // ── Committee session invitations (per collective body) ──
+  {
+    id: 'inv-municipal-2026-06-18',
+    type: 'Meeting',
+    body: 'municipal',
+    title: { el: 'Δημοτική Επιτροπή — Πρόσκληση Συνεδρίασης', en: 'Municipal Committee — Session Invitation' },
+    summary: { el: 'ΠΡΟΣΚΛΗΣΗ για την Τρίτη 23/6/2026 και ώρα 13:00 σε τακτική, δια ζώσης, συνεδρίαση της Δημοτικής Επιτροπής (ΟΡΘΗ ΕΠΑΝΑΛΗΨΗ)', en: 'Invitation to a session of the Municipal Committee (see the Greek notice for the exact date and time).' },
+    date: '2026-06-18',
+  },
+  {
+    id: 'inv-municipal-2026-06-15',
+    type: 'Meeting',
+    body: 'municipal',
+    title: { el: 'Δημοτική Επιτροπή — Πρόσκληση Συνεδρίασης', en: 'Municipal Committee — Session Invitation' },
+    summary: { el: 'ΠΡΟΣΚΛΗΣΗ για την Τρίτη 16/6/2026 και ώρα 12:00 σε τακτική, δια ζώσης, συνεδρίαση της Δημοτικής Επιτροπής', en: 'Invitation to a session of the Municipal Committee (see the Greek notice for the exact date and time).' },
+    date: '2026-06-15',
+  },
+  {
+    id: 'inv-municipal-2026-06-10',
+    type: 'Meeting',
+    body: 'municipal',
+    title: { el: 'Δημοτική Επιτροπή — Πρόσκληση Συνεδρίασης', en: 'Municipal Committee — Session Invitation' },
+    summary: { el: 'ΠΡΟΣΚΛΗΣΗ για την Πέμπτη 11/6/2026 και ώρα 11:00 σε Κατεπείγουσα, δια ζώσης, συνεδρίαση της Δημοτικής Επιτροπής', en: 'Invitation to a session of the Municipal Committee (see the Greek notice for the exact date and time).' },
+    date: '2026-06-10',
+  },
+  {
+    id: 'inv-executive-2023-09-04',
+    type: 'Meeting',
+    body: 'executive',
+    title: { el: 'Εκτελεστική Επιτροπή — Πρόσκληση Συνεδρίασης', en: 'Executive Committee — Session Invitation' },
+    summary: { el: 'Πρόσκληση Ε.Ε. (Τακτική) Τρίτη 5 Σεπτεμβρίου 2023 και ώρα 9:30', en: 'Invitation to a session of the Executive Committee (see the Greek notice for the exact date and time).' },
+    date: '2023-09-04',
+  },
+  {
+    id: 'inv-executive-2023-07-07',
+    type: 'Meeting',
+    body: 'executive',
+    title: { el: 'Εκτελεστική Επιτροπή — Πρόσκληση Συνεδρίασης', en: 'Executive Committee — Session Invitation' },
+    summary: { el: 'Πρόσκληση ΕΕ (Τακτική) Παρασκευή 14 Ιουλίου 2023 και ώρα 9:30', en: 'Invitation to a session of the Executive Committee (see the Greek notice for the exact date and time).' },
+    date: '2023-07-07',
+  },
+  {
+    id: 'inv-qol-2023-12-15',
+    type: 'Meeting',
+    body: 'qol',
+    title: { el: 'Επιτροπή Ποιότητας Ζωής — Πρόσκληση Συνεδρίασης', en: 'Quality-of-Life Committee — Session Invitation' },
+    summary: { el: 'Πρόσκληση ΕΠΖ (Τακτική) Τρίτη 19/12/2023 και ώρα 10:30', en: 'Invitation to a session of the Quality-of-Life Committee (see the Greek notice for the exact date and time).' },
+    date: '2023-12-15',
+  },
+  {
+    id: 'inv-qol-2023-09-01',
+    type: 'Meeting',
+    body: 'qol',
+    title: { el: 'Επιτροπή Ποιότητας Ζωής — Πρόσκληση Συνεδρίασης', en: 'Quality-of-Life Committee — Session Invitation' },
+    summary: { el: 'Πρόσκληση ΕΠΖ (Τακτική) Τρίτη 5 Σεπτεμβρίου 2023 και ώρα 10:00', en: 'Invitation to a session of the Quality-of-Life Committee (see the Greek notice for the exact date and time).' },
+    date: '2023-09-01',
+  },
+  {
+    id: 'inv-finance-2023-12-19',
+    type: 'Meeting',
+    body: 'finance',
+    title: { el: 'Οικονομική Επιτροπή — Πρόσκληση Συνεδρίασης', en: 'Finance Committee — Session Invitation' },
+    summary: { el: 'Πρόσκληση ΟΕ (Κατεπείγουσα δια ζώσης) Τρίτη 19 Δεκεμβρίου 2023 και ώρα 13:30', en: 'Invitation to a session of the Finance Committee (see the Greek notice for the exact date and time).' },
+    date: '2023-12-19',
+  },
+  {
+    id: 'inv-finance-2023-12-04',
+    type: 'Meeting',
+    body: 'finance',
+    title: { el: 'Οικονομική Επιτροπή — Πρόσκληση Συνεδρίασης', en: 'Finance Committee — Session Invitation' },
+    summary: { el: 'Πρόσκληση ΟΕ (Τακτική) Παρασκευή 8 Δεκεμβρίου 2023 και ώρα 10:00', en: 'Invitation to a session of the Finance Committee (see the Greek notice for the exact date and time).' },
+    date: '2023-12-04',
   },
 ];

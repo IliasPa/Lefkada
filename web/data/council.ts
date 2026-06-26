@@ -10,10 +10,18 @@ export interface CouncilPerson {
   phone?: string;
 }
 
+export interface CommitteeMembers {
+  president?: string;
+  regular: string[];
+  alternate: string[];
+}
+
 export interface Committee {
   id: string;
   name: BilingualText;
   description: BilingualText;
+  /** Elected members (where published) — shown in the committee detail sheet. */
+  members?: CommitteeMembers;
 }
 
 export interface CouncilTerm {
@@ -35,6 +43,25 @@ const DEPUTY = { el: 'Αντιδήμαρχος', en: 'Deputy Mayor' };
 
 const CURRENT_COMMITTEES: Committee[] = [
   {
+    id: 'municipal',
+    name: { el: 'Δημοτική Επιτροπή', en: 'Municipal Committee' },
+    description: {
+      el: 'Το κύριο συλλογικό όργανο που αποφασίζει για οικονομικά θέματα, προμήθειες, διαγωνισμούς, πολεοδομία και ποιότητα ζωής. Από το 2024 ενοποιεί τις αρμοδιότητες της Οικονομικής Επιτροπής και της Επιτροπής Ποιότητας Ζωής.',
+      en: 'The main collective body deciding on finances, procurement, tenders, planning and quality of life. Since 2024 it merges the duties of the former Finance and Quality-of-Life committees.',
+    },
+    members: {
+      president: 'Δρ. Ξενοφών Βεργίνης (Δήμαρχος)',
+      regular: [
+        'Αρματάς Γεράσιμος', 'Βεργίνης Σπυρίδων', 'Καραγιάννης Αθανάσιος',
+        'Κωνσταντινίδη Σεβαστή', 'Καλός Χαράλαμπος', 'Δρακονταειδής Κωνσταντίνος',
+      ],
+      alternate: [
+        'Μαργέλη Μαρία', 'Σολδάτος Γεώργιος', 'Κάτσενου Θεοδώρα',
+        'Σκληρός Φίλιππος', 'Λύγδας Σπυρίδων', 'Σέρβος Κωνσταντίνος',
+      ],
+    },
+  },
+  {
     id: 'executive',
     name: { el: 'Εκτελεστική Επιτροπή', en: 'Executive Committee' },
     description: {
@@ -43,19 +70,35 @@ const CURRENT_COMMITTEES: Committee[] = [
     },
   },
   {
-    id: 'finance',
-    name: { el: 'Δημοτική (Οικονομική) Επιτροπή', en: 'Municipal (Finance) Committee' },
+    id: 'consultation',
+    name: { el: 'Δημοτική Επιτροπή Διαβούλευσης', en: 'Municipal Consultation Committee' },
     description: {
-      el: 'Αποφασίζει για οικονομικά θέματα, προμήθειες και διαγωνισμούς του Δήμου. Από το 2024 ενοποιεί αρμοδιότητες της Οικονομικής Επιτροπής και της Επιτροπής Ποιότητας Ζωής.',
-      en: 'Decides on financial matters, procurement and tenders. Since 2024 it merges the duties of the former Finance and Quality-of-Life committees.',
+      el: 'Γνωμοδοτικό όργανο με εκπροσώπους φορέων και πολιτών, για τον προϋπολογισμό, τα τεχνικά προγράμματα και τοπικά ζητήματα.',
+      en: 'An advisory body with representatives of local bodies and citizens, on the budget, technical programmes and local issues.',
+    },
+  },
+  {
+    id: 'tourism',
+    name: { el: 'Επιτροπή Τουριστικής Ανάπτυξης & Προβολής', en: 'Tourism Development & Promotion Committee' },
+    description: {
+      el: 'Επιτροπή για τον σχεδιασμό και την προβολή του τουριστικού προϊόντος της Λευκάδας.',
+      en: 'A committee for planning and promoting Lefkada’s tourism.',
+    },
+  },
+  {
+    id: 'finance',
+    name: { el: 'Οικονομική Επιτροπή', en: 'Finance Committee' },
+    description: {
+      el: 'Αποφάσιζε για οικονομικά θέματα, προμήθειες και διαγωνισμούς του Δήμου (έως την ενοποίηση του 2024 στη Δημοτική Επιτροπή).',
+      en: 'Decided on the municipality’s finances, procurement and tenders (until the 2024 merger into the Municipal Committee).',
     },
   },
   {
     id: 'quality-of-life',
     name: { el: 'Επιτροπή Ποιότητας Ζωής', en: 'Quality-of-Life Committee' },
     description: {
-      el: 'Αρμόδια για θέματα πολεοδομίας, περιβάλλοντος, αδειοδοτήσεων και ποιότητας ζωής στις κοινότητες.',
-      en: 'Responsible for town planning, environment, permits and quality of life in the communities.',
+      el: 'Αρμόδια για θέματα πολεοδομίας, περιβάλλοντος, αδειοδοτήσεων και ποιότητας ζωής (έως την ενοποίηση του 2024).',
+      en: 'Responsible for planning, environment, permits and quality of life (until the 2024 merger).',
     },
   },
 ];
