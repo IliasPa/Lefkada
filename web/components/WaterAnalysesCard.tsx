@@ -7,6 +7,14 @@ import { waterAnalyses, type WaterAnalysisType } from "@/data/water";
 
 type Lang = "el" | "en";
 
+const MICRO_COLOR = "#9333EA";
+const PHYSICO_COLOR = "#0EA5E9";
+
+const MONTHS: Record<Lang, string[]> = {
+  el: ["Ιαν", "Φεβ", "Μάρ", "Απρ", "Μάι", "Ιούν", "Ιούλ", "Αύγ", "Σεπ", "Οκτ", "Νοέ", "Δεκ"],
+  en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+};
+
 function typeLabel(t: (k: string) => string, type: WaterAnalysisType) {
   return type === "micro" ? t("water_micro") : t("water_physico");
 }
@@ -27,6 +35,18 @@ export default function WaterAnalysesCard() {
           </h3>
           <p className="text-[11.5px] text-gray-500 dark:text-gray-400">{t("water_sub")}</p>
         </div>
+      </div>
+
+      {/* Legend */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-4 pb-3">
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold" style={{ color: MICRO_COLOR }}>
+          <FlaskConical size={12} />
+          {t("water_micro")}
+        </span>
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold" style={{ color: PHYSICO_COLOR }}>
+          <FileText size={12} />
+          {t("water_physico")}
+        </span>
       </div>
 
       {/* Year buttons */}
@@ -66,7 +86,7 @@ export default function WaterAnalysesCard() {
                     {/* Communities — indented */}
                     <div className="pl-3 ml-1 border-l-2 border-gray-100 dark:border-[#1E2D4E] space-y-2">
                       {u.communities.map((c, ci) => (
-                        <Community key={ci} name={c.name[lang as Lang]} pdfs={c.pdfs} t={t} />
+                        <Community key={ci} name={c.name[lang as Lang]} pdfs={c.pdfs} t={t} lang={lang as Lang} />
                       ))}
                     </div>
                   </div>
@@ -89,34 +109,37 @@ function Community({
   name,
   pdfs,
   t,
+  lang,
 }: {
   name: string;
-  pdfs: { type: WaterAnalysisType; url: string }[];
+  pdfs: { type: WaterAnalysisType; month?: number; url: string }[];
   t: (k: string) => string;
+  lang: Lang;
 }) {
-  // Number repeated tests of the same type (e.g. two physico-chemical samples).
+  // Sort by month so samples read chronologically; fall back to a running index
+  // for the rare PDF with no parsable month.
+  const sorted = [...pdfs].sort((a, b) => (a.month ?? 0) - (b.month ?? 0));
   const counts: Record<string, number> = {};
-  const total: Record<string, number> = {};
-  pdfs.forEach((p) => (total[p.type] = (total[p.type] ?? 0) + 1));
   return (
     <div className="py-0.5">
       <p className="text-[12.5px] font-semibold text-gray-800 dark:text-gray-200 mb-1">{name}</p>
       <div className="flex flex-wrap gap-1.5">
-        {pdfs.map((p, i) => {
+        {sorted.map((p, i) => {
           counts[p.type] = (counts[p.type] ?? 0) + 1;
-          const idx = total[p.type] > 1 ? ` ${counts[p.type]}` : "";
-          const color = p.type === "micro" ? "#9333EA" : "#0EA5E9";
+          const monthLabel = p.month ? MONTHS[lang][p.month - 1] : `${counts[p.type]}`;
+          const color = p.type === "micro" ? MICRO_COLOR : PHYSICO_COLOR;
           return (
             <a
               key={i}
               href={p.url}
               target="_blank"
               rel="noopener noreferrer"
+              title={typeLabel(t, p.type)}
               className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold active:scale-95 transition-transform"
               style={{ backgroundColor: color + "18", color }}
             >
               {p.type === "micro" ? <FlaskConical size={11} /> : <FileText size={11} />}
-              {typeLabel(t, p.type)}{idx}
+              {monthLabel}
             </a>
           );
         })}

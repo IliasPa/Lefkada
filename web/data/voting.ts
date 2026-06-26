@@ -57,8 +57,8 @@ export const pollsData: Poll[] = [
       },
     ],
     seedVotes: { a: 342, b: 178, c: 89, d: 267 },
-    endDate: '2026-06-24T20:00:00',
-    youtubeId: 'aqz-KE-bpKQ',
+    endDate: '2026-06-30T20:00:00',
+    youtubeId: 'zJ-m32h3HC8',
     pdfUrl: '/docs/poll-bridge-2025.pdf',
     explanations: {
       short: {
@@ -135,8 +135,6 @@ Lefkada, unlike most Greek islands, is technically a peninsula separated from th
       },
     },
   },
-
-  // ── Older / closed polls (shown via "Show older votings") ──────────────────
   {
     id: 'poll_marina_2026',
     title: {
@@ -150,7 +148,7 @@ Lefkada, unlike most Greek islands, is technically a peninsula separated from th
     ],
     seedVotes: { a: 421, b: 233, c: 388 },
     endDate: '2026-05-10T20:00:00',
-    youtubeId: 'aqz-KE-bpKQ',
+    youtubeId: 'zJ-m32h3HC8',
     pdfUrl: '/docs/poll-bridge-2025.pdf',
     explanations: {
       short: {

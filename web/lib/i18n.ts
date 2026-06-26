@@ -392,6 +392,7 @@ const el: Record<string, string> = {
 
   council_decision: "Απόφαση ορισμού",
   council_cv: "Βιογραφικό",
+  council_assets: "Πόθεν έσχες",
   council_members: "Δημοτικό Συμβούλιο",
   council_members_count: "μέλη",
   council_president: "Πρόεδρος",
@@ -405,6 +406,15 @@ const el: Record<string, string> = {
 
   about_councillors: "Σύμβουλοι Κοινότητας",
   about_president: "Πρόεδρος",
+  about_municipality: "Δήμος Λευκάδας",
+  about_municipality_sub: "Παρουσίαση & φυσικές ομορφιές",
+  about_councillors_title: "Σύμβουλοι Τοπικών Κοινοτήτων",
+  about_councillors_sub: "Ανά δημοτική ενότητα & κοινότητα",
+  council_delegated: "Εντεταλμένοι Σύμβουλοι",
+  services_questionnaire: "Ερωτηματολόγιο",
+  services_nsrf_projects: "Έργα ΕΣΠΑ",
+  services_nsrf_announcements: "Ανακοινώσεις ΕΣΠΑ",
+  services_view_announcements: "Δείτε τις ανακοινώσεις",
 };
 
 const en: Record<string, string> = {
@@ -781,6 +791,7 @@ const en: Record<string, string> = {
 
   council_decision: "Appointment decision",
   council_cv: "Curriculum Vitae",
+  council_assets: "Asset declaration",
   council_members: "City Council",
   council_members_count: "members",
   council_president: "President",
@@ -794,6 +805,15 @@ const en: Record<string, string> = {
 
   about_councillors: "Community Councillors",
   about_president: "President",
+  about_municipality: "Municipality of Lefkada",
+  about_municipality_sub: "Presentation & natural beauty",
+  about_councillors_title: "Local Community Councillors",
+  about_councillors_sub: "By municipal unit & community",
+  council_delegated: "Delegated Councillors",
+  services_questionnaire: "Questionnaire",
+  services_nsrf_projects: "NSRF Projects",
+  services_nsrf_announcements: "NSRF Announcements",
+  services_view_announcements: "View announcements",
 };
 
 export const translations = { el, en } as const;

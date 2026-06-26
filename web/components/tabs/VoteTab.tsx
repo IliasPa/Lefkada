@@ -495,34 +495,22 @@ function ResultsCard({
   t: (k: string) => string;
   onChangeVote: () => void;
 }) {
-  const myOptText = poll.options.find((o) => o.id === myVote)?.text[lang] ?? "";
   return (
     <div className="bg-white dark:bg-[#141929] rounded-2xl p-5 border border-gray-100 dark:border-[#1E2D4E] shadow-sm space-y-4">
-      {myVote && (
-        <>
-          <div className="flex items-start gap-3 bg-green-50 dark:bg-green-900/20 p-3.5 rounded-xl">
-            <CheckCircle2
-              size={20}
-              className="text-green-500 flex-shrink-0 mt-0.5"
-            />
-            <div>
-              <p className="font-semibold text-sm text-green-700 dark:text-green-400">
-                {t("vote_submitted_title")}
-              </p>
-              <p className="text-xs text-green-600 dark:text-green-500 mt-0.5">
-                {t("vote_submitted_text")}
-              </p>
-            </div>
-          </div>
+      {/* "Vote submitted" confirmation — only while the poll is still open.
+          (Once closed, the ✓ on the chosen option already marks the user's vote.) */}
+      {myVote && !closed && (
+        <div className="flex items-start gap-3 bg-green-50 dark:bg-green-900/20 p-3.5 rounded-xl">
+          <CheckCircle2 size={20} className="text-green-500 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 mb-1">
-              {t("vote_your_vote")}
+            <p className="font-semibold text-sm text-green-700 dark:text-green-400">
+              {t("vote_submitted_title")}
             </p>
-            <p className="text-sm font-semibold text-primary dark:text-primary-300">
-              {myOptText}
+            <p className="text-xs text-green-600 dark:text-green-500 mt-0.5">
+              {t("vote_submitted_text")}
             </p>
           </div>
-        </>
+        </div>
       )}
       <div>
         <div className="flex items-center justify-between mb-3">

@@ -31,7 +31,7 @@ import {
   PLACE_ACCENT,
   type Place,
 } from "@/data/places";
-import { historyData, HISTORY_ACCENT, type HistoryEntry } from "@/data/history";
+import { historyData, HISTORY_ACCENT, historicalReferences, type HistoryEntry } from "@/data/history";
 import AnimatedSegmented from "@/components/AnimatedSegmented";
 
 const LazyMap = dynamic(() => import("@/components/LefkadaMap"), {
@@ -275,6 +275,28 @@ function HistoryView({
   ];
   return (
     <div className="space-y-5">
+      {/* Full official reference text (Municipality of Lefkada) */}
+      <article className="rounded-2xl border border-gray-100 dark:border-[#1E2D4E] bg-white dark:bg-[#141929] shadow-sm overflow-hidden">
+        <img
+          src={historicalReferences.image}
+          alt=""
+          loading="lazy"
+          className="w-full h-44 object-cover bg-gray-100 dark:bg-[#10141F]"
+        />
+        <div className="p-4">
+          <h3 className="font-bold text-[16px] text-gray-900 dark:text-white leading-snug">
+            {historicalReferences.title[lang]}
+          </h3>
+          <div className="space-y-2.5 mt-2">
+            {historicalReferences.paragraphs.map((p, i) => (
+              <p key={i} className="text-[13.5px] text-gray-600 dark:text-gray-400 leading-relaxed">
+                {p[lang]}
+              </p>
+            ))}
+          </div>
+        </div>
+      </article>
+
       {groups.map((g) => {
         const items = historyData.filter((h) => h.kind === g.kind);
         const accent = HISTORY_ACCENT[g.kind];

@@ -34,12 +34,15 @@ export interface CouncilTerm {
   mayor: CouncilPerson;
   secretaryGeneral?: CouncilPerson;
   deputyMayors: CouncilPerson[];
+  /** Εντεταλμένοι Σύμβουλοι — councillors delegated specific portfolios. */
+  delegatedCouncillors?: CouncilPerson[];
   committees: Committee[];
   /** Shown when a past term's full composition isn't recorded in-app yet. */
   note?: BilingualText;
 }
 
 const DEPUTY = { el: 'Αντιδήμαρχος', en: 'Deputy Mayor' };
+const DELEGATED = { el: 'Εντεταλμένος Σύμβουλος', en: 'Delegated Councillor' };
 
 const CURRENT_COMMITTEES: Committee[] = [
   {
@@ -142,6 +145,12 @@ export const councilTerms: CouncilTerm[] = [
       { id: 'dm-skliros', name: { el: 'Φίλιππος Σκληρός', en: 'Filippos Skliros' }, role: DEPUTY },
       { id: 'dm-soldatos', name: { el: 'Γεώργιος Σολδάτος', en: 'Georgios Soldatos' }, role: DEPUTY },
     ],
+    delegatedCouncillors: [
+      { id: 'ec-konidaris', name: { el: 'Κωνσταντίνος Κονιδάρης', en: 'Konstantinos Konidaris' }, role: DELEGATED },
+      { id: 'ec-gantzias', name: { el: 'Ιωάννης Γαντζίας', en: 'Ioannis Gantzias' }, role: DELEGATED },
+      { id: 'ec-karagiannis', name: { el: 'Αθανάσιος Καραγιάννης', en: 'Athanasios Karagiannis' }, role: DELEGATED },
+      { id: 'ec-aravani', name: { el: 'Χριστίνα Αραβανή', en: 'Christina Aravani' }, role: DELEGATED },
+    ],
     committees: CURRENT_COMMITTEES,
   },
   {
@@ -205,12 +214,20 @@ export const councilTerms: CouncilTerm[] = [
  *  documents), not on the municipality's site. */
 export const ASSET_DISCLOSURES_URL = 'https://www.pothen.gr/';
 
+/** The Municipality's page listing elected officials' asset declarations (πόθεν έσχες). */
+export const ASSET_DECLARATIONS_URL =
+  'https://lefkada.gov.gr/diloseis-periousiakis-katastasis-aireton-2019-2023/';
+
 /** The official decision (document) appointing the current Deputy Mayors. */
 export const DEPUTY_ASSIGNMENT_DECISION =
   'https://lefkada.gov.gr/wp-content/uploads/2026/04/8321-26-98fpoli-itha.pdf';
 
 /** The Mayor's published Curriculum Vitae. */
 export const MAYOR_CV_URL = 'https://lefkada.gov.gr/municipality/viografiko-dimarchou/';
+
+/** The official decision (document) appointing the current Delegated Councillors. */
+export const DELEGATED_ASSIGNMENT_DECISION =
+  'https://lefkada.gov.gr/wp-content/uploads/2026/01/rp42oli-d0m.pdf';
 
 // ── City Council (Δημοτικό Συμβούλιο) composition ────────────────────────────
 export interface CityCouncil {

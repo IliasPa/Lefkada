@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Search,
   X,
@@ -22,9 +22,12 @@ import {
   GOV_TYPES,
   GOV_BODIES,
   GOV_BODY_ACCENT,
+  GOV_ANN_TAGS,
+  GOV_ANN_ACCENT,
   type GovItem,
   type GovType,
   type GovBody,
+  type AnnTag,
 } from "@/data/governance";
 import AnimatedSegmented from "@/components/AnimatedSegmented";
 import CouncilView from "@/components/CouncilView";
@@ -52,23 +55,41 @@ function fmtDate(s: string, lang: Lang) {
 }
 
 export default function GovernanceTab() {
-  const { t, lang } = useApp();
+  const { t, lang, govIntent, setGovIntent } = useApp();
   const [section, setSection] = useState<Section>("acts");
   const [type, setType] = useState<GovType>("Decision");
   const [body, setBody] = useState<GovBody | "all">("all");
+  const [annTag, setAnnTag] = useState<AnnTag | "all">("all");
   const [query, setQuery] = useState("");
 
-  // Bodies that actually have meetings — drive the Meetings sub-filter.
+  // Consume a one-shot deep-link intent (e.g. from Services ▸ Social Grocery / NSRF).
+  useEffect(() => {
+    if (!govIntent) return;
+    setSection("acts");
+    if (govIntent.type) setType(govIntent.type as GovType);
+    setAnnTag((govIntent.annTag as AnnTag) ?? "all");
+    setBody("all");
+    setGovIntent(null);
+  }, [govIntent, setGovIntent]);
+
+  // Bodies present for the active type — drive the Meetings/Decisions sub-filter.
   const bodiesPresent = useMemo(() => {
-    const set = new Set(governanceData.filter((g) => g.type === "Meeting" && g.body).map((g) => g.body));
+    const set = new Set(governanceData.filter((g) => g.type === type && g.body).map((g) => g.body));
     return GOV_BODIES.filter((b) => set.has(b.key));
+  }, [type]);
+
+  // Tags that actually have announcements — drive the Announcements sub-filter.
+  const annTagsPresent = useMemo(() => {
+    const set = new Set(governanceData.filter((g) => g.type === "Announcement" && g.annTag).map((g) => g.annTag));
+    return GOV_ANN_TAGS.filter((a) => set.has(a.key));
   }, []);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return governanceData
       .filter((g) => g.type === type)
-      .filter((g) => type !== "Meeting" || body === "all" || g.body === body)
+      .filter((g) => (type !== "Meeting" && type !== "Decision") || body === "all" || g.body === body)
+      .filter((g) => type !== "Announcement" || annTag === "all" || g.annTag === annTag)
       .filter((g) => {
         if (!q) return true;
         return [g.title.el, g.title.en, g.summary.el, g.summary.en]
@@ -77,7 +98,7 @@ export default function GovernanceTab() {
           .includes(q);
       })
       .sort((a, b) => b.date.localeCompare(a.date));
-  }, [type, body, query]);
+  }, [type, body, annTag, query]);
 
   return (
     <div className="h-full scroll-area">
@@ -134,14 +155,15 @@ export default function GovernanceTab() {
                 onChange={(k) => {
                   setType(k as GovType);
                   setBody("all");
+                  setAnnTag("all");
                 }}
                 size="sm"
                 fullWidth
               />
             </div>
 
-            {/* Meeting body sub-filter — filters by the body tag (Δ.Σ. / Ε.Ε. …) */}
-            {type === "Meeting" && bodiesPresent.length > 1 && (
+            {/* Body sub-filter (Meetings & Decisions) — filters by the body tag (Δ.Σ. / Ο.Ε. …) */}
+            {(type === "Meeting" || type === "Decision") && bodiesPresent.length > 1 && (
               <div className="flex gap-2 overflow-x-auto pb-2 mb-2" style={{ scrollbarWidth: "none" }}>
                 {[{ key: "all" as const, label: t("gov_body_all"), accent: "#6B7280" }, ...bodiesPresent.map((b) => ({ key: b.key, label: b.tag[lang], accent: GOV_BODY_ACCENT[b.key] }))].map((o) => {
                   const active = body === o.key;
@@ -150,6 +172,26 @@ export default function GovernanceTab() {
                       key={o.key}
                       onClick={() => setBody(o.key as GovBody | "all")}
                       title={o.key === "all" ? t("gov_body_all") : GOV_BODIES.find((b) => b.key === o.key)?.name[lang]}
+                      className="flex-shrink-0 px-3 py-1 rounded-full text-[11px] font-bold border transition-all active:scale-95"
+                      style={active ? { backgroundColor: o.accent, color: "#fff", borderColor: o.accent } : { borderColor: o.accent + "55", color: o.accent }}
+                    >
+                      {o.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Announcement source sub-filter — Δήμος / Κοιν. Παντοπωλείο / ΔΕΠΟΚΑΛ / ΕΣΠΑ */}
+            {type === "Announcement" && annTagsPresent.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto pb-2 mb-2" style={{ scrollbarWidth: "none" }}>
+                {[{ key: "all" as const, label: t("gov_body_all"), accent: "#6B7280" }, ...annTagsPresent.map((a) => ({ key: a.key, label: a.tag[lang], accent: GOV_ANN_ACCENT[a.key] }))].map((o) => {
+                  const active = annTag === o.key;
+                  return (
+                    <button
+                      key={o.key}
+                      onClick={() => setAnnTag(o.key as AnnTag | "all")}
+                      title={o.key === "all" ? t("gov_body_all") : GOV_ANN_TAGS.find((a) => a.key === o.key)?.name[lang]}
                       className="flex-shrink-0 px-3 py-1 rounded-full text-[11px] font-bold border transition-all active:scale-95"
                       style={active ? { backgroundColor: o.accent, color: "#fff", borderColor: o.accent } : { borderColor: o.accent + "55", color: o.accent }}
                     >
@@ -188,8 +230,13 @@ function GovCard({
   t: (k: string) => string;
 }) {
   const { setActiveTab } = useApp();
-  const bodyMeta = g.type === "Meeting" && g.body ? GOV_BODIES.find((b) => b.key === g.body) : undefined;
-  const accent = bodyMeta ? GOV_BODY_ACCENT[bodyMeta.key] : GOV_ACCENT[g.type];
+  const bodyMeta = (g.type === "Meeting" || g.type === "Decision") && g.body ? GOV_BODIES.find((b) => b.key === g.body) : undefined;
+  const annMeta = g.type === "Announcement" && g.annTag ? GOV_ANN_TAGS.find((a) => a.key === g.annTag) : undefined;
+  const accent = bodyMeta
+    ? GOV_BODY_ACCENT[bodyMeta.key]
+    : annMeta
+      ? GOV_ANN_ACCENT[annMeta.key]
+      : GOV_ACCENT[g.type];
   const [watch, setWatch] = useState(false);
 
   return (
@@ -197,7 +244,7 @@ function GovCard({
       <div className="h-1 w-full" style={{ backgroundColor: accent }} />
       <div className="p-4">
         <div className="flex items-center justify-between gap-2 mb-1.5">
-          {/* Body badge — only for meetings (the type is already the active filter) */}
+          {/* Body / source badge — for meetings, body-decisions and announcements */}
           {bodyMeta ? (
             <span
               className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full"
@@ -205,6 +252,14 @@ function GovCard({
               title={bodyMeta.name[lang]}
             >
               {bodyMeta.tag[lang]}
+            </span>
+          ) : annMeta ? (
+            <span
+              className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full"
+              style={{ backgroundColor: accent + "18", color: accent }}
+              title={annMeta.name[lang]}
+            >
+              {annMeta.tag[lang]}
             </span>
           ) : (
             <span />

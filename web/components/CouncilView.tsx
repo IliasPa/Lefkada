@@ -7,7 +7,6 @@ import {
   ChevronRight,
   ChevronDown,
   X,
-  ExternalLink,
   Mail,
   Phone,
   FileText,
@@ -22,8 +21,9 @@ import {
   councilTerms,
   cityCouncil,
   orgTree,
-  ASSET_DISCLOSURES_URL,
+  ASSET_DECLARATIONS_URL,
   DEPUTY_ASSIGNMENT_DECISION,
+  DELEGATED_ASSIGNMENT_DECISION,
   MAYOR_CV_URL,
   type CouncilPerson,
   type Committee,
@@ -106,14 +106,38 @@ export default function CouncilView() {
                     <Avatar text={initials(d.name[lang])} accent="#0D5EAF" />
                     <div className="min-w-0 flex-1">
                       <span className="block font-bold text-[13px] text-gray-900 dark:text-white truncate">{d.name[lang]}</span>
-                      <a
-                        href={DEPUTY_ASSIGNMENT_DECISION}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-[11px] font-bold text-primary dark:text-primary-300 mt-0.5"
-                      >
-                        <FileSignature size={11} /> {t("council_decision")}
-                      </a>
+                      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 mt-0.5">
+                        <a href={DEPUTY_ASSIGNMENT_DECISION} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] font-bold text-primary dark:text-primary-300">
+                          <FileSignature size={11} /> {t("council_decision")}
+                        </a>
+                        <a href={ASSET_DECLARATIONS_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] font-bold text-primary dark:text-primary-300">
+                          <FileText size={11} /> {t("council_assets")}
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Group>
+          )}
+
+          {/* Delegated councillors (Εντεταλμένοι Σύμβουλοι) — same format as deputies */}
+          {term.delegatedCouncillors && term.delegatedCouncillors.length > 0 && (
+            <Group label={`${t("council_delegated")} · ${term.delegatedCouncillors.length}`}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {term.delegatedCouncillors.map((d) => (
+                  <div key={d.id} className="flex items-center gap-2.5 p-2.5 rounded-xl border border-gray-100 dark:border-[#1E2D4E] bg-white dark:bg-[#141929] shadow-sm">
+                    <Avatar text={initials(d.name[lang])} accent="#16A34A" />
+                    <div className="min-w-0 flex-1">
+                      <span className="block font-bold text-[13px] text-gray-900 dark:text-white truncate">{d.name[lang]}</span>
+                      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 mt-0.5">
+                        <a href={DELEGATED_ASSIGNMENT_DECISION} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] font-bold text-primary dark:text-primary-300">
+                          <FileSignature size={11} /> {t("council_decision")}
+                        </a>
+                        <a href={ASSET_DECLARATIONS_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] font-bold text-primary dark:text-primary-300">
+                          <FileText size={11} /> {t("council_assets")}
+                        </a>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -144,18 +168,6 @@ export default function CouncilView() {
       {/* City Council members — current term only */}
       {isCurrent && <CityCouncilSection t={t} />}
 
-      {/* Asset disclosures — national documents registry */}
-      <a href={ASSET_DISCLOSURES_URL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 dark:border-[#1E2D4E] bg-white dark:bg-[#141929] shadow-sm active:scale-[0.98] transition-transform">
-        <span className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "#0D5EAF18", color: "#0D5EAF" }}>
-          <FileText size={17} />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block font-bold text-[13px] text-gray-900 dark:text-white truncate">{t("council_disclosures")}</span>
-          <span className="block text-[11px] text-gray-500 dark:text-gray-400 truncate">{t("council_disclosures_sub")}</span>
-        </span>
-        <ExternalLink size={14} className="text-gray-300 dark:text-gray-600 flex-shrink-0" />
-      </a>
-
       {/* Organisational structure (term-independent) */}
       <OrgTreeSection lang={lang} t={t} />
 
@@ -174,9 +186,14 @@ export default function CouncilView() {
               {person.bio && <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{person.bio[lang]}</p>}
               <div className="flex flex-wrap gap-2 mt-4">
                 {person.id.startsWith("mayor") && (
-                  <a href={MAYOR_CV_URL} target="_blank" rel="noopener noreferrer" className="sheet-btn">
-                    <FileText size={13} /> {t("council_cv")}
-                  </a>
+                  <>
+                    <a href={MAYOR_CV_URL} target="_blank" rel="noopener noreferrer" className="sheet-btn">
+                      <FileText size={13} /> {t("council_cv")}
+                    </a>
+                    <a href={ASSET_DECLARATIONS_URL} target="_blank" rel="noopener noreferrer" className="sheet-btn">
+                      <FileSignature size={13} /> {t("council_assets")}
+                    </a>
+                  </>
                 )}
                 {person.email && (
                   <a href={`mailto:${person.email}`} className="sheet-btn">

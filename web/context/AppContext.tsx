@@ -36,6 +36,10 @@ interface AppContextValue {
   toggleHiddenTab: (tab: TabKey) => void;
   notifications: boolean;
   setNotifications: (on: boolean) => void;
+  /** One-shot deep-link intent for the Governance ▸ Acts feed (e.g. open the
+   *  Announcements list pre-filtered to a tag). Consumed and cleared by the tab. */
+  govIntent: { type?: string; annTag?: string } | null;
+  setGovIntent: (i: { type?: string; annTag?: string } | null) => void;
   t: (key: string) => string;
 }
 
@@ -48,6 +52,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [a11y, setA11yState] = useState<A11ySettings>(DEFAULT_A11Y);
   const [hiddenTabs, setHiddenTabsState] = useState<TabKey[]>([]);
   const [notifications, setNotificationsState] = useState(false);
+  const [govIntent, setGovIntent] = useState<{ type?: string; annTag?: string } | null>(null);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -153,7 +158,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AppContext.Provider
-      value={{ lang, setLang, theme, setTheme, activeTab, setActiveTab, a11y, setA11y, hiddenTabs, toggleHiddenTab, notifications, setNotifications, t }}
+      value={{ lang, setLang, theme, setTheme, activeTab, setActiveTab, a11y, setA11y, hiddenTabs, toggleHiddenTab, notifications, setNotifications, govIntent, setGovIntent, t }}
     >
       {children}
     </AppContext.Provider>
