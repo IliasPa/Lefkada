@@ -102,7 +102,7 @@ export const placesData: Place[] = [
     id: 'agios-nikitas',
     name: { el: 'Άγιος Νικήτας', en: 'Agios Nikitas' },
     category: 'Village',
-    coords: [38.7852, 20.6172],
+    coords: [38.7882, 20.6122],
     description: {
       el: 'Γραφικό παραθαλάσσιο χωριό-ψαροχώρι με πεζόδρομο και ταβέρνες.',
       en: 'A picturesque seaside fishing village with a pedestrian lane and tavernas.',
@@ -112,7 +112,7 @@ export const placesData: Place[] = [
     id: 'karya',
     name: { el: 'Καρυά', en: 'Karya' },
     category: 'Village',
-    coords: [38.7500, 20.6327],
+    coords: [38.7600, 20.6477],
     description: {
       el: 'Ορεινό χωριό φημισμένο για το παραδοσιακό κέντημα «καρσάνικο» και τη μεγάλη πλατεία του.',
       en: "A mountain village famed for its traditional 'Karsaniko' embroidery and its grand plane-tree square.",
@@ -122,7 +122,7 @@ export const placesData: Place[] = [
     id: 'englouvi',
     name: { el: 'Έγκλουβη', en: 'Englouvi' },
     category: 'Village',
-    coords: [38.7235, 20.6303],
+    coords: [38.7305, 20.6453],
     description: {
       el: 'Ένα από τα ψηλότερα χωριά, γνωστό για τις περίφημες φακές του.',
       en: 'One of the highest villages, known for its prized lentils.',
@@ -132,7 +132,7 @@ export const placesData: Place[] = [
     id: 'sivota',
     name: { el: 'Σύβοτα', en: 'Sivota' },
     category: 'Village',
-    coords: [38.6220, 20.6837],
+    coords: [38.6230, 20.6827],
     description: {
       el: 'Φιόρδ-όρμος με ιστιοπλοϊκά και ψαροταβέρνες στη νότια ακτή.',
       en: 'A fjord-like bay with sailing boats and fish tavernas on the south coast.',
@@ -144,7 +144,7 @@ export const placesData: Place[] = [
     id: 'castle-agia-mavra',
     name: { el: 'Κάστρο Αγίας Μαύρας', en: 'Castle of Agia Mavra' },
     category: 'Castle',
-    coords: [38.8345, 20.7095],
+    coords: [38.8445, 20.7205],
     description: {
       el: 'Φράγκικο κάστρο του 14ου αιώνα στην είσοδο της Λευκάδας, που φύλαγε το πέρασμα προς το νησί.',
       en: 'A 14th-century Frankish castle at the entrance of Lefkada, guarding the crossing to the island.',
@@ -154,7 +154,7 @@ export const placesData: Place[] = [
     id: 'entrance-bridge',
     name: { el: 'Είσοδος Λευκάδας & Πλωτή Γέφυρα', en: 'Entrance of Lefkada & Floating Bridge' },
     category: 'Landmark',
-    coords: [38.8398, 20.7090],
+    coords: [38.8445, 20.7180],
     description: {
       el: 'Η πλωτή γέφυρα και η διώρυγα που συνδέουν τη Λευκάδα με την ηπειρωτική Ελλάδα — το εμβληματικό «κατώφλι» του νησιού.',
       en: "The floating bridge and canal connecting Lefkada to the mainland — the island's iconic threshold.",
@@ -164,7 +164,7 @@ export const placesData: Place[] = [
     id: 'ancient-lefkada',
     name: { el: 'Αρχαία Λευκάδα', en: 'Ancient Lefkada' },
     category: 'Landmark',
-    coords: [38.8170, 20.7010],
+    coords: [38.8320, 20.7050],
     description: {
       el: 'Τα ερείπια της αρχαίας πόλης με τείχη, θέατρο και νεκρόπολη, νότια της σημερινής Χώρας.',
       en: 'Ruins of the ancient city — walls, a theatre and a necropolis — south of the modern town.',
@@ -176,7 +176,7 @@ export const placesData: Place[] = [
     id: 'dimosari-falls',
     name: { el: 'Καταρράκτες Δημοσάρι (Νυδρί)', en: 'Dimosari Waterfalls (Nidri)' },
     category: 'Trail',
-    coords: [38.7170, 20.7220],
+    coords: [38.7255, 20.6855],
     description: {
       el: 'Δροσερό μονοπάτι μέσα από φαράγγι που καταλήγει στους καταρράκτες πάνω από το Νυδρί.',
       en: 'A cool gorge trail leading to the waterfalls above Nidri.',
@@ -186,7 +186,7 @@ export const placesData: Place[] = [
     id: 'stavrota-trail',
     name: { el: 'Μονοπάτι Σταυρωτά', en: 'Stavrota Trail' },
     category: 'Trail',
-    coords: [38.6790, 20.6280],
+    coords: [38.6990, 20.6250],
     description: {
       el: 'Ορεινή διαδρομή προς την ψηλότερη κορυφή της Λευκάδας (1.182 μ.) με θέα σε όλο το νησί.',
       en: "A mountain route to Lefkada's highest peak (1,182 m) with island-wide views.",
@@ -208,19 +208,39 @@ export const placesData: Place[] = [
     id: 'phonograph-museum',
     name: { el: 'Μουσείο Φωνογράφων', en: 'Phonograph Museum' },
     category: 'Museum',
-    coords: [38.8320, 20.7080],
+    coords: [38.8335, 20.7080],
     description: {
       el: 'Ιδιωτική συλλογή με παλιά γραμμόφωνα, δίσκους και αντικείμενα λαϊκής τέχνης στη Χώρα.',
       en: 'A private collection of old gramophones, records and folk objects in the old town.',
     },
   },
-
-  // ── Cultural spaces (Cultural Center) ──
+  {
+    id: 'museum-kavalos-folklore',
+    name: { el: 'Λαογραφικό Μουσείο Καβάλου', en: 'Folklore Museum of Kavalos' },
+    category: 'Museum',
+    coords: [38.7885, 20.6585],
+    description: {
+      el: 'Λαογραφική συλλογή στο χωριό Κάβαλος, με αντικείμενα της αγροτικής και οικιακής ζωής της Λευκάδας.',
+      en: 'A folklore collection in the village of Kavalos, with objects from Lefkada’s rural and domestic life.',
+    },
+    url: 'https://lefkasculturalcenter.gr/laografiko-mousio-kavalou/',
+  },
+  {
+    id: 'museum-dff-memorabilia',
+    name: { el: 'Μουσείο Ενθυμημάτων Δ.Φ.Φ.', en: 'I.F.F. Memorabilia Museum' },
+    category: 'Museum',
+    coords: [38.8350, 20.7044],
+    description: {
+      el: 'Μουσείο ενθυμημάτων του Διεθνούς Φεστιβάλ Φολκλόρ Λευκάδας, με δώρα και κειμήλια από συμμετέχουσες αποστολές.',
+      en: 'Memorabilia museum of Lefkada’s International Folklore Festival, with gifts and keepsakes from visiting delegations.',
+    },
+    url: 'https://lefkasculturalcenter.gr/mousio-enthymimaton-dff/',
+  },
   {
     id: 'cc-hearn',
     name: { el: 'Ιστορικό Κέντρο Λευκάδιου Χερν', en: 'Lafcadio Hearn Historical Center' },
-    category: 'CulturalSpace',
-    coords: [38.8336, 20.7052],
+    category: 'Museum',
+    coords: [38.8350, 20.7042],
     description: {
       el: 'Αφιερωμένο στον Λευκάδιο Χερν, τον σπουδαίο συγγραφέα με καταγωγή από τη Λευκάδα που έγινε εθνικός ποιητής της Ιαπωνίας.',
       en: 'Dedicated to Lafcadio Hearn, the Lefkada-born writer who became a national author of Japan.',
@@ -228,10 +248,23 @@ export const placesData: Place[] = [
     url: 'https://lefkasculturalcenter.gr/en/lafcadio-hearn-history-center/',
   },
   {
+    id: 'cc-takis-efstathiou',
+    name: { el: 'Αίθουσα «Τάκης Ευσταθίου»', en: '"Takis Efstathiou" Hall' },
+    category: 'Museum',
+    coords: [38.8350, 20.7042],
+    description: {
+      el: 'Αίθουσα εκθέσεων και εκδηλώσεων του Πνευματικού Κέντρου, αφιερωμένη στον δωρητή Τάκη Ευσταθίου.',
+      en: 'An exhibition and events hall of the Cultural Center, named after the benefactor Takis Efstathiou.',
+    },
+    url: 'https://lefkasculturalcenter.gr/ethousa-taki-efstathiou/',
+  },
+
+  // ── Cultural spaces (Cultural Center) ──
+  {
     id: 'cc-gallery',
     name: { el: 'Δημοτική Πινακοθήκη', en: 'Municipal Art Gallery' },
     category: 'CulturalSpace',
-    coords: [38.8332, 20.7048],
+    coords: [38.8352, 20.7047],
     description: {
       el: 'Συλλογή έργων ζωγραφικής και η αίθουσα τέχνης «Θ. Στάμος» του Πνευματικού Κέντρου.',
       en: "A painting collection and the 'Th. Stamos' art hall of the Cultural Center.",
@@ -242,24 +275,14 @@ export const placesData: Place[] = [
     id: 'cc-theatre',
     name: { el: 'Ανοιχτό Θέατρο Λευκάδας', en: 'Open-Air Theatre of Lefkada' },
     category: 'CulturalSpace',
-    coords: [38.8340, 20.7045],
+    coords: [38.8352, 20.7034],
     description: {
       el: 'Υπαίθριο θέατρο δίπλα στο Πνευματικό Κέντρο, σκηνή του Διεθνούς Φεστιβάλ Φολκλόρ.',
       en: 'An open-air theatre next to the Cultural Center, home stage of the International Folklore Festival.',
     },
     url: 'https://lefkasculturalcenter.gr/en/venue/open-lefkada-theatre/',
   },
-  {
-    id: 'cc-takis-efstathiou',
-    name: { el: 'Αίθουσα «Τάκης Ευσταθίου»', en: '"Takis Efstathiou" Hall' },
-    category: 'CulturalSpace',
-    coords: [38.8350, 20.7042],
-    description: {
-      el: 'Αίθουσα εκθέσεων και εκδηλώσεων του Πνευματικού Κέντρου, αφιερωμένη στον δωρητή Τάκη Ευσταθίου.',
-      en: 'An exhibition and events hall of the Cultural Center, named after the benefactor Takis Efstathiou.',
-    },
-    url: 'https://lefkasculturalcenter.gr/ethousa-taki-efstathiou/',
-  },
+
   {
     id: 'cc-conference-hall',
     name: { el: 'Αίθουσα Συνεδρίων', en: 'Conference Hall' },
@@ -275,7 +298,7 @@ export const placesData: Place[] = [
     id: 'cc-foyer',
     name: { el: 'Φουαγιέ', en: 'Foyer' },
     category: 'CulturalSpace',
-    coords: [38.8349, 20.7043],
+    coords: [38.8353, 20.7043],
     description: {
       el: 'Ο χώρος υποδοχής του Πνευματικού Κέντρου, που φιλοξενεί μικρές εκθέσεις και εκδηλώσεις.',
       en: 'The reception space of the Cultural Center, hosting small exhibitions and events.',
@@ -286,7 +309,7 @@ export const placesData: Place[] = [
     id: 'cc-stamos-hall',
     name: { el: 'Αίθουσα Τέχνης «Θεόδωρος Στάμος»', en: '"Theodoros Stamos" Art Hall' },
     category: 'CulturalSpace',
-    coords: [38.8350, 20.7040],
+    coords: [38.8331, 20.7063],
     description: {
       el: 'Αίθουσα τέχνης αφιερωμένη στον λευκάδιο ζωγράφο Θεόδωρο Στάμο, σημαντικό εκπρόσωπο του αφηρημένου εξπρεσιονισμού.',
       en: 'An art hall dedicated to Lefkadian-descended painter Theodoros Stamos, a key abstract-expressionist figure.',
@@ -305,36 +328,12 @@ export const placesData: Place[] = [
     url: 'https://lefkasculturalcenter.gr/ekthesi-ex-libris/',
   },
 
-  // ── Museums ──
-  {
-    id: 'museum-kavalos-folklore',
-    name: { el: 'Λαογραφικό Μουσείο Καβάλου', en: 'Folklore Museum of Kavalos' },
-    category: 'Museum',
-    coords: [38.7958, 20.6720],
-    description: {
-      el: 'Λαογραφική συλλογή στο χωριό Κάβαλος, με αντικείμενα της αγροτικής και οικιακής ζωής της Λευκάδας.',
-      en: 'A folklore collection in the village of Kavalos, with objects from Lefkada’s rural and domestic life.',
-    },
-    url: 'https://lefkasculturalcenter.gr/laografiko-mousio-kavalou/',
-  },
-  {
-    id: 'museum-dff-memorabilia',
-    name: { el: 'Μουσείο Ενθυμημάτων Δ.Φ.Φ.', en: 'I.F.F. Memorabilia Museum' },
-    category: 'Museum',
-    coords: [38.8349, 20.7045],
-    description: {
-      el: 'Μουσείο ενθυμημάτων του Διεθνούς Φεστιβάλ Φολκλόρ Λευκάδας, με δώρα και κειμήλια από συμμετέχουσες αποστολές.',
-      en: 'Memorabilia museum of Lefkada’s International Folklore Festival, with gifts and keepsakes from visiting delegations.',
-    },
-    url: 'https://lefkasculturalcenter.gr/mousio-enthymimaton-dff/',
-  },
-
   // ── Libraries ──
   {
     id: 'cc-library',
     name: { el: 'Χαραμόγλειος Βιβλιοθήκη', en: 'Charamoglios Library' },
     category: 'Library',
-    coords: [38.8330, 20.7058],
+    coords: [38.8332, 20.7064],
     description: {
       el: 'Ιστορική βιβλιοθήκη με ειδική λευκαδίτικη συλλογή και σπάνιες εκδόσεις.',
       en: 'A historic library with a special Lefkadian collection and rare editions.',
@@ -345,7 +344,7 @@ export const placesData: Place[] = [
     id: 'cc-svoronos-library',
     name: { el: 'Βιβλιοθήκη Νίκου Σβορώνου', en: 'Nikos Svoronos Library' },
     category: 'Library',
-    coords: [38.8351, 20.7041],
+    coords: [38.8333, 20.7063],
     description: {
       el: 'Βιβλιοθήκη αφιερωμένη στον λευκάδιο ιστορικό Νίκο Σβορώνο, με ιστορικές και επιστημονικές εκδόσεις.',
       en: 'A library dedicated to the Lefkadian historian Nikos Svoronos, holding historical and scholarly editions.',
@@ -356,7 +355,7 @@ export const placesData: Place[] = [
     id: 'public-library',
     name: { el: 'Δημόσια Βιβλιοθήκη Λευκάδας', en: 'Public Library of Lefkada' },
     category: 'Library',
-    coords: [38.8335, 20.6986],
+    coords: [38.8336, 20.7064],
     description: {
       el: 'Η κεντρική δημόσια βιβλιοθήκη της Λευκάδας, στην οδό Ροντογιάννη, με δανειστικό τμήμα, αναγνωστήριο και πλούσια λευκαδίτικη συλλογή.',
       en: 'The central public library of Lefkada, on Rontogianni street — a lending department, reading room and a rich Lefkadian collection.',
@@ -369,7 +368,7 @@ export const placesData: Place[] = [
     id: 'faneromeni',
     name: { el: 'Μονή Παναγίας Φανερωμένης', en: 'Faneromeni Monastery' },
     category: 'Church',
-    coords: [38.8290, 20.6960],
+    coords: [38.8260, 20.6783],
     description: {
       el: 'Το σημαντικότερο μοναστήρι του νησιού, πάνω από τη Χώρα, με πανοραμική θέα στη λιμνοθάλασσα.',
       en: "The island's most important monastery, above the town, with panoramic views over the lagoon.",
@@ -379,7 +378,7 @@ export const placesData: Place[] = [
     id: 'agios-spyridon',
     name: { el: 'Άγιος Σπυρίδων', en: 'Church of Agios Spyridon' },
     category: 'Church',
-    coords: [38.8318, 20.7082],
+    coords: [38.8341, 20.7085],
     description: {
       el: 'Εκκλησία του 17ου αιώνα στην κεντρική πλατεία της Χώρας, με ξυλόγλυπτο τέμπλο.',
       en: 'A 17th-century church on the main square of the old town, with a carved wooden iconostasis.',

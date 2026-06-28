@@ -15,16 +15,16 @@ import {
   Users,
   Network,
   FileSignature,
+  Target,
+  ExternalLink,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import {
   councilTerms,
   cityCouncil,
   orgTree,
-  ASSET_DECLARATIONS_URL,
   DEPUTY_ASSIGNMENT_DECISION,
   DELEGATED_ASSIGNMENT_DECISION,
-  MAYOR_CV_URL,
   type CouncilPerson,
   type Committee,
   type OrgNode,
@@ -83,6 +83,23 @@ export default function CouncilView() {
         </p>
       )}
 
+      {/* Operational Programme (Επιχειρησιακό Πρόγραμμα) — strategic & operational planning */}
+      {term.planning && (
+        <div className="rounded-xl border border-gray-100 dark:border-[#1E2D4E] bg-white dark:bg-[#141929] p-3">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-2 flex items-center gap-1.5">
+            <Target size={12} /> {t("council_planning")} · {term.planning.period}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <a href={term.planning.strategic} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-lg text-primary dark:text-primary-300 bg-primary-50 dark:bg-primary-900/20 hover:bg-primary-100 dark:hover:bg-primary-900/30 active:scale-95 transition-all">
+              <FileText size={12} /> {t("council_plan_strategic")} <ExternalLink size={10} className="opacity-70" />
+            </a>
+            <a href={term.planning.operational} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-lg text-primary dark:text-primary-300 bg-primary-50 dark:bg-primary-900/20 hover:bg-primary-100 dark:hover:bg-primary-900/30 active:scale-95 transition-all">
+              <FileText size={12} /> {t("council_plan_operational")} <ExternalLink size={10} className="opacity-70" />
+            </a>
+          </div>
+        </div>
+      )}
+
       {/* Leadership */}
       <Group label={t("council_leadership")}>
         <PersonCard person={term.mayor} lang={lang} onClick={() => setPerson(term.mayor)} accent="#0D5EAF" icon={<Crown size={18} />} large />
@@ -91,13 +108,10 @@ export default function CouncilView() {
         )}
       </Group>
 
-      {term.note && term.deputyMayors.length === 0 ? (
-        <p className="text-[13px] text-gray-500 dark:text-gray-400 leading-relaxed bg-gray-50 dark:bg-[#10141F] border border-gray-100 dark:border-[#1E2D4E] rounded-xl p-3">
-          {term.note[lang]}
-        </p>
-      ) : (
+      {/* Composition (renders whatever is recorded; the note flags partial terms) */}
+      {(
         <>
-          {/* Deputy mayors — name + decision/CV buttons (no role line, no sheet) */}
+          {/* Deputy mayors — name + decision/asset buttons (no role line, no sheet) */}
           {term.deputyMayors.length > 0 && (
             <Group label={`${t("council_deputies")} · ${term.deputyMayors.length}`}>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -107,12 +121,16 @@ export default function CouncilView() {
                     <div className="min-w-0 flex-1">
                       <span className="block font-bold text-[13px] text-gray-900 dark:text-white truncate">{d.name[lang]}</span>
                       <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 mt-0.5">
-                        <a href={DEPUTY_ASSIGNMENT_DECISION} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] font-bold text-primary dark:text-primary-300">
-                          <FileSignature size={11} /> {t("council_decision")}
-                        </a>
-                        <a href={ASSET_DECLARATIONS_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] font-bold text-primary dark:text-primary-300">
-                          <FileText size={11} /> {t("council_assets")}
-                        </a>
+                        {isCurrent && (
+                          <a href={DEPUTY_ASSIGNMENT_DECISION} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] font-bold text-primary dark:text-primary-300">
+                            <FileSignature size={11} /> {t("council_decision")}
+                          </a>
+                        )}
+                        {d.assetUrl && (
+                          <a href={d.assetUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] font-bold text-primary dark:text-primary-300">
+                            <FileText size={11} /> {t("council_assets")}
+                          </a>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -134,9 +152,11 @@ export default function CouncilView() {
                         <a href={DELEGATED_ASSIGNMENT_DECISION} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] font-bold text-primary dark:text-primary-300">
                           <FileSignature size={11} /> {t("council_decision")}
                         </a>
-                        <a href={ASSET_DECLARATIONS_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] font-bold text-primary dark:text-primary-300">
-                          <FileText size={11} /> {t("council_assets")}
-                        </a>
+                        {d.assetUrl && (
+                          <a href={d.assetUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] font-bold text-primary dark:text-primary-300">
+                            <FileText size={11} /> {t("council_assets")}
+                          </a>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -162,6 +182,13 @@ export default function CouncilView() {
               ))}
             </Group>
           )}
+
+          {/* Partial-term note */}
+          {term.note && (
+            <p className="text-[13px] text-gray-500 dark:text-gray-400 leading-relaxed bg-gray-50 dark:bg-[#10141F] border border-gray-100 dark:border-[#1E2D4E] rounded-xl p-3">
+              {term.note[lang]}
+            </p>
+          )}
         </>
       )}
 
@@ -185,15 +212,15 @@ export default function CouncilView() {
               </div>
               {person.bio && <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{person.bio[lang]}</p>}
               <div className="flex flex-wrap gap-2 mt-4">
-                {person.id.startsWith("mayor") && (
-                  <>
-                    <a href={MAYOR_CV_URL} target="_blank" rel="noopener noreferrer" className="sheet-btn">
-                      <FileText size={13} /> {t("council_cv")}
-                    </a>
-                    <a href={ASSET_DECLARATIONS_URL} target="_blank" rel="noopener noreferrer" className="sheet-btn">
-                      <FileSignature size={13} /> {t("council_assets")}
-                    </a>
-                  </>
+                {person.cv && (
+                  <a href={person.cv} target="_blank" rel="noopener noreferrer" className="sheet-btn">
+                    <FileText size={13} /> {t("council_cv")}
+                  </a>
+                )}
+                {person.assetUrl && (
+                  <a href={person.assetUrl} target="_blank" rel="noopener noreferrer" className="sheet-btn">
+                    <FileSignature size={13} /> {t("council_assets")}
+                  </a>
                 )}
                 {person.email && (
                   <a href={`mailto:${person.email}`} className="sheet-btn">

@@ -5,16 +5,17 @@ import Image from "next/image";
 import { animate, spring } from "animejs";
 import {
   Newspaper,
+  Amphora,
   Landmark,
   Vote,
   Heart,
   BarChart3,
-  Building2,
   Briefcase,
   Dices,
   Phone,
   Mountain,
   HeartHandshake,
+  GraduationCap,
   type LucideIcon,
 } from "lucide-react";
 import { useApp, type TabKey } from "@/context/AppContext";
@@ -27,13 +28,14 @@ interface TabDef {
 
 const TABS: TabDef[] = [
   { key: "home", Icon: Newspaper },
-  { key: "culture", Icon: Landmark },
+  { key: "culture", Icon: Amphora },
   { key: "vote", Icon: Vote },
   { key: "health", Icon: Heart },
   { key: "financials", Icon: BarChart3 },
-  { key: "governance", Icon: Building2 },
+  { key: "governance", Icon: Landmark },
   { key: "about", Icon: Mountain },
   { key: "services", Icon: HeartHandshake },
+  { key: "education", Icon: GraduationCap },
   { key: "jobs", Icon: Briefcase },
   { key: "game", Icon: Dices },
   { key: "contacts", Icon: Phone },
@@ -200,12 +202,18 @@ export default function AppHeader() {
                 title={t(`tab_${key}`)}
                 onClick={() => setActiveTab(key)}
                 className={`
-                  relative z-10 flex items-center justify-center w-10 h-10 flex-shrink-0
+                  relative z-10 flex flex-col items-center justify-center flex-shrink-0
                   transition-colors duration-150 active:scale-90
+                  ${a11y.largeText ? "gap-0.5 px-2 min-w-[2.75rem] h-10" : "w-10 h-10"}
                   ${active ? "text-primary dark:text-primary-300" : "text-gray-400 dark:text-gray-600"}
                 `}
               >
                 <Icon size={18} strokeWidth={active ? 2.3 : 1.7} />
+                {a11y.largeText && (
+                  <span className="text-[9px] font-semibold leading-none whitespace-nowrap">
+                    {t(`tab_${key}`)}
+                  </span>
+                )}
               </button>
             );
           })}

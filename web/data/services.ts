@@ -76,10 +76,10 @@ export const infoServices: InfoService[] = [
   {
     id: 'grocery',
     icon: 'grocery',
-    title: { el: 'Κοινωνικό Παντοπωλείο & ΔΕΠΟΚΑΛ', en: 'Social Grocery & ΔΕΠΟΚΑΛ' },
+    title: { el: 'Κοινωνικό Παντοπωλείο & ΔΕΠΟΚΑΛ', en: 'Social Grocery & DEPOKAL' },
     description: {
       el: 'Στήριξη ευάλωτων νοικοκυριών με τρόφιμα και είδη πρώτης ανάγκης, μέσω της κοινωφελούς επιχείρησης του Δήμου (ΔΕΠΟΚΑΛ). Η αίτηση γίνεται στην Κοινωνική Υπηρεσία του Δήμου.',
-      en: 'Support for vulnerable households with food and basic goods, run by the Municipality’s public-benefit enterprise (ΔΕΠΟΚΑΛ). Apply at the Municipality’s Social Service.',
+      en: 'Support for vulnerable households with food and basic goods, run by the Municipality’s public-benefit enterprise (DEPOKAL). Apply at the Municipality’s Social Service.',
     },
   },
   {

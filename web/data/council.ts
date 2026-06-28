@@ -8,6 +8,10 @@ export interface CouncilPerson {
   bio?: BilingualText;
   email?: string;
   phone?: string;
+  /** Link to this person's published Curriculum Vitae (document), if any. */
+  cv?: string;
+  /** Link to this person's asset declaration / πόθεν έσχες (document), if any. */
+  assetUrl?: string;
 }
 
 export interface CommitteeMembers {
@@ -37,6 +41,8 @@ export interface CouncilTerm {
   /** Εντεταλμένοι Σύμβουλοι — councillors delegated specific portfolios. */
   delegatedCouncillors?: CouncilPerson[];
   committees: Committee[];
+  /** Επιχειρησιακό Πρόγραμμα — strategic (A') & operational (B') planning documents for the term. */
+  planning?: { period: string; strategic: string; operational: string };
   /** Shown when a past term's full composition isn't recorded in-app yet. */
   note?: BilingualText;
 }
@@ -114,6 +120,7 @@ export const councilTerms: CouncilTerm[] = [
     id: 'term-2024',
     startYear: 2024,
     startDate: '2024-01-01',
+    planning: { period: '2024–2028', strategic: 'https://lefkada.gov.gr/epicheirisiako-programma-dimou-lefkadas-2024-2028-stratigikos-schediasmos/', operational: 'https://lefkada.gov.gr/epicheirisiako-programma-2024-2028-epicheirisiako-schedio-deiktes-prakolouthisis-kai-axiologisis/' },
     endYear: 2028,
     mayor: {
       id: 'mayor-verginis',
@@ -123,6 +130,7 @@ export const councilTerms: CouncilTerm[] = [
         el: 'Δήμαρχος Λευκάδας για τη θητεία 2024–2028. Προΐσταται των υπηρεσιών του Δήμου και εκπροσωπεί τον Δήμο.',
         en: 'Mayor of Lefkada for the 2024–2028 term. Heads the municipal services and represents the Municipality.',
       },
+      cv: 'https://lefkada.gov.gr/municipality/viografiko-dimarchou/',
     },
     secretaryGeneral: {
       id: 'secretary-general',
@@ -157,13 +165,18 @@ export const councilTerms: CouncilTerm[] = [
     id: 'term-2019',
     startYear: 2019,
     startDate: '2019-09-01',
+    planning: { period: '2020–2023', strategic: 'https://lefkada.gov.gr/a%CE%84-fasi-stratigikos-schediasmos/', operational: 'https://lefkada.gov.gr/v%CE%84-fasi-epicheirisiakos-schediasmos/' },
     endYear: 2023,
     mayor: {
       id: 'mayor-kalos',
       name: { el: 'Χαράλαμπος Καλός', en: 'Charalampos Kalos' },
       role: { el: 'Δήμαρχος Λευκάδας (2019–2023)', en: 'Mayor of Lefkada (2019–2023)' },
+      assetUrl: 'https://lefkada.gov.gr/wp-content/uploads/2021/10/kalos_charalampos_1803000_2020-2.pdf',
     },
-    deputyMayors: [],
+    deputyMayors: [
+      // Only the officials whose asset declaration (πόθεν έσχες) is published for this term.
+      { id: 'dm-lygdas-2019', name: { el: 'Σπυρίδων Λύγδας', en: 'Spyridon Lygdas' }, role: DEPUTY, assetUrl: 'https://lefkada.gov.gr/wp-content/uploads/2021/10/perioysiaki-katastasi-ligdas-spyros.pdf' },
+    ],
     committees: [],
     note: {
       el: 'Πλήρης σύνθεση Δημοτικού Συμβουλίου και επιτροπών για τη θητεία αυτή δεν έχει καταχωρηθεί ακόμη στην εφαρμογή.',
@@ -210,20 +223,9 @@ export const councilTerms: CouncilTerm[] = [
   },
 ];
 
-/** Asset declarations live on the national registry (the source of the actual
- *  documents), not on the municipality's site. */
-export const ASSET_DISCLOSURES_URL = 'https://www.pothen.gr/';
-
-/** The Municipality's page listing elected officials' asset declarations (πόθεν έσχες). */
-export const ASSET_DECLARATIONS_URL =
-  'https://lefkada.gov.gr/diloseis-periousiakis-katastasis-aireton-2019-2023/';
-
 /** The official decision (document) appointing the current Deputy Mayors. */
 export const DEPUTY_ASSIGNMENT_DECISION =
   'https://lefkada.gov.gr/wp-content/uploads/2026/04/8321-26-98fpoli-itha.pdf';
-
-/** The Mayor's published Curriculum Vitae. */
-export const MAYOR_CV_URL = 'https://lefkada.gov.gr/municipality/viografiko-dimarchou/';
 
 /** The official decision (document) appointing the current Delegated Councillors. */
 export const DELEGATED_ASSIGNMENT_DECISION =

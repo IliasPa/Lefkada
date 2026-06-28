@@ -32,10 +32,9 @@ import {
   type TwinCity,
   type PageContent,
 } from "@/data/about";
-import { communityCouncillors } from "@/data/councillors";
 import AnimatedSegmented from "@/components/AnimatedSegmented";
 
-type Mode = "villages" | "councillors" | "twinning" | "access";
+type Mode = "villages" | "twinning" | "access";
 type Lang = "el" | "en";
 
 const MODE_ICON: Record<AccessMode, React.ReactNode> = {
@@ -60,7 +59,6 @@ export default function AboutTab() {
 
   const subtabs = [
     { key: "villages", label: t("about_villages"), icon: <Building size={13} /> },
-    { key: "councillors", label: t("about_councillors"), icon: <Users size={13} /> },
     { key: "twinning", label: t("about_twinning"), icon: <Handshake size={13} /> },
     { key: "access", label: t("about_access"), icon: <Route size={13} /> },
   ];
@@ -83,7 +81,6 @@ export default function AboutTab() {
       <div className="flex-1 min-h-0 scroll-area">
         <div className="px-4 pt-3 pb-6 max-w-3xl mx-auto">
           {mode === "villages" && <VillagesView lang={lang} t={t} />}
-          {mode === "councillors" && <CouncillorsView lang={lang} t={t} />}
           {mode === "twinning" && <TwinningView lang={lang} t={t} />}
           {mode === "access" && <AccessView lang={lang} t={t} />}
         </div>
@@ -221,57 +218,6 @@ function VillagesView({ lang, t }: { lang: Lang; t: (k: string) => string }) {
           )}
         </Sheet>
       )}
-    </div>
-  );
-}
-
-function CouncillorsView({ lang, t }: { lang: Lang; t: (k: string) => string }) {
-  return (
-    <div className="rounded-2xl border border-gray-100 dark:border-[#1E2D4E] bg-white dark:bg-[#141929] shadow-sm overflow-hidden">
-      <div className="flex items-center gap-3 p-4 pb-3">
-        <span className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "#16A34A18", color: "#16A34A" }}>
-          <Users size={17} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <h3 className="font-bold text-[13.5px] text-gray-900 dark:text-white leading-snug">{t("about_councillors_title")}</h3>
-          <p className="text-[11.5px] text-gray-500 dark:text-gray-400">{t("about_councillors_sub")}</p>
-        </div>
-      </div>
-      <div className="px-3 pb-4 border-t border-gray-100 dark:border-[#1E2D4E] pt-2 space-y-3">
-        {municipalUnits.map((u) => {
-          const comms = u.communities.filter((c) => communityCouncillors[c.name.en]?.length);
-          if (!comms.length) return null;
-          return (
-            <div key={u.id}>
-              <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-primary-50 dark:bg-primary-900/20 mb-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
-                <span className="text-[12px] font-extrabold uppercase tracking-wide text-primary dark:text-primary-300">
-                  {u.name[lang]}
-                </span>
-              </div>
-              <div className="pl-3 ml-1 border-l-2 border-gray-100 dark:border-[#1E2D4E] space-y-2.5">
-                {comms.map((c) => (
-                  <div key={c.name.en} className="py-0.5">
-                    <p className="text-[12.5px] font-semibold text-gray-800 dark:text-gray-200 mb-1">{c.name[lang]}</p>
-                    <div className="space-y-1 pl-3 ml-0.5 border-l border-gray-100 dark:border-[#1E2D4E]">
-                      {communityCouncillors[c.name.en].map((m) => (
-                        <div key={m.name} className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-gray-50 dark:bg-[#10141F]">
-                          <span className="text-[12px] font-medium text-gray-700 dark:text-gray-300">{m.name}</span>
-                          {m.president && (
-                            <span className="text-[9.5px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ backgroundColor: "#16A34A18", color: "#16A34A" }}>
-                              {t("about_president")}
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 }

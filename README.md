@@ -21,13 +21,14 @@
 | 🗳 **Ψήφος**    | Civic polls — live countdown, explainer video, official PDF, vote & see real-time results, browse older votings |
 | 🏥 **Υγεία**    | Health advisories, emergency 166 shortcut, pharmacy-on-duty finder, personal lab exam tracker |
 | 💰 **Δαπάνες**  | Municipal budget — Expenses & Income sub-tabs + a Διαύγεια/Transparency link; clickable line items with a detail popup |
-| 🏢 **Δήμος**    | Town Hall — **Acts** (decisions, tenders, announcements, meetings) and **Council** (interactive composition with per-term tabs: Mayor, Deputy Mayors, committees, asset disclosures) subtabs |
+| 🏛 **Διακυβέρνηση** | Governance — **Town Hall** (Acts: bylaws, decisions, tenders, announcements, meetings, consultations + Council composition) and **Communities** (per-community councillors & decisions) |
 | ⛰ **Το Νησί**  | About Lefkada — municipal units & their (tappable) communities, twinned cities (tap for the twinning decision/date/mayor), and how to reach the island (road, air, KTEL, ferries) |
 | 🤝 **Υπηρεσίες** | Citizen services — gov.gr e-services, e-payments, 4MyCity reporting, social grocery/community centre/port fund, waste & recycling, water analyses, emergency numbers, whistleblowing |
+| 🎓 **Παιδεία**  | Education — **e-Books** (digitised archives), **Libraries** (shared with Culture) and **Lessons** (robotics / sports / hobbies / school help) |
 | 💼 **Θέσεις**   | Open job positions with type/location filtering                            |
 | 🎲 **Παιχνίδι** | Greek Wordle-style word game with daily word & win/loss tracking           |
 | 📞 **Επαφές**   | Searchable directory of municipal phones, emails and hours                 |
-| 👤 **Προφίλ**   | Personal profile, CV upload, VETO action, message to the Mayor + 4MyCity   |
+| 👤 **Προφίλ**   | VETO action & message to the Mayor (profile/CV/doctors now live in ⚙️ Settings) |
 
 ## Tab Design & User Experience
 
@@ -62,9 +63,11 @@
 
 ---
 
-### 🏢 Town Hall — Acts & Council
+### 🏛 Governance — Town Hall & Communities
 
-**What it does:** The municipality's official governance feed and its political composition, kept separate from journalistic News and from the cultural calendar. A top-level **Acts / Council** segmented control splits the two.
+**What it does:** The municipality's official governance feed and its political composition, kept separate from journalistic News and from the cultural calendar. A top-level **Town Hall | Communities** split sits above everything (v0.9). **Town Hall** keeps the **Acts / Council** segmented control; **Communities** holds the per-community **Councillors** (moved from About Lefkada) and their **Acts**.
+
+**v0.9 data:** Acts now has **six** sub-subtabs — **Bylaws** (Κανονισμοί, by name) · **Decisions** · **Tenders** · **Announcements** · **Meetings** · **Consultations** (Διαβουλεύσεις, by date). **Decisions** is the **full 3,975-item published archive (2021-2026)**, lazy-loaded from `/public/decisions.json` and paginated, with the **decision number** as each card's subtitle; **Tenders** were refreshed to **222** from `/competitions/`; a **pre-2021 archive** of 27 year-entries links the old Google-Drive decision folders. Each council term also shows its **Operational Programme** (Strategic + Operational planning) links.
 
 **Why this design:**
 

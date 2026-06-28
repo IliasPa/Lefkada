@@ -14,10 +14,42 @@ import {
   Bell,
   LayoutGrid,
   ExternalLink,
+  Newspaper,
+  Amphora,
+  Vote,
+  Heart,
+  BarChart3,
+  Landmark,
+  Mountain,
+  HeartHandshake,
+  GraduationCap,
+  Briefcase,
+  Dices,
+  Phone,
+  User,
+  ChevronDown,
 } from "lucide-react";
 import { useApp, HIDEABLE_TABS } from "@/context/AppContext";
+import type { TabKey } from "@/context/AppContext";
 import { requestNotificationPermission, showAlertNotification } from "@/lib/notify";
 import AnimatedSegmented from "@/components/AnimatedSegmented";
+import ProfileForm from "@/components/ProfileForm";
+
+/** Mirrors the header tab icons so the show/hide buttons read at a glance. */
+const TAB_ICON: Partial<Record<TabKey, React.ReactNode>> = {
+  home: <Newspaper size={13} />,
+  culture: <Amphora size={13} />,
+  vote: <Vote size={13} />,
+  health: <Heart size={13} />,
+  financials: <BarChart3 size={13} />,
+  governance: <Landmark size={13} />,
+  about: <Mountain size={13} />,
+  services: <HeartHandshake size={13} />,
+  education: <GraduationCap size={13} />,
+  jobs: <Briefcase size={13} />,
+  game: <Dices size={13} />,
+  contacts: <Phone size={13} />,
+};
 
 export default function SettingsMenu() {
   const {
@@ -25,6 +57,7 @@ export default function SettingsMenu() {
     hiddenTabs, toggleHiddenTab, notifications, setNotifications,
   } = useApp();
   const [open, setOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const isDark = theme === "dark";
 
@@ -72,8 +105,28 @@ export default function SettingsMenu() {
         <div
           role="menu"
           style={{ scrollbarWidth: "none" }}
-          className="absolute right-0 top-10 z-50 w-64 p-3 rounded-2xl bg-white dark:bg-[#141929] border border-gray-200 dark:border-[#252A3A] shadow-2xl space-y-3 max-h-[calc(100vh-3.5rem-var(--sat))] overflow-y-auto"
+          className="absolute right-0 top-10 z-50 w-72 p-3 rounded-2xl bg-white dark:bg-[#141929] border border-gray-200 dark:border-[#252A3A] shadow-2xl space-y-3 max-h-[calc(100vh-3.5rem-var(--sat))] overflow-y-auto"
         >
+          {/* Profile (moved here from the Account page) */}
+          <div>
+            <button
+              onClick={() => setProfileOpen((v) => !v)}
+              aria-expanded={profileOpen}
+              className="w-full flex items-center gap-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500"
+            >
+              <User size={13} />
+              <span className="flex-1 text-left">{t("settings_profile")}</span>
+              <ChevronDown size={14} className={`transition-transform ${profileOpen ? "rotate-180" : ""}`} />
+            </button>
+            {profileOpen && (
+              <div className="pt-2">
+                <ProfileForm />
+              </div>
+            )}
+          </div>
+
+          <div className="h-px bg-gray-100 dark:bg-[#1E2D4E]" />
+
           {/* Language */}
           <Section icon={<Languages size={13} />} label={t("settings_language")}>
             <AnimatedSegmented
@@ -139,17 +192,27 @@ export default function SettingsMenu() {
             />
           </Section>
 
-          {/* Show / hide tabs */}
+          {/* Show / hide tabs — each name is a button that greys out when hidden */}
           <Section icon={<LayoutGrid size={13} />} label={t("settings_tabs")}>
-            <div className="space-y-1">
-              {HIDEABLE_TABS.map((key) => (
-                <SwitchRow
-                  key={key}
-                  label={t(`tab_${key}`)}
-                  checked={!hiddenTabs.includes(key)}
-                  onChange={() => toggleHiddenTab(key)}
-                />
-              ))}
+            <div className="flex flex-wrap gap-1.5">
+              {HIDEABLE_TABS.map((key) => {
+                const visible = !hiddenTabs.includes(key);
+                return (
+                  <button
+                    key={key}
+                    onClick={() => toggleHiddenTab(key)}
+                    aria-pressed={visible}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold border transition-all active:scale-95 ${
+                      visible
+                        ? "bg-primary/10 dark:bg-primary-900/30 text-primary dark:text-primary-300 border-primary/30"
+                        : "bg-gray-100 dark:bg-[#252A3A] text-gray-400 dark:text-gray-500 border-transparent"
+                    }`}
+                  >
+                    <span className="flex-shrink-0">{TAB_ICON[key]}</span>
+                    {t(`tab_${key}`)}
+                  </button>
+                );
+              })}
             </div>
           </Section>
 

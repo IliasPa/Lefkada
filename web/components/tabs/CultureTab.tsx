@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import {
   CalendarDays,
@@ -82,8 +82,17 @@ const WEEKDAYS: Record<Lang, string[]> = {
 };
 
 export default function CultureTab() {
-  const { t, lang } = useApp();
+  const { t, lang, cultureIntent, setCultureIntent } = useApp();
   const [mode, setMode] = useState<Mode>("events");
+  const [spacesCat, setSpacesCat] = useState<string>("all");
+
+  // Deep-link from Education ▸ Libraries: open Cultural spaces filtered to a category.
+  useEffect(() => {
+    if (!cultureIntent) return;
+    setMode("spaces");
+    setSpacesCat(cultureIntent);
+    setCultureIntent(null);
+  }, [cultureIntent, setCultureIntent]);
 
   const todayKey = toKey(new Date());
 
@@ -123,9 +132,21 @@ export default function CultureTab() {
     <div className="h-full flex flex-col">
       {/* Header + subtabs */}
       <div className="px-4 pt-4 pb-2 max-w-3xl mx-auto w-full flex-shrink-0">
-        <h1 className="text-xs font-bold tracking-[0.12em] uppercase text-gray-400 dark:text-gray-500 ml-1 mb-2">
-          {t("culture_title")}
-        </h1>
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <h1 className="text-xs font-bold tracking-[0.12em] uppercase text-gray-400 dark:text-gray-500 ml-1">
+            {t("culture_title")}
+          </h1>
+          <a
+            href="https://lefkasculturalcenter.gr/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 flex-shrink-0 px-3 py-1.5 rounded-xl text-[11px] font-bold text-white bg-primary hover:bg-primary-600 active:scale-95 transition-all shadow-sm shadow-primary/30"
+          >
+            <Building2 size={13} className="flex-shrink-0" />
+            {t("culture_center_btn")}
+            <ExternalLink size={11} className="flex-shrink-0 opacity-80" />
+          </a>
+        </div>
         <AnimatedSegmented
           options={subtabs}
           value={mode}
@@ -154,7 +175,7 @@ export default function CultureTab() {
             )}
             {mode === "history" && <HistoryView lang={lang} t={t} />}
             {mode === "spaces" && (
-              <SpacesView places={culturalSpaces} lang={lang} t={t} />
+              <SpacesView places={culturalSpaces} lang={lang} t={t} initialCat={spacesCat} />
             )}
           </div>
         </div>
@@ -168,12 +189,14 @@ function SpacesView({
   places,
   lang,
   t,
+  initialCat = "all",
 }: {
   places: Place[];
   lang: Lang;
   t: (k: string) => string;
+  initialCat?: string;
 }) {
-  const [cat, setCat] = useState<string>("all");
+  const [cat, setCat] = useState<string>(initialCat);
   // Categories actually present, kept in a stable display order.
   const cats = CULTURAL_PLACE_CATEGORIES.filter((c) =>
     places.some((p) => p.category === c),

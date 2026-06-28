@@ -174,7 +174,7 @@ export const eventsData: CultureEvent[] = [
   },
   {
     id: 'folklore-2026',
-    coords: [38.8332, 20.7065],
+    coords: [38.8353, 20.7043],
     title: { el: 'Διεθνές Φεστιβάλ Φολκλόρ', en: 'International Folklore Festival' },
     date: '2026-08-20',
     endDate: '2026-08-26',

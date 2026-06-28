@@ -4,7 +4,7 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import { KEYS, storageGet, storageSet } from '@/lib/storage';
 import { translations, type Lang } from '@/lib/i18n';
 
-export type TabKey = 'home' | 'culture' | 'vote' | 'health' | 'financials' | 'governance' | 'about' | 'services' | 'jobs' | 'game' | 'contacts' | 'account';
+export type TabKey = 'home' | 'culture' | 'vote' | 'health' | 'financials' | 'governance' | 'about' | 'services' | 'education' | 'jobs' | 'game' | 'contacts' | 'account';
 export type ThemeMode = 'light' | 'dark';
 
 export interface A11ySettings {
@@ -20,7 +20,7 @@ const DEFAULT_A11Y: A11ySettings = {
 
 /** Center tabs the user can show/hide (Profile/account is always reachable via the logo). */
 export const HIDEABLE_TABS: TabKey[] = [
-  'home', 'culture', 'vote', 'health', 'financials', 'governance', 'about', 'services', 'jobs', 'game', 'contacts',
+  'home', 'culture', 'vote', 'health', 'financials', 'governance', 'about', 'services', 'education', 'jobs', 'game', 'contacts',
 ];
 
 interface AppContextValue {
@@ -40,6 +40,9 @@ interface AppContextValue {
    *  Announcements list pre-filtered to a tag). Consumed and cleared by the tab. */
   govIntent: { type?: string; annTag?: string } | null;
   setGovIntent: (i: { type?: string; annTag?: string } | null) => void;
+  /** One-shot deep-link into Culture ▸ Cultural spaces, pre-filtered to a place category. */
+  cultureIntent: string | null;
+  setCultureIntent: (c: string | null) => void;
   t: (key: string) => string;
 }
 
@@ -53,6 +56,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [hiddenTabs, setHiddenTabsState] = useState<TabKey[]>([]);
   const [notifications, setNotificationsState] = useState(false);
   const [govIntent, setGovIntent] = useState<{ type?: string; annTag?: string } | null>(null);
+  const [cultureIntent, setCultureIntent] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -76,7 +80,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const params = new URLSearchParams(window.location.search);
     const tabParam = params.get('tab') as TabKey | null;
-    if (tabParam && ['home', 'culture', 'vote', 'health', 'financials', 'governance', 'about', 'services', 'jobs', 'game', 'contacts', 'account'].includes(tabParam)) {
+    if (tabParam && ['home', 'culture', 'vote', 'health', 'financials', 'governance', 'about', 'services', 'education', 'jobs', 'game', 'contacts', 'account'].includes(tabParam)) {
       setActiveTabState(tabParam);
     }
     setMounted(true);
@@ -158,7 +162,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AppContext.Provider
-      value={{ lang, setLang, theme, setTheme, activeTab, setActiveTab, a11y, setA11y, hiddenTabs, toggleHiddenTab, notifications, setNotifications, govIntent, setGovIntent, t }}
+      value={{ lang, setLang, theme, setTheme, activeTab, setActiveTab, a11y, setA11y, hiddenTabs, toggleHiddenTab, notifications, setNotifications, govIntent, setGovIntent, cultureIntent, setCultureIntent, t }}
     >
       {children}
     </AppContext.Provider>

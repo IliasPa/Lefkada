@@ -21,6 +21,7 @@ const CultureTab = lazy(() => import('@/components/tabs/CultureTab'));
 const GovernanceTab = lazy(() => import('@/components/tabs/GovernanceTab'));
 const AboutTab = lazy(() => import('@/components/tabs/AboutTab'));
 const ServicesTab = lazy(() => import('@/components/tabs/ServicesTab'));
+const EducationTab = lazy(() => import('@/components/tabs/EducationTab'));
 const VoteTab = lazy(() => import('@/components/tabs/VoteTab'));
 const HealthTab = lazy(() => import('@/components/tabs/HealthTab'));
 const FinancialsTab = lazy(() => import('@/components/tabs/FinancialsTab'));
@@ -58,6 +59,7 @@ function TabContent({ tab }: { tab: TabKey }) {
     case 'governance': return <GovernanceTab />;
     case 'about':      return <AboutTab />;
     case 'services':   return <ServicesTab />;
+    case 'education':  return <EducationTab />;
     case 'jobs':       return <JobsTab />;
     case 'game':       return <GameTab />;
     case 'contacts':   return <ContactsTab />;
