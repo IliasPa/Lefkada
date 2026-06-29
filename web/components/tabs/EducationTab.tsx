@@ -12,15 +12,17 @@ import {
   MapPin,
   Trophy,
   CalendarDays,
+  Dices,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import AnimatedSegmented from "@/components/AnimatedSegmented";
+import GameTab from "@/components/tabs/GameTab";
 import { ebooksData } from "@/data/ebooks";
 import { placesData } from "@/data/places";
 import { lessonsData, LESSON_CATEGORIES, roboticsCompetitions, type LessonCategory } from "@/data/education";
 
 type Lang = "el" | "en";
-type Mode = "ebooks" | "libraries" | "lessons";
+type Mode = "lessons" | "ebooks" | "libraries" | "game";
 
 const EBOOKS_URL = "https://lefkada.gov.gr/books/ebooks/";
 const PAGE = 8;
@@ -33,6 +35,7 @@ export default function EducationTab() {
     { key: "lessons", label: t("edu_lessons"), icon: <GraduationCap size={13} /> },
     { key: "ebooks", label: t("edu_ebooks"), icon: <BookOpen size={13} /> },
     { key: "libraries", label: t("edu_libraries"), icon: <LibraryIcon size={13} /> },
+    { key: "game", label: t("edu_game"), icon: <Dices size={13} /> },
   ];
 
   return (
@@ -44,13 +47,19 @@ export default function EducationTab() {
         <AnimatedSegmented options={subtabs} value={mode} onChange={(k) => setMode(k as Mode)} size="sm" fullWidth />
       </div>
 
-      <div className="flex-1 min-h-0 scroll-area">
-        <div className="px-4 pt-2 pb-6 max-w-3xl mx-auto">
-          {mode === "ebooks" && <EbooksView lang={lang} t={t} />}
-          {mode === "libraries" && <LibrariesView lang={lang} t={t} />}
-          {mode === "lessons" && <LessonsView lang={lang} t={t} />}
+      {mode === "game" ? (
+        <div className="flex-1 min-h-0">
+          <GameTab />
         </div>
-      </div>
+      ) : (
+        <div className="flex-1 min-h-0 scroll-area">
+          <div className="px-4 pt-2 pb-6 max-w-3xl mx-auto">
+            {mode === "ebooks" && <EbooksView lang={lang} t={t} />}
+            {mode === "libraries" && <LibrariesView lang={lang} t={t} />}
+            {mode === "lessons" && <LessonsView lang={lang} t={t} />}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

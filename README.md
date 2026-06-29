@@ -16,19 +16,17 @@
 
 | Tab             | Description                                                                |
 | --------------- | -------------------------------------------------------------------------- |
-| 📰 **Αρχική**   | Municipal news over a full-screen Lefkada photo backdrop; live city alerts (water/power/fire/weather/road); reporter + social links and reporter/theme filters |
+| 📰 **Αρχική**   | Municipal news over a full-screen Lefkada photo backdrop; live city alerts (water/power/fire/weather/road); **full-text search**, a **reporter dropdown** and **multi-select theme filters** |
 | 🏛 **Πολιτισμός** | Culture — Events, Calendar, **History** (historical & religious references), **Cultural spaces** (museums, galleries, **libraries**, churches) and **Map** subtabs |
-| 🗳 **Ψήφος**    | Civic polls — live countdown, explainer video, official PDF, vote & see real-time results, browse older votings |
 | 🏥 **Υγεία**    | Health advisories, emergency 166 shortcut, pharmacy-on-duty finder, personal lab exam tracker |
 | 💰 **Δαπάνες**  | Municipal budget — Expenses & Income sub-tabs + a Διαύγεια/Transparency link; clickable line items with a detail popup |
-| 🏛 **Διακυβέρνηση** | Governance — **Town Hall** (Acts: bylaws, decisions, tenders, announcements, meetings, consultations + Council composition) and **Communities** (per-community councillors & decisions) |
+| 🏛 **Διακυβέρνηση** | Governance — **Town Hall** (Acts: bylaws, decisions, tenders, announcements, meetings, **consultations + finished referendums**, + Council composition) and **Communities** (per-community decisions & councillors) |
 | ⛰ **Το Νησί**  | About Lefkada — municipal units & their (tappable) communities, twinned cities (tap for the twinning decision/date/mayor), and how to reach the island (road, air, KTEL, ferries) |
 | 🤝 **Υπηρεσίες** | Citizen services — gov.gr e-services, e-payments, 4MyCity reporting, social grocery/community centre/port fund, waste & recycling, water analyses, emergency numbers, whistleblowing |
-| 🎓 **Παιδεία**  | Education — **e-Books** (digitised archives), **Libraries** (shared with Culture) and **Lessons** (robotics / sports / hobbies / school help) |
+| 🎓 **Παιδεία**  | Education — **Lessons** (robotics / sports / music / school help), **e-Books** (digitised archives), **Libraries** (shared with Culture) and the **Game** (Greek Wordle) |
 | 💼 **Θέσεις**   | Open job positions with type/location filtering                            |
-| 🎲 **Παιχνίδι** | Greek Wordle-style word game with daily word & win/loss tracking           |
 | 📞 **Επαφές**   | Searchable directory of municipal phones, emails and hours                 |
-| 👤 **Προφίλ**   | VETO action & message to the Mayor (profile/CV/doctors now live in ⚙️ Settings) |
+| 👤 **Προφίλ**   | **Active votings** (each with its countdown), the VETO action & message to the Mayor (profile/CV/doctors live in ⚙️ Settings) |
 
 ## Tab Design & User Experience
 

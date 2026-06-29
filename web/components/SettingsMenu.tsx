@@ -16,7 +16,6 @@ import {
   ExternalLink,
   Newspaper,
   Amphora,
-  Vote,
   Heart,
   BarChart3,
   Landmark,
@@ -24,7 +23,6 @@ import {
   HeartHandshake,
   GraduationCap,
   Briefcase,
-  Dices,
   Phone,
   User,
   ChevronDown,
@@ -39,7 +37,6 @@ import ProfileForm from "@/components/ProfileForm";
 const TAB_ICON: Partial<Record<TabKey, React.ReactNode>> = {
   home: <Newspaper size={13} />,
   culture: <Amphora size={13} />,
-  vote: <Vote size={13} />,
   health: <Heart size={13} />,
   financials: <BarChart3 size={13} />,
   governance: <Landmark size={13} />,
@@ -47,7 +44,6 @@ const TAB_ICON: Partial<Record<TabKey, React.ReactNode>> = {
   services: <HeartHandshake size={13} />,
   education: <GraduationCap size={13} />,
   jobs: <Briefcase size={13} />,
-  game: <Dices size={13} />,
   contacts: <Phone size={13} />,
 };
 

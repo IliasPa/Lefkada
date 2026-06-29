@@ -9,11 +9,14 @@ import {
   ShieldAlert,
   ShieldOff,
   Megaphone,
+  Vote,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { KEYS, storageGet, storageSet } from "@/lib/storage";
 import VetoOverlay from "@/components/VetoOverlay";
 import AnimatedSegmented from "@/components/AnimatedSegmented";
+import PollBlock, { isPollClosed } from "@/components/PollBlock";
+import { pollsData } from "@/data/voting";
 
 export default function SettingsPanel() {
   const { t, lang } = useApp();
@@ -25,6 +28,7 @@ export default function SettingsPanel() {
   const [vetoActive, setVetoActive] = useState(false);
   const [vetoOverlay, setVetoOverlay] = useState(false);
   const [identity, setIdentity] = useState<{ fullName: string; email: string }>({ fullName: "", email: "" });
+  const activePolls = pollsData.filter((p) => !isPollClosed(p, Date.now()));
 
   useEffect(() => {
     setAnonymous(storageGet<boolean>(KEYS.mayorAnonymous, true));
@@ -72,6 +76,21 @@ export default function SettingsPanel() {
       <div className="h-full scroll-area">
         <div className="pb-6 max-w-2xl mx-auto">
           <div className="px-4 pt-6 space-y-6">
+            {/* ══ ACTIVE VOTINGS (each with its own countdown) ═══════════════ */}
+            {activePolls.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <span className="text-primary dark:text-primary-300"><Vote size={14} /></span>
+                  <p className="text-[11px] font-bold tracking-[0.12em] uppercase text-gray-400 dark:text-gray-500">{t("acc_active_votings")}</p>
+                </div>
+                <div className="space-y-5">
+                  {activePolls.map((p) => (
+                    <PollBlock key={p.id} poll={p} closed={false} />
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* ══ OFFICIAL ACTIONS (VETO) ════════════════════════════════════ */}
             <PSect icon={<ShieldAlert size={14} />} label={t("acc_official")}>
               <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed mb-4">{t("acc_veto_desc")}</p>

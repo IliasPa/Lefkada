@@ -7,11 +7,9 @@ import {
   Newspaper,
   Amphora,
   Landmark,
-  Vote,
   Heart,
   BarChart3,
   Briefcase,
-  Dices,
   Phone,
   Mountain,
   HeartHandshake,
@@ -29,7 +27,6 @@ interface TabDef {
 const TABS: TabDef[] = [
   { key: "home", Icon: Newspaper },
   { key: "culture", Icon: Amphora },
-  { key: "vote", Icon: Vote },
   { key: "health", Icon: Heart },
   { key: "financials", Icon: BarChart3 },
   { key: "governance", Icon: Landmark },
@@ -37,7 +34,6 @@ const TABS: TabDef[] = [
   { key: "services", Icon: HeartHandshake },
   { key: "education", Icon: GraduationCap },
   { key: "jobs", Icon: Briefcase },
-  { key: "game", Icon: Dices },
   { key: "contacts", Icon: Phone },
 ];
 

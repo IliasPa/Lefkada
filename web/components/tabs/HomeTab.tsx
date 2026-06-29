@@ -49,29 +49,31 @@ export default function HomeTab() {
       {/* Sticky filter bars — translucent so the photo shows through up here too */}
       <div className="sticky top-0 z-10 bg-[#F2F5F9]/25 dark:bg-[#0B0F18]/30 backdrop-blur-md pt-4 pb-2 space-y-2">
         <div className="px-4 max-w-2xl mx-auto space-y-2">
-          {/* Search (all words) */}
-          <div className="relative">
-            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              type="search"
-              placeholder={t('news_search')}
-              aria-label={t('news_search')}
-              className="w-full pl-10 pr-10 py-2.5 rounded-xl text-[14px] bg-white/90 dark:bg-[#141929]/90 border border-gray-200 dark:border-[#252A3A] text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-colors"
-            />
-            {query && (
-              <button onClick={() => setQuery('')} aria-label={t('close')} className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-[#252A3A] active:scale-90">
-                <X size={15} />
-              </button>
-            )}
+          {/* Search + reporter dropdown on the same line */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 min-w-0">
+              <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                type="search"
+                placeholder={t('news_search')}
+                aria-label={t('news_search')}
+                className="w-full pl-10 pr-10 py-2.5 rounded-xl text-[14px] bg-white/90 dark:bg-[#141929]/90 border border-gray-200 dark:border-[#252A3A] text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-colors"
+              />
+              {query && (
+                <button onClick={() => setQuery('')} aria-label={t('close')} className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-[#252A3A] active:scale-90">
+                  <X size={15} />
+                </button>
+              )}
+            </div>
+            <div className="w-36 sm:w-44 flex-shrink-0">
+              <ReporterDropdown value={activeReporter} onChange={setActiveReporter} t={t} />
+            </div>
           </div>
 
-          {/* Reporter dropdown (with ✕ to clear back to all) */}
-          <ReporterDropdown value={activeReporter} onChange={setActiveReporter} t={t} />
-
-          {/* Theme (category) filters — wrap to a second line, multi-select */}
-          <div className="flex flex-wrap gap-2">
+          {/* Theme (category) filters — centered, wrap to a second line, multi-select */}
+          <div className="flex flex-wrap justify-center gap-2">
             {CATEGORIES.map(({ key, tKey }) => {
               const active = cats.includes(key);
               return (

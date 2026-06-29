@@ -35,10 +35,13 @@ import {
   type AnnTag,
 } from "@/data/governance";
 import { tendersData, bylawsData, consultationsData, decisionArchive } from "@/data/governanceActs";
+import { pollsData } from "@/data/voting";
 import AnimatedSegmented from "@/components/AnimatedSegmented";
 import SubTabs from "@/components/SubTabs";
 import CouncilView from "@/components/CouncilView";
 import CommunitiesView from "@/components/CommunitiesView";
+import ReferendumCard from "@/components/ReferendumCard";
+import { isPollClosed } from "@/components/PollBlock";
 
 type Lang = "el" | "en";
 type TopSection = "townhall" | "communities";
@@ -118,6 +121,9 @@ export default function GovernanceTab() {
 
   // Reset paging when the active view changes.
   useEffect(() => { setLimit(PAGE); }, [type, body, annTag, query]);
+
+  // Finished referendums (former Vote tab) shown inside Consultations.
+  const finishedPolls = useMemo(() => pollsData.filter((p) => isPollClosed(p, Date.now())), []);
 
   // Source list for the active type.
   const source: GovItem[] = useMemo(() => {
@@ -277,10 +283,21 @@ export default function GovernanceTab() {
                   </div>
                 )}
 
+                {/* Finished referendums (former active votings) live in Consultations */}
+                {type === "Consultation" && finishedPolls.length > 0 && (
+                  <div className="space-y-3 mb-3">
+                    {finishedPolls.map((p) => (
+                      <ReferendumCard key={p.id} poll={p} />
+                    ))}
+                  </div>
+                )}
+
                 {type === "Decision" && decLoading && !decisions ? (
                   <p className="text-center text-gray-400 dark:text-gray-500 py-12 text-sm">{t("gov_loading")}</p>
                 ) : filtered.length === 0 ? (
-                  <p className="text-center text-gray-400 dark:text-gray-500 py-12 text-sm">{t("gov_no_results")}</p>
+                  type === "Consultation" && finishedPolls.length > 0 ? null : (
+                    <p className="text-center text-gray-400 dark:text-gray-500 py-12 text-sm">{t("gov_no_results")}</p>
+                  )
                 ) : (
                   <>
                     <div className="space-y-3">

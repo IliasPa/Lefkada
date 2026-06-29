@@ -99,8 +99,8 @@ function CommunityActsView({ lang, t }: { lang: Lang; t: (k: string) => string }
 
   return (
     <div>
-      {/* Community tag filter */}
-      <div className="flex gap-2 overflow-x-auto pb-2 mb-3" style={{ scrollbarWidth: "none" }}>
+      {/* Community tag filter — wraps to new lines (no horizontal scroll) */}
+      <div className="flex flex-wrap gap-2 pb-2 mb-3">
         {[{ key: "all", name: { el: "Όλες", en: "All" } }, ...present].map((o) => {
           const active = comm === o.key;
           return (

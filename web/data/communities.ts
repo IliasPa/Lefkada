@@ -6,21 +6,21 @@ export interface CommunityActs { key: string; name: BilingualText; items: Commun
 /* AUTO-GENERATED (v0.9). Per-community decisions harvested from the municipality's
  * community category feeds. Items without a published PDF list title/number/date only. */
 export const communityActs: CommunityActs[] = [
-  { key: 'lefkadas', name: { el: 'Δ.Κ. Λευκάδας', en: 'Community of Lefkada' }, items: [
+  { key: 'lefkadas', name: { el: 'Λευκάδας', en: 'Lefkada' }, items: [
     { title: { el: 'Ορισμός αναπληρωτή Προέδρου του Συμβουλίου της Δημοτικής Κοινότητας Λευκάδας', en: 'Ορισμός αναπληρωτή Προέδρου του Συμβουλίου της Δημοτικής Κοινότητας Λευκάδας' }, num: '', date: '2024-01-29', pdf: 'https://lefkada.gov.gr/wp-content/uploads/2024/01/rrlfoli-4no.pdf' },
   ] },
-  { key: 'alexandrou', name: { el: 'Δ.Κ. Αλεξάνδρου', en: 'Community of Alexandros' }, items: [
+  { key: 'alexandrou', name: { el: 'Αλεξάνδρου', en: 'Alexandros' }, items: [
     { title: { el: 'Απόφαση 4-2024', en: 'Απόφαση 4-2024' }, num: '4/2024', date: '2024-02-13', pdf: 'https://lefkada.gov.gr/wp-content/uploads/2024/02/apofasi-symvoylioy4-2024-.pdf' },
     { title: { el: 'Απόφαση 3-2024', en: 'Απόφαση 3-2024' }, num: '3/2024', date: '2024-02-13', pdf: 'https://lefkada.gov.gr/wp-content/uploads/2024/02/apofasi-symvoylioy-3-2024-psoma-emmanoyela-dianoixi-dromoy.pdf' },
     { title: { el: 'Απόφαση 2-2024', en: 'Απόφαση 2-2024' }, num: '2/2024', date: '2024-02-13', pdf: 'https://lefkada.gov.gr/wp-content/uploads/2024/02/apofasi-gia-to-techniko-programma-.pdf' },
     { title: { el: 'Απόφαση 1-2024', en: 'Απόφαση 1-2024' }, num: '1/2024', date: '2024-02-13', pdf: 'https://lefkada.gov.gr/wp-content/uploads/2024/02/dakoktonia-topikis-koinotitas-alexandroy.pdf' },
   ] },
-  { key: 'karyoton', name: { el: 'Δ.Κ. Καρυωτών', en: 'Community of Karyotes' }, items: [
+  { key: 'karyoton', name: { el: 'Καρυωτών', en: 'Karyotes' }, items: [
     { title: { el: 'Απόφαση 1-2024', en: 'Απόφαση 1-2024' }, num: '1/2024', date: '2024-02-09', pdf: 'https://lefkada.gov.gr/wp-content/uploads/2024/02/apofasi-symvoylioy-1-2024.pdf' },
     { title: { el: 'Ορισμός αναπληρωτή Προέδρου του Συμβουλίου της Δημοτικής Κοινότητας Καρυωτών', en: 'Ορισμός αναπληρωτή Προέδρου του Συμβουλίου της Δημοτικής Κοινότητας Καρυωτών' }, num: '', date: '2024-01-15', pdf: 'https://lefkada.gov.gr/wp-content/uploads/2024/01/psv0loli-d93.pdf' },
     { title: { el: 'Πρακτικό ανάδειξης προέδρου συμβουλίου Δημοτικής Κοινότητας Καρυωτών', en: 'Πρακτικό ανάδειξης προέδρου συμβουλίου Δημοτικής Κοινότητας Καρυωτών' }, num: '', date: '2023-05-04', pdf: 'https://lefkada.gov.gr/wp-content/uploads/2023/05/psk6moli-schi-2.pdf' },
   ] },
-  { key: 'katounis', name: { el: 'Δ.Κ. Κατούνης', en: 'Community of Katouna' }, items: [
+  { key: 'katounis', name: { el: 'Κατούνης', en: 'Katouna' }, items: [
     { title: { el: 'Απόφαση 32-2025', en: 'Απόφαση 32-2025' }, num: '32/2025', date: '2025-12-11', pdf: 'https://lefkada.gov.gr/wp-content/uploads/2026/03/apof-32-2025.doc' },
     { title: { el: 'Απόφαση 30-2025', en: 'Απόφαση 30-2025' }, num: '30/2025', date: '2025-12-11', pdf: 'https://lefkada.gov.gr/wp-content/uploads/2026/03/apof-30-2025.doc' },
     { title: { el: 'Απόφαση 31-2025', en: 'Απόφαση 31-2025' }, num: '31/2025', date: '2025-12-11', pdf: 'https://lefkada.gov.gr/wp-content/uploads/2026/03/apof-31-2025.doc' },
@@ -113,7 +113,7 @@ export const communityActs: CommunityActs[] = [
     { title: { el: '“Ορισμός αναπληρωτή Προέδρου Κοινότητας του Συμβουλίου της Κοινότητας Κατούνης”.', en: '“Ορισμός αναπληρωτή Προέδρου Κοινότητας του Συμβουλίου της Κοινότητας Κατούνης”.' }, num: '', date: '2023-05-24', pdf: 'https://lefkada.gov.gr/wp-content/uploads/2023/05/ps5yioli-psov.pdf' },
     { title: { el: 'Πρακτικό ανάδειξης προέδρου συμβουλίου Δημοτικής Κοινότητας Κατούνης', en: 'Πρακτικό ανάδειξης προέδρου συμβουλίου Δημοτικής Κοινότητας Κατούνης' }, num: '', date: '2023-05-04', pdf: 'https://lefkada.gov.gr/wp-content/uploads/2023/05/ps0i6oli-chn0.pdf' },
   ] },
-  { key: 'tsoukaladon', name: { el: 'Δ.Κ. Τσουκαλάδων', en: 'Community of Tsoukalades' }, items: [
+  { key: 'tsoukaladon', name: { el: 'Τσουκαλάδων', en: 'Tsoukalades' }, items: [
     { title: { el: 'Απόφαση 31/2025', en: 'Απόφαση 31/2025' }, num: '31/2025', date: '2026-02-26', pdf: 'https://lefkada.gov.gr/wp-content/uploads/2026/02/31-2025-apofasi-gia-gia-koinochristo-dromo-sti-thesi-mpesteriona.doc' },
     { title: { el: 'Απόφαση 30/2025', en: 'Απόφαση 30/2025' }, num: '30/2025', date: '2026-02-26', pdf: 'https://lefkada.gov.gr/wp-content/uploads/2026/02/30-2025-apofasi-gia-asfalto-sta-kaminia.doc' },
     { title: { el: 'Απόφαση 29/2025', en: 'Απόφαση 29/2025' }, num: '29/2025', date: '2026-02-26', pdf: 'https://lefkada.gov.gr/wp-content/uploads/2026/02/29-2025-apofasi-gia-air-condicioner.doc' },

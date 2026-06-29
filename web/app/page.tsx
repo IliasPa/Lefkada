@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { ArrowUp } from 'lucide-react';
 import { AppProvider, useApp, type TabKey } from '@/context/AppContext';
 import { showAlertNotification } from '@/lib/notify';
 import AppHeader from '@/components/AppHeader';
@@ -22,11 +23,9 @@ const GovernanceTab = lazy(() => import('@/components/tabs/GovernanceTab'));
 const AboutTab = lazy(() => import('@/components/tabs/AboutTab'));
 const ServicesTab = lazy(() => import('@/components/tabs/ServicesTab'));
 const EducationTab = lazy(() => import('@/components/tabs/EducationTab'));
-const VoteTab = lazy(() => import('@/components/tabs/VoteTab'));
 const HealthTab = lazy(() => import('@/components/tabs/HealthTab'));
 const FinancialsTab = lazy(() => import('@/components/tabs/FinancialsTab'));
 const JobsTab = lazy(() => import('@/components/tabs/JobsTab'));
-const GameTab = lazy(() => import('@/components/tabs/GameTab'));
 const ContactsTab = lazy(() => import('@/components/tabs/ContactsTab'));
 const SettingsPanel = lazy(() => import('@/components/SettingsPanel'));
 
@@ -53,7 +52,6 @@ function TabContent({ tab }: { tab: TabKey }) {
   switch (tab) {
     case 'home':       return <HomeTab />;
     case 'culture':    return <CultureTab />;
-    case 'vote':       return <VoteTab />;
     case 'health':     return <HealthTab />;
     case 'financials': return <FinancialsTab />;
     case 'governance': return <GovernanceTab />;
@@ -61,7 +59,6 @@ function TabContent({ tab }: { tab: TabKey }) {
     case 'services':   return <ServicesTab />;
     case 'education':  return <EducationTab />;
     case 'jobs':       return <JobsTab />;
-    case 'game':       return <GameTab />;
     case 'contacts':   return <ContactsTab />;
     case 'account':    return <SettingsPanel />;
   }
@@ -95,8 +92,40 @@ function AppShell() {
         style={{ paddingBottom: 'var(--sab)' }}
       >
         <TabContent tab={activeTab} />
+        <ScrollTopButton />
       </main>
     </div>
+  );
+}
+
+/** A floating "back to top" circle that appears once the active scroll area is
+ *  scrolled down, and scrolls it back to the top. Works for any `.scroll-area`. */
+function ScrollTopButton() {
+  const [visible, setVisible] = useState(false);
+  const targetRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const onScroll = (e: Event) => {
+      const el = e.target as HTMLElement;
+      if (!el?.classList?.contains('scroll-area')) return;
+      targetRef.current = el;
+      setVisible(el.scrollTop > 400);
+    };
+    // capture phase — scroll events don't bubble
+    document.addEventListener('scroll', onScroll, true);
+    return () => document.removeEventListener('scroll', onScroll, true);
+  }, []);
+
+  if (!visible) return null;
+  return (
+    <button
+      onClick={() => targetRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
+      aria-label="Scroll to top"
+      className="absolute z-30 bottom-4 right-4 w-11 h-11 rounded-full flex items-center justify-center bg-primary text-white shadow-lg shadow-primary/30 active:scale-90 transition-transform"
+      style={{ marginBottom: 'var(--sab)' }}
+    >
+      <ArrowUp size={20} />
+    </button>
   );
 }
 
