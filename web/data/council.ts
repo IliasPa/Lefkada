@@ -120,7 +120,7 @@ export const councilTerms: CouncilTerm[] = [
     id: 'term-2024',
     startYear: 2024,
     startDate: '2024-01-01',
-    planning: { period: '2024–2028', strategic: 'https://lefkada.gov.gr/epicheirisiako-programma-dimou-lefkadas-2024-2028-stratigikos-schediasmos/', operational: 'https://lefkada.gov.gr/epicheirisiako-programma-2024-2028-epicheirisiako-schedio-deiktes-prakolouthisis-kai-axiologisis/' },
+    planning: { period: '2024–2028', strategic: 'https://lefkada.gov.gr/wp-content/uploads/2025/08/epd-leykadas-2024-2028-pdf.pdf', operational: 'https://lefkada.gov.gr/wp-content/uploads/2025/08/epicheirisiako-programma-v-fasi.rar' },
     endYear: 2028,
     mayor: {
       id: 'mayor-verginis',
@@ -165,7 +165,7 @@ export const councilTerms: CouncilTerm[] = [
     id: 'term-2019',
     startYear: 2019,
     startDate: '2019-09-01',
-    planning: { period: '2020–2023', strategic: 'https://lefkada.gov.gr/a%CE%84-fasi-stratigikos-schediasmos/', operational: 'https://lefkada.gov.gr/v%CE%84-fasi-epicheirisiakos-schediasmos/' },
+    planning: { period: '2020–2023', strategic: 'https://lefkada.gov.gr/wp-content/uploads/2023/02/2o-paradoteo-_epich.-schediasmos-d.-leykadas_final.pdf', operational: 'https://lefkada.gov.gr/wp-content/uploads/2023/02/3o-paradoteo-_epich.-schediasmos-d.-leykadas_final.pdf' },
     endYear: 2023,
     mayor: {
       id: 'mayor-kalos',

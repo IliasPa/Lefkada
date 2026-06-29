@@ -18,6 +18,7 @@ import {
   Scale,
   MessagesSquare,
   Hash,
+  Home,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import {
@@ -35,6 +36,7 @@ import {
 } from "@/data/governance";
 import { tendersData, bylawsData, consultationsData, decisionArchive } from "@/data/governanceActs";
 import AnimatedSegmented from "@/components/AnimatedSegmented";
+import SubTabs from "@/components/SubTabs";
 import CouncilView from "@/components/CouncilView";
 import CommunitiesView from "@/components/CommunitiesView";
 
@@ -162,12 +164,12 @@ export default function GovernanceTab() {
           {t("gov_title")}
         </h1>
 
-        {/* Town Hall vs Communities */}
+        {/* Governance vs Communities */}
         <div className="mb-3">
           <AnimatedSegmented
             options={[
               { key: "townhall", label: t("gov_top_townhall"), icon: <Landmark size={13} /> },
-              { key: "communities", label: t("gov_top_communities"), icon: <Users size={13} /> },
+              { key: "communities", label: t("gov_top_communities"), icon: <Home size={13} /> },
             ]}
             value={topSection}
             onChange={(k) => setTopSection(k as TopSection)}
@@ -180,19 +182,15 @@ export default function GovernanceTab() {
           <CommunitiesView />
         ) : (
           <>
-            {/* Acts vs Council */}
-            <div className="mb-4">
-              <AnimatedSegmented
-                options={[
-                  { key: "acts", label: t("gov_sec_acts"), icon: <FolderOpen size={13} /> },
-                  { key: "council", label: t("gov_sec_council"), icon: <Users size={13} /> },
-                ]}
-                value={section}
-                onChange={(k) => setSection(k as Section)}
-                size="sm"
-                fullWidth
-              />
-            </div>
+            {/* Acts vs Council (same layout as Communities) */}
+            <SubTabs
+              options={[
+                { key: "acts", label: t("gov_sec_acts"), icon: <FolderOpen size={13} /> },
+                { key: "council", label: t("gov_sec_council"), icon: <Users size={13} /> },
+              ]}
+              value={section}
+              onChange={(k) => setSection(k as Section)}
+            />
 
             {section === "council" ? (
               <CouncilView />

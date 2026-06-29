@@ -1,14 +1,13 @@
 'use client';
 
-import { useState } from 'react';
-import { Instagram, Facebook, Twitter } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Instagram, Facebook, Twitter, Search, X, ChevronDown } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { newsData, reporters, type NewsCategory } from '@/data/news';
 import NewsBackground from '@/components/NewsBackground';
 import NewsAlerts from '@/components/NewsAlerts';
 
-const CATEGORIES: Array<{ key: NewsCategory | 'all'; tKey: string }> = [
-  { key: 'all',            tKey: 'news_cat_all' },
+const CATEGORIES: Array<{ key: NewsCategory; tKey: string }> = [
   { key: 'Infrastructure', tKey: 'news_cat_Infrastructure' },
   { key: 'Tourism',        tKey: 'news_cat_Tourism' },
   { key: 'Events',         tKey: 'news_cat_Events' },
@@ -19,14 +18,27 @@ const CATEGORIES: Array<{ key: NewsCategory | 'all'; tKey: string }> = [
 
 export default function HomeTab() {
   const { t, lang } = useApp();
-  const [activeCategory, setActiveCategory] = useState<NewsCategory | 'all'>('all');
+  const [query, setQuery] = useState('');
   const [activeReporter, setActiveReporter] = useState<string>('all');
+  const [cats, setCats] = useState<NewsCategory[]>([]); // empty = all
 
-  const filtered = newsData.filter(
-    (n) =>
-      (activeCategory === 'all' || n.category === activeCategory) &&
-      (activeReporter === 'all' || n.reporterId === activeReporter),
-  );
+  const toggleCat = (c: NewsCategory) =>
+    setCats((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]));
+
+  const filtered = useMemo(() => {
+    const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    return newsData.filter((n) => {
+      if (cats.length && !cats.includes(n.category)) return false;
+      if (activeReporter !== 'all' && n.reporterId !== activeReporter) return false;
+      if (words.length) {
+        const hay = [n.title.el, n.title.en, n.description.el, n.description.en, t('news_cat_' + n.category)]
+          .join(' ')
+          .toLowerCase();
+        if (!words.every((w) => hay.includes(w))) return false;
+      }
+      return true;
+    });
+  }, [query, activeReporter, cats, t]);
 
   return (
     <div className="h-full scroll-area relative">
@@ -36,52 +48,48 @@ export default function HomeTab() {
       <div className="relative z-10">
       {/* Sticky filter bars — translucent so the photo shows through up here too */}
       <div className="sticky top-0 z-10 bg-[#F2F5F9]/25 dark:bg-[#0B0F18]/30 backdrop-blur-md pt-4 pb-2 space-y-2">
-        {/* Reporter filter — above the theme filters */}
-        <div className="flex justify-center overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-          <div className="flex gap-2 px-4">
-            <ReporterChip
-              active={activeReporter === 'all'}
-              onClick={() => setActiveReporter('all')}
-            >
-              {t('news_reporters_all')}
-            </ReporterChip>
-            {reporters.map((r) => {
-              const active = activeReporter === r.id;
+        <div className="px-4 max-w-2xl mx-auto space-y-2">
+          {/* Search (all words) */}
+          <div className="relative">
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              type="search"
+              placeholder={t('news_search')}
+              aria-label={t('news_search')}
+              className="w-full pl-10 pr-10 py-2.5 rounded-xl text-[14px] bg-white/90 dark:bg-[#141929]/90 border border-gray-200 dark:border-[#252A3A] text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-colors"
+            />
+            {query && (
+              <button onClick={() => setQuery('')} aria-label={t('close')} className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-[#252A3A] active:scale-90">
+                <X size={15} />
+              </button>
+            )}
+          </div>
+
+          {/* Reporter dropdown (with ✕ to clear back to all) */}
+          <ReporterDropdown value={activeReporter} onChange={setActiveReporter} t={t} />
+
+          {/* Theme (category) filters — wrap to a second line, multi-select */}
+          <div className="flex flex-wrap gap-2">
+            {CATEGORIES.map(({ key, tKey }) => {
+              const active = cats.includes(key);
               return (
-                <ReporterChip
-                  key={r.id}
-                  active={active}
-                  onClick={() => setActiveReporter(r.id)}
+                <button
+                  key={key}
+                  onClick={() => toggleCat(key)}
+                  aria-pressed={active}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all duration-150 active:scale-95 ${active ? 'bg-primary text-white border-primary shadow-sm shadow-primary/20' : 'bg-white dark:bg-[#141929] text-gray-500 dark:text-gray-400 border-gray-200 dark:border-[#252A3A]'}`}
                 >
-                  <PegasusMark
-                    className={`w-3.5 h-3.5 ${active ? 'bg-white' : 'bg-[#1B5E9B] dark:bg-blue-200'}`}
-                  />
-                  {r.name}
-                </ReporterChip>
+                  {t(tKey)}
+                </button>
               );
             })}
-          </div>
-        </div>
-
-        {/* Theme (category) filters */}
-        <div className="flex justify-center overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-          <div className="flex gap-2 px-4">
-          {CATEGORIES.map(({ key, tKey }) => (
-            <button
-              key={key}
-              onClick={() => setActiveCategory(key)}
-              className={`
-                flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold
-                border transition-all duration-150 active:scale-95
-                ${activeCategory === key
-                  ? 'bg-primary text-white border-primary shadow-sm shadow-primary/20'
-                  : 'bg-white dark:bg-[#141929] text-gray-500 dark:text-gray-400 border-gray-200 dark:border-[#252A3A]'
-                }
-              `}
-            >
-              {t(tKey)}
-            </button>
-          ))}
+            {cats.length > 0 && (
+              <button onClick={() => setCats([])} className="px-3 py-1.5 rounded-full text-xs font-semibold border border-transparent text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#252A3A] active:scale-95 inline-flex items-center gap-1">
+                <X size={12} /> {t('news_cat_all')}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -196,29 +204,73 @@ function PegasusMark({ className }: { className?: string }) {
   );
 }
 
-function ReporterChip({
-  active,
-  onClick,
-  children,
+function ReporterDropdown({
+  value,
+  onChange,
+  t,
 }: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
+  value: string;
+  onChange: (id: string) => void;
+  t: (k: string) => string;
 }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = reporters.find((r) => r.id === value);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [open]);
+
   return (
-    <button
-      onClick={onClick}
-      className={`
-        flex-shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold
-        border transition-all duration-150 active:scale-95
-        ${active
-          ? 'bg-[#4A90D9] text-white border-[#4A90D9] shadow-sm'
-          : 'bg-[#E3F0FB] dark:bg-[#16314F] text-[#1B5E9B] dark:text-blue-200 border-transparent'
-        }
-      `}
-    >
-      {children}
-    </button>
+    <div className="flex items-center gap-2" ref={ref}>
+      <div className="relative flex-1">
+        <button
+          onClick={() => setOpen((v) => !v)}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          className="w-full flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-semibold border border-gray-200 dark:border-[#252A3A] bg-white/90 dark:bg-[#141929]/90 text-gray-700 dark:text-gray-300 active:scale-[0.99] transition-transform"
+        >
+          {selected ? (
+            <PegasusMark className="w-3.5 h-3.5 bg-[#1B5E9B] dark:bg-blue-200 flex-shrink-0" />
+          ) : null}
+          <span className={`flex-1 text-left truncate ${selected ? '' : 'text-gray-400 dark:text-gray-500'}`}>
+            {selected ? selected.name : t('news_reporter_label')}
+          </span>
+          <ChevronDown size={15} className={`flex-shrink-0 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+        {open && (
+          <div role="listbox" className="absolute left-0 right-0 top-full mt-1 z-20 max-h-64 overflow-y-auto rounded-xl bg-white dark:bg-[#141929] border border-gray-200 dark:border-[#252A3A] shadow-xl py-1">
+            {reporters.map((r) => (
+              <button
+                key={r.id}
+                role="option"
+                aria-selected={value === r.id}
+                onClick={() => { onChange(r.id); setOpen(false); }}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-[13px] font-semibold text-left transition-colors ${value === r.id ? 'bg-primary/10 text-primary dark:text-primary-300' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#1E2D4E]'}`}
+              >
+                <PegasusMark className="w-3.5 h-3.5 bg-[#1B5E9B] dark:bg-blue-200 flex-shrink-0" />
+                {r.name}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      {value !== 'all' && (
+        <button
+          onClick={() => onChange('all')}
+          aria-label={t('news_reporters_all')}
+          title={t('news_reporters_all')}
+          className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl border border-gray-200 dark:border-[#252A3A] bg-white/90 dark:bg-[#141929]/90 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 active:scale-90 transition-all"
+        >
+          <X size={16} />
+        </button>
+      )}
+    </div>
   );
 }
 

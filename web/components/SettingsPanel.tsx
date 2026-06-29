@@ -71,13 +71,7 @@ export default function SettingsPanel() {
     <>
       <div className="h-full scroll-area">
         <div className="pb-6 max-w-2xl mx-auto">
-          <div className="px-4 pt-4 mb-4">
-            <h1 className="text-xs font-bold tracking-[0.12em] uppercase text-gray-400 dark:text-gray-500 ml-1">
-              {t("tab_account")}
-            </h1>
-          </div>
-
-          <div className="px-4 space-y-6">
+          <div className="px-4 pt-6 space-y-6">
             {/* ══ OFFICIAL ACTIONS (VETO) ════════════════════════════════════ */}
             <PSect icon={<ShieldAlert size={14} />} label={t("acc_official")}>
               <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed mb-4">{t("acc_veto_desc")}</p>
@@ -150,8 +144,6 @@ export default function SettingsPanel() {
                 </div>
               )}
             </PSect>
-
-            <p className="text-center text-[11px] text-gray-400 dark:text-gray-600">{t("settings_profile_moved")}</p>
           </div>
         </div>
       </div>

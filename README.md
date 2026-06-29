@@ -65,7 +65,7 @@
 
 ### 🏛 Governance — Town Hall & Communities
 
-**What it does:** The municipality's official governance feed and its political composition, kept separate from journalistic News and from the cultural calendar. A top-level **Town Hall | Communities** split sits above everything (v0.9). **Town Hall** keeps the **Acts / Council** segmented control; **Communities** holds the per-community **Councillors** (moved from About Lefkada) and their **Acts**.
+**What it does:** The municipality's official governance feed and its political composition, kept separate from journalistic News and from the cultural calendar. A top-level **Governance | Communities** split sits above everything (v0.9), both using the same control and listing **Acts first**. **Governance** holds the **Acts / Council** sections; **Communities** holds the per-community **Acts** and **Councillors** (moved from About Lefkada).
 
 **v0.9 data:** Acts now has **six** sub-subtabs — **Bylaws** (Κανονισμοί, by name) · **Decisions** · **Tenders** · **Announcements** · **Meetings** · **Consultations** (Διαβουλεύσεις, by date). **Decisions** is the **full 3,975-item published archive (2021-2026)**, lazy-loaded from `/public/decisions.json` and paginated, with the **decision number** as each card's subtitle; **Tenders** were refreshed to **222** from `/competitions/`; a **pre-2021 archive** of 27 year-entries links the old Google-Drive decision folders. Each council term also shows its **Operational Programme** (Strategic + Operational planning) links.
 

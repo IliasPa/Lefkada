@@ -1,6 +1,6 @@
 import type { BilingualText } from './news';
 
-export type LessonCategory = 'sports' | 'hobbies' | 'school' | 'robotics';
+export type LessonCategory = 'sports' | 'music' | 'school' | 'robotics';
 
 export interface Lesson {
   id: string;
@@ -24,7 +24,7 @@ export interface RoboticsCompetition {
 export const LESSON_CATEGORIES: { key: LessonCategory; label: BilingualText; accent: string }[] = [
   { key: 'robotics', label: { el: 'Ρομποτική', en: 'Robotics' }, accent: '#7C3AED' },
   { key: 'sports', label: { el: 'Αθλητισμός', en: 'Sports' }, accent: '#16A34A' },
-  { key: 'hobbies', label: { el: 'Χόμπι', en: 'Hobbies' }, accent: '#E4802C' },
+  { key: 'music', label: { el: 'Μουσική', en: 'Music' }, accent: '#E4802C' },
   { key: 'school', label: { el: 'Σχολική βοήθεια', en: 'School help' }, accent: '#0D5EAF' },
 ];
 
@@ -42,7 +42,7 @@ export const lessonsData: Lesson[] = [
   },
   {
     id: 'music-school',
-    category: 'hobbies',
+    category: 'music',
     title: { el: 'Δημοτικό Ωδείο — μουσικά όργανα', en: 'Municipal Conservatory — instruments' },
     desc: { el: 'Μαθήματα μουσικής και οργάνων για παιδιά και ενήλικες.', en: 'Music and instrument lessons for children and adults.' },
   },

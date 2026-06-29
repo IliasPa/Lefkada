@@ -3,12 +3,13 @@
 import { useMemo, useState } from "react";
 import { Users, FolderOpen, CalendarDays, FileText, Hash } from "lucide-react";
 import { useApp } from "@/context/AppContext";
+import SubTabs from "@/components/SubTabs";
 import { municipalUnits } from "@/data/about";
 import { communityCouncillors } from "@/data/councillors";
 import { communityActs } from "@/data/communities";
 
 type Lang = "el" | "en";
-type Mode = "councillors" | "acts";
+type Mode = "acts" | "councillors";
 
 const ACCENT = "#0D5EAF";
 
@@ -20,28 +21,17 @@ function fmtDate(s: string, lang: Lang) {
 
 export default function CommunitiesView() {
   const { t, lang } = useApp();
-  const [mode, setMode] = useState<Mode>("councillors");
+  const [mode, setMode] = useState<Mode>("acts");
   return (
     <div>
-      <div className="flex gap-2 mb-4">
-        {([
-          { key: "councillors", label: t("about_councillors"), icon: <Users size={13} /> },
+      <SubTabs
+        options={[
           { key: "acts", label: t("gov_sec_acts"), icon: <FolderOpen size={13} /> },
-        ] as const).map((o) => {
-          const active = mode === o.key;
-          return (
-            <button
-              key={o.key}
-              onClick={() => setMode(o.key)}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-bold border transition-all active:scale-95"
-              style={active ? { backgroundColor: ACCENT, color: "#fff", borderColor: ACCENT } : { borderColor: ACCENT + "44", color: ACCENT }}
-            >
-              {o.icon}
-              {o.label}
-            </button>
-          );
-        })}
-      </div>
+          { key: "councillors", label: t("about_councillors"), icon: <Users size={13} /> },
+        ]}
+        value={mode}
+        onChange={(k) => setMode(k as Mode)}
+      />
 
       {mode === "councillors" ? <CouncillorsView lang={lang} t={t} /> : <CommunityActsView lang={lang} t={t} />}
     </div>

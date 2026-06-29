@@ -27,12 +27,12 @@ const PAGE = 8;
 
 export default function EducationTab() {
   const { t, lang } = useApp();
-  const [mode, setMode] = useState<Mode>("ebooks");
+  const [mode, setMode] = useState<Mode>("lessons");
 
   const subtabs = [
+    { key: "lessons", label: t("edu_lessons"), icon: <GraduationCap size={13} /> },
     { key: "ebooks", label: t("edu_ebooks"), icon: <BookOpen size={13} /> },
     { key: "libraries", label: t("edu_libraries"), icon: <LibraryIcon size={13} /> },
-    { key: "lessons", label: t("edu_lessons"), icon: <GraduationCap size={13} /> },
   ];
 
   return (
