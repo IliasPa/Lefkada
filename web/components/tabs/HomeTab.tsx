@@ -229,48 +229,47 @@ function ReporterDropdown({
   }, [open]);
 
   return (
-    <div className="flex items-center gap-2" ref={ref}>
-      <div className="relative flex-1">
-        <button
-          onClick={() => setOpen((v) => !v)}
-          aria-haspopup="listbox"
-          aria-expanded={open}
-          className="w-full flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-semibold border border-gray-200 dark:border-[#252A3A] bg-white/90 dark:bg-[#141929]/90 text-gray-700 dark:text-gray-300 active:scale-[0.99] transition-transform"
-        >
-          {selected ? (
-            <PegasusMark className="w-3.5 h-3.5 bg-[#1B5E9B] dark:bg-blue-200 flex-shrink-0" />
-          ) : null}
-          <span className={`flex-1 text-left truncate ${selected ? '' : 'text-gray-400 dark:text-gray-500'}`}>
-            {selected ? selected.name : t('news_reporter_label')}
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="w-full flex items-center gap-1.5 pl-3.5 pr-2 py-2.5 rounded-xl text-[14px] border border-gray-200 dark:border-[#252A3A] bg-white/90 dark:bg-[#141929]/90 text-gray-700 dark:text-gray-300"
+      >
+        {selected && <PegasusMark className="w-3.5 h-3.5 bg-[#1B5E9B] dark:bg-blue-200 flex-shrink-0" />}
+        <span className={`flex-1 min-w-0 text-left truncate ${selected ? '' : 'text-gray-400 dark:text-gray-500'}`}>
+          {selected ? selected.name : t('news_reporter_label')}
+        </span>
+        {value !== 'all' ? (
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={(e) => { e.stopPropagation(); onChange('all'); }}
+            aria-label={t('news_reporters_all')}
+            title={t('news_reporters_all')}
+            className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#252A3A] active:scale-90 transition-all"
+          >
+            <X size={15} />
           </span>
+        ) : (
           <ChevronDown size={15} className={`flex-shrink-0 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
-        </button>
-        {open && (
-          <div role="listbox" className="absolute left-0 right-0 top-full mt-1 z-20 max-h-64 overflow-y-auto rounded-xl bg-white dark:bg-[#141929] border border-gray-200 dark:border-[#252A3A] shadow-xl py-1">
-            {reporters.map((r) => (
-              <button
-                key={r.id}
-                role="option"
-                aria-selected={value === r.id}
-                onClick={() => { onChange(r.id); setOpen(false); }}
-                className={`w-full flex items-center gap-2 px-3 py-2 text-[13px] font-semibold text-left transition-colors ${value === r.id ? 'bg-primary/10 text-primary dark:text-primary-300' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#1E2D4E]'}`}
-              >
-                <PegasusMark className="w-3.5 h-3.5 bg-[#1B5E9B] dark:bg-blue-200 flex-shrink-0" />
-                {r.name}
-              </button>
-            ))}
-          </div>
         )}
-      </div>
-      {value !== 'all' && (
-        <button
-          onClick={() => onChange('all')}
-          aria-label={t('news_reporters_all')}
-          title={t('news_reporters_all')}
-          className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl border border-gray-200 dark:border-[#252A3A] bg-white/90 dark:bg-[#141929]/90 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 active:scale-90 transition-all"
-        >
-          <X size={16} />
-        </button>
+      </button>
+      {open && (
+        <div role="listbox" className="absolute left-0 right-0 top-full mt-1 z-20 max-h-64 overflow-y-auto rounded-xl bg-white dark:bg-[#141929] border border-gray-200 dark:border-[#252A3A] shadow-xl py-1">
+          {reporters.map((r) => (
+            <button
+              key={r.id}
+              role="option"
+              aria-selected={value === r.id}
+              onClick={() => { onChange(r.id); setOpen(false); }}
+              className={`w-full flex items-center gap-2 px-3 py-2 text-[13px] font-semibold text-left transition-colors ${value === r.id ? 'bg-primary/10 text-primary dark:text-primary-300' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#1E2D4E]'}`}
+            >
+              <PegasusMark className="w-3.5 h-3.5 bg-[#1B5E9B] dark:bg-blue-200 flex-shrink-0" />
+              {r.name}
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );

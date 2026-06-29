@@ -410,10 +410,10 @@ export default function GameTab() {
           )}
         </div>
 
-        {/* Keyboard */}
-        <div className="space-y-2 mb-4">
+        {/* Keyboard — keys spaced out with larger tap targets to avoid mis-taps */}
+        <div className="space-y-2.5 mb-4">
           {["ΕΡΤΥΘΙΟΠ", "ΑΣΔΦΓΗΞΚΛ", "ΖΧΨΩΒΝΜ"].map((row, i) => (
-            <div key={i} className="flex gap-1 justify-center">
+            <div key={i} className="flex gap-2 justify-center">
               {row.split("").map((letter) => {
                 const status = getKeyboardLetterStatus(letter);
                 const bgColor =
@@ -432,7 +432,7 @@ export default function GameTab() {
                     key={letter}
                     onClick={() => addLetter(letter)}
                     disabled={gameState.gameOver}
-                    className={`px-2 py-2 rounded-lg ${bgColor} ${textColor} text-xs font-bold hover:opacity-80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
+                    className={`flex-1 min-w-0 max-w-[2.4rem] py-3 rounded-lg ${bgColor} ${textColor} text-[13px] font-bold hover:opacity-80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {letter}
                   </button>

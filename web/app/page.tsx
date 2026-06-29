@@ -101,6 +101,7 @@ function AppShell() {
 /** A floating "back to top" circle that appears once the active scroll area is
  *  scrolled down, and scrolls it back to the top. Works for any `.scroll-area`. */
 function ScrollTopButton() {
+  const { t } = useApp();
   const [visible, setVisible] = useState(false);
   const targetRef = useRef<HTMLElement | null>(null);
 
@@ -120,7 +121,8 @@ function ScrollTopButton() {
   return (
     <button
       onClick={() => targetRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
-      aria-label="Scroll to top"
+      aria-label={t('scroll_top')}
+      title={t('scroll_top')}
       className="absolute z-30 bottom-4 right-4 w-11 h-11 rounded-full flex items-center justify-center bg-primary text-white shadow-lg shadow-primary/30 active:scale-90 transition-transform"
       style={{ marginBottom: 'var(--sab)' }}
     >

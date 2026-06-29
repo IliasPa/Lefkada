@@ -10,6 +10,7 @@ import {
   ShieldOff,
   Megaphone,
   Vote,
+  History,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { KEYS, storageGet, storageSet } from "@/lib/storage";
@@ -19,7 +20,7 @@ import PollBlock, { isPollClosed } from "@/components/PollBlock";
 import { pollsData } from "@/data/voting";
 
 export default function SettingsPanel() {
-  const { t, lang } = useApp();
+  const { t, lang, setActiveTab, setGovIntent } = useApp();
 
   const [anonymous, setAnonymous] = useState(true);
   const [message, setMessage] = useState("");
@@ -88,6 +89,13 @@ export default function SettingsPanel() {
                     <PollBlock key={p.id} poll={p} closed={false} />
                   ))}
                 </div>
+                <button
+                  onClick={() => { setGovIntent({ type: "Consultation" }); setActiveTab("governance"); }}
+                  className="w-full mt-4 inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[13px] font-bold text-primary dark:text-primary-300 bg-primary-50 dark:bg-primary-900/20 hover:bg-primary-100 dark:hover:bg-primary-900/30 transition-colors active:scale-[0.98]"
+                >
+                  <History size={15} />
+                  {t("acc_see_old_votings")}
+                </button>
               </div>
             )}
 
