@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   MapPin,
   Building,
@@ -327,12 +328,19 @@ function AccessView({ lang, t }: { lang: Lang; t: (k: string) => string }) {
 }
 
 function Sheet({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
-  const { t } = useApp();
-  return (
+  const { t, a11y } = useApp();
+  // Render at <body> level, outside the `.a11y-large main { zoom }` context — a
+  // fixed sheet inside a zoomed ancestor gets mis-sized and its top (the close
+  // button) is clipped off-screen. The 1.15 scale is re-applied to the content
+  // only, so Large-text users still get enlarged text within a viewport-sized sheet.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-white dark:bg-[#141929] rounded-t-3xl shadow-2xl max-h-[80vh] overflow-y-auto animate-slide-up">
-        <div className="sticky top-0 flex items-center justify-end px-3 py-2 bg-white/90 dark:bg-[#141929]/90 backdrop-blur">
+      <div className="relative w-full max-w-md bg-white dark:bg-[#141929] rounded-t-3xl shadow-2xl max-h-[85vh] overflow-y-auto animate-slide-up">
+        <div className="sticky top-0 z-10 flex items-center justify-end px-3 py-2 bg-white/90 dark:bg-[#141929]/90 backdrop-blur">
           <button
             onClick={onClose}
             aria-label={t("close")}
@@ -341,8 +349,9 @@ function Sheet({ onClose, children }: { onClose: () => void; children: React.Rea
             <X size={18} />
           </button>
         </div>
-        <div className="px-4 pb-6">{children}</div>
+        <div className="px-4 pb-6" style={a11y.largeText ? { zoom: 1.15 } : undefined}>{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -289,8 +289,8 @@ export default function GameTab() {
 
   return (
     <div className="h-full scroll-area">
-      <div className="px-4 pt-4 pb-6 max-w-2xl mx-auto">
-        <div className="flex items-center gap-1.5 ml-1 mb-4">
+      <div className="px-4 pt-2 pb-3 max-w-2xl mx-auto">
+        <div className="flex items-center gap-1.5 ml-1 mb-2">
           <h1 className="text-xs font-bold tracking-[0.12em] uppercase text-gray-400 dark:text-gray-500">
             {t("game_title")}
           </h1>
@@ -312,31 +312,31 @@ export default function GameTab() {
         </div>
 
         {/* Streak info */}
-        <div className="grid grid-cols-3 gap-2 mb-4">
-          <div className="bg-white dark:bg-[#141929] rounded-xl p-3 text-center border border-gray-100 dark:border-[#1E2D4E]">
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          <div className="bg-white dark:bg-[#141929] rounded-xl p-2.5 text-center border border-gray-100 dark:border-[#1E2D4E]">
             <p className="text-[10px] text-gray-400 dark:text-gray-500 font-semibold">
               {lang === "el" ? "Νίκες" : "Wins"}
             </p>
-            <p className="text-2xl font-black text-primary">{streak.wins}</p>
+            <p className="text-xl font-black text-primary">{streak.wins}</p>
           </div>
-          <div className="bg-white dark:bg-[#141929] rounded-xl p-3 text-center border border-gray-100 dark:border-[#1E2D4E]">
+          <div className="bg-white dark:bg-[#141929] rounded-xl p-2.5 text-center border border-gray-100 dark:border-[#1E2D4E]">
             <p className="text-[10px] text-gray-400 dark:text-gray-500 font-semibold">
               {lang === "el" ? "Σερί" : "Streak"}
             </p>
-            <p className="text-2xl font-black text-primary">{streak.current}</p>
+            <p className="text-xl font-black text-primary">{streak.current}</p>
           </div>
-          <div className="bg-white dark:bg-[#141929] rounded-xl p-3 text-center border border-gray-100 dark:border-[#1E2D4E]">
+          <div className="bg-white dark:bg-[#141929] rounded-xl p-2.5 text-center border border-gray-100 dark:border-[#1E2D4E]">
             <p className="text-[10px] text-gray-400 dark:text-gray-500 font-semibold">
               {lang === "el" ? "Ήττες" : "Losses"}
             </p>
-            <p className="text-2xl font-black text-red-500">{streak.losses}</p>
+            <p className="text-xl font-black text-red-500">{streak.losses}</p>
           </div>
         </div>
 
         {/* Game board */}
-        <div className="bg-white dark:bg-[#141929] rounded-2xl p-4 border border-gray-100 dark:border-[#1E2D4E] mb-4">
+        <div className="bg-white dark:bg-[#141929] rounded-2xl p-3 border border-gray-100 dark:border-[#1E2D4E] mb-3">
           {/* Guess rows */}
-          <div className="space-y-2 mb-4">
+          <div className="space-y-1.5 mb-3">
             {Array.from({ length: MAX_ATTEMPTS }).map((_, i) => {
               const guess = gameState.guesses[i];
               const isCurrent =
@@ -367,7 +367,7 @@ export default function GameTab() {
                     return (
                       <div
                         key={j}
-                        className={`w-12 h-12 rounded-lg font-bold text-lg flex items-center justify-center ${bgColor} ${textColor}`}
+                        className={`w-11 h-11 rounded-lg font-bold text-base flex items-center justify-center ${bgColor} ${textColor}`}
                       >
                         {letter}
                       </div>
@@ -411,7 +411,7 @@ export default function GameTab() {
         </div>
 
         {/* Keyboard — keys spaced out with larger tap targets to avoid mis-taps */}
-        <div className="space-y-2.5 mb-4">
+        <div className="space-y-2 mb-3">
           {["ΕΡΤΥΘΙΟΠ", "ΑΣΔΦΓΗΞΚΛ", "ΖΧΨΩΒΝΜ"].map((row, i) => (
             <div key={i} className="flex gap-2 justify-center">
               {row.split("").map((letter) => {
@@ -432,7 +432,7 @@ export default function GameTab() {
                     key={letter}
                     onClick={() => addLetter(letter)}
                     disabled={gameState.gameOver}
-                    className={`flex-1 min-w-0 max-w-[2.4rem] py-3 rounded-lg ${bgColor} ${textColor} text-[13px] font-bold hover:opacity-80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
+                    className={`flex-1 min-w-0 max-w-[2.4rem] py-2.5 rounded-lg ${bgColor} ${textColor} text-[13px] font-bold hover:opacity-80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {letter}
                   </button>
@@ -447,24 +447,24 @@ export default function GameTab() {
           <button
             onClick={removeLetter}
             disabled={gameState.gameOver || currentGuess.length === 0}
-            className="flex-1 py-3 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 font-bold text-sm hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 py-2.5 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 font-bold text-sm hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             ← {lang === "el" ? "Διαγραφή" : "Delete"}
           </button>
           <button
             onClick={submitGuess}
             disabled={gameState.gameOver || currentGuess.length < 5}
-            className="flex-1 py-3 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 py-2.5 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {lang === "el" ? "Υποβολή" : "Submit"}
           </button>
         </div>
 
         {gameState.gameOver && (
-          <div className="flex gap-2 mt-4">
+          <div className="flex gap-2 mt-3">
             <button
               onClick={resetGame}
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-primary text-primary dark:text-primary-300 font-bold text-sm hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-primary text-primary dark:text-primary-300 font-bold text-sm hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
             >
               <RotateCcw size={16} />
               {lang === "el" ? "Νέο Παιχνίδι" : "New Game"}
@@ -472,7 +472,7 @@ export default function GameTab() {
             {gameState.shareGrid && (
               <button
                 onClick={copyShareGrid}
-                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary-600 transition-colors"
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary-600 transition-colors"
               >
                 <Share2 size={16} />
                 {lang === "el" ? "Κοινοποίηση" : "Share"}

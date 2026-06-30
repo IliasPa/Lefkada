@@ -74,7 +74,7 @@ export default function SettingsPanel() {
 
   return (
     <>
-      <div className="h-full scroll-area">
+      <div className={`h-full scroll-area ${activePolls.length > 0 ? "snap-y" : ""}`}>
         <div className="pb-6 max-w-2xl mx-auto">
           <div className="px-4 pt-6 space-y-6">
             {/* ══ ACTIVE VOTINGS (each with its own countdown) ═══════════════ */}
@@ -96,6 +96,9 @@ export default function SettingsPanel() {
                   <History size={15} />
                   {t("acc_see_old_votings")}
                 </button>
+                {/* small snap marker at the end of the votings — a tiny target snaps
+                    reliably, where the tall votings block (larger than the viewport) would not */}
+                <div className="snap-stop" aria-hidden />
               </div>
             )}
 
@@ -180,9 +183,9 @@ export default function SettingsPanel() {
   );
 }
 
-function PSect({ icon, label, children }: { icon?: React.ReactNode; label: string; children: React.ReactNode }) {
+function PSect({ icon, label, children, className }: { icon?: React.ReactNode; label: string; children: React.ReactNode; className?: string }) {
   return (
-    <div>
+    <div className={className}>
       <div className="flex items-center gap-1.5 mb-2">
         {icon && <span className="text-primary dark:text-primary-300">{icon}</span>}
         <p className="text-[11px] font-bold tracking-[0.12em] uppercase text-gray-400 dark:text-gray-500">{label}</p>

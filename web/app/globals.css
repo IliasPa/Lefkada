@@ -66,6 +66,26 @@ main {
   -webkit-overflow-scrolling: touch;
 }
 
+/* Section snapping (Account/logo page): the scroll rests at each section, so the
+   user scrolls down to a stop, then scrolls again to continue lower. Uses
+   "proximity" so tall sections can still be scrolled through freely. */
+.snap-y {
+  scroll-snap-type: y proximity;
+}
+/* A tiny marker at the bottom of the votings is the snap target. A small target
+   snaps reliably; the tall votings block itself (larger than the viewport) would
+   be ignored by the browser. Aligning its END to the viewport bottom means the
+   scroll stops with the votings above and Veto just below. */
+.snap-y .snap-stop {
+  height: 1px;
+  scroll-snap-align: end;
+  scroll-snap-stop: always;
+}
+/* Respect users who asked for less motion. */
+.reduce-motion .snap-y {
+  scroll-snap-type: none;
+}
+
 /* Smooth tab transitions */
 .tab-content {
   animation: slideUp 0.22s ease-out forwards;

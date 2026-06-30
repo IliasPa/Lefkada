@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { ArrowUp } from 'lucide-react';
+import { ArrowUp, Search } from 'lucide-react';
 import { AppProvider, useApp, type TabKey } from '@/context/AppContext';
 import { showAlertNotification } from '@/lib/notify';
 import AppHeader from '@/components/AppHeader';
@@ -28,6 +28,10 @@ const FinancialsTab = lazy(() => import('@/components/tabs/FinancialsTab'));
 const JobsTab = lazy(() => import('@/components/tabs/JobsTab'));
 const ContactsTab = lazy(() => import('@/components/tabs/ContactsTab'));
 const SettingsPanel = lazy(() => import('@/components/SettingsPanel'));
+
+// The search index pulls in every data module, so defer it to its own chunk that
+// only loads when the user first opens search.
+const SearchOverlay = dynamic(() => import('@/components/SearchOverlay'), { ssr: false });
 
 function ServiceWorkerRegistration() {
   useEffect(() => {
@@ -67,6 +71,7 @@ function TabContent({ tab }: { tab: TabKey }) {
 function AppShell() {
   const { activeTab } = useApp();
   const contentRef = useRef<HTMLDivElement>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
     const el = contentRef.current;
@@ -92,17 +97,20 @@ function AppShell() {
         style={{ paddingBottom: 'var(--sab)' }}
       >
         <TabContent tab={activeTab} />
-        <ScrollTopButton />
+        <FloatingButton onSearch={() => setSearchOpen(true)} />
       </main>
+
+      {searchOpen && <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />}
     </div>
   );
 }
 
-/** A floating "back to top" circle that appears once the active scroll area is
- *  scrolled down, and scrolls it back to the top. Works for any `.scroll-area`. */
-function ScrollTopButton() {
-  const { t } = useApp();
-  const [visible, setVisible] = useState(false);
+/** A single floating circle, bottom-right. It is **universal search** while the
+ *  active scroll area is near the top, and morphs into **back-to-top** once the
+ *  user scrolls down past the threshold — so the slot is never idle. */
+function FloatingButton({ onSearch }: { onSearch: () => void }) {
+  const { t, activeTab } = useApp();
+  const [scrolled, setScrolled] = useState(false);
   const targetRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -110,23 +118,27 @@ function ScrollTopButton() {
       const el = e.target as HTMLElement;
       if (!el?.classList?.contains('scroll-area')) return;
       targetRef.current = el;
-      setVisible(el.scrollTop > 400);
+      setScrolled(el.scrollTop > 400);
     };
     // capture phase — scroll events don't bubble
     document.addEventListener('scroll', onScroll, true);
     return () => document.removeEventListener('scroll', onScroll, true);
   }, []);
 
-  if (!visible) return null;
+  // Reset to the search state whenever the tab changes (new scroll area starts at top).
+  useEffect(() => { setScrolled(false); }, [activeTab]);
+
+  const backToTop = () => targetRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+
   return (
     <button
-      onClick={() => targetRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
-      aria-label={t('scroll_top')}
-      title={t('scroll_top')}
-      className="absolute z-30 bottom-4 right-4 w-11 h-11 rounded-full flex items-center justify-center bg-primary text-white shadow-lg shadow-primary/30 active:scale-90 transition-transform"
+      onClick={scrolled ? backToTop : onSearch}
+      aria-label={scrolled ? t('scroll_top') : t('search_open')}
+      title={scrolled ? t('scroll_top') : t('search_open')}
+      className="absolute z-30 bottom-4 right-4 w-12 h-12 rounded-full flex items-center justify-center bg-primary text-white shadow-lg shadow-primary/30 active:scale-90 transition-transform"
       style={{ marginBottom: 'var(--sab)' }}
     >
-      <ArrowUp size={20} />
+      {scrolled ? <ArrowUp size={20} /> : <Search size={20} />}
     </button>
   );
 }

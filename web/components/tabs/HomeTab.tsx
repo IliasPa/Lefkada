@@ -21,9 +21,16 @@ export default function HomeTab() {
   const [query, setQuery] = useState('');
   const [activeReporter, setActiveReporter] = useState<string>('all');
   const [cats, setCats] = useState<NewsCategory[]>([]); // empty = all
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const toggleCat = (c: NewsCategory) =>
     setCats((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]));
+
+  // Reset the feed to the top when the reporter/theme filters change, so the
+  // shorter list doesn't make the page "jump" under the sticky filter bar.
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0 });
+  }, [activeReporter, cats]);
 
   const filtered = useMemo(() => {
     const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -41,7 +48,7 @@ export default function HomeTab() {
   }, [query, activeReporter, cats, t]);
 
   return (
-    <div className="h-full scroll-area relative">
+    <div ref={scrollRef} className="h-full scroll-area relative">
       {/* Fixed full-screen Lefkada photo slideshow behind the feed */}
       <NewsBackground />
 
@@ -67,7 +74,7 @@ export default function HomeTab() {
                 </button>
               )}
             </div>
-            <div className="w-36 sm:w-44 flex-shrink-0">
+            <div className="flex-shrink-0 min-w-[11rem]">
               <ReporterDropdown value={activeReporter} onChange={setActiveReporter} t={t} />
             </div>
           </div>
@@ -236,8 +243,7 @@ function ReporterDropdown({
         aria-expanded={open}
         className="w-full flex items-center gap-1.5 pl-3.5 pr-2 py-2.5 rounded-xl text-[14px] border border-gray-200 dark:border-[#252A3A] bg-white/90 dark:bg-[#141929]/90 text-gray-700 dark:text-gray-300"
       >
-        {selected && <PegasusMark className="w-3.5 h-3.5 bg-[#1B5E9B] dark:bg-blue-200 flex-shrink-0" />}
-        <span className={`flex-1 min-w-0 text-left truncate ${selected ? '' : 'text-gray-400 dark:text-gray-500'}`}>
+        <span className={`flex-1 text-left whitespace-nowrap ${selected ? '' : 'text-gray-400 dark:text-gray-500'}`}>
           {selected ? selected.name : t('news_reporter_label')}
         </span>
         {value !== 'all' ? (

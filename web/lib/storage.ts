@@ -45,4 +45,5 @@ export const KEYS = {
   gameState: 'game_state',
   streak: 'game_streak',
   lastGameDate: 'game_last_date',
+  recentSearch: 'recent_search',
 } as const;
