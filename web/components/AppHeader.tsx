@@ -155,7 +155,7 @@ export default function AppHeader() {
         disabled={onAccount}
         aria-label={t("tab_account")}
         className={`
-          relative flex-shrink-0 flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2 px-2 h-full z-10
+          relative flex-shrink-0 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 px-2 h-full z-10
           transition-colors duration-150
           ${onAccount ? "text-primary dark:text-primary-300 cursor-default" : "text-gray-700 dark:text-gray-300 active:scale-90"}
         `}

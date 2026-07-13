@@ -30,7 +30,7 @@ import {
 import { useApp, HIDEABLE_TABS } from "@/context/AppContext";
 import type { TabKey } from "@/context/AppContext";
 import { requestNotificationPermission, showAlertNotification } from "@/lib/notify";
-import { subscribeToPush } from "@/lib/backend";
+import { subscribeToPush, unsubscribeFromPush } from "@/lib/backend";
 import AnimatedSegmented from "@/components/AnimatedSegmented";
 import ProfileForm from "@/components/ProfileForm";
 
@@ -61,13 +61,26 @@ export default function SettingsMenu() {
   const handleNotifications = async (on: boolean) => {
     if (!on) {
       setNotifications(false);
+      unsubscribeFromPush(); // stop municipality web-push to this device too
       return;
     }
-    const perm = await requestNotificationPermission();
+    // Web-push registration MUST come first: on iOS/Safari pushManager.subscribe()
+    // only works while the tap's user activation is alive (it shows the permission
+    // prompt itself). Requesting Notification permission separately first consumes
+    // the activation and subscribe() then throws NotAllowedError — which is why
+    // devices used to end up with notifications on but never push-subscribed.
+    const push = await subscribeToPush();
+    const perm =
+      typeof Notification !== "undefined" && Notification.permission === "granted"
+        ? "granted"
+        : await requestNotificationPermission();
     if (perm === "granted") {
       setNotifications(true);
       showAlertNotification(lang); // fire immediately if risks are active
-      subscribeToPush(); // register for municipality web-push (no-op if backend unset)
+      // Permission is fine but push registration failed — say so with the
+      // real error, instead of silently showing 0 subscribed devices.
+      if (typeof push === "object")
+        alert(`${t("settings_notify_push_failed")}\n(${push.error})`);
     } else {
       setNotifications(false);
       // Say WHY the toggle refused, instead of silently snapping back off.

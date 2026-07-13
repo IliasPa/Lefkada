@@ -31,6 +31,7 @@ export default function HomeTab() {
   // shorter list doesn't make the page "jump" under the sticky filter bar.
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0 });
+    window.scrollTo(0, 0); // flow mode: the document is the scroller
   }, [activeReporter, cats]);
 
   // Reporter-submitted news (from /reporters) first, then the bundled items.
@@ -60,7 +61,7 @@ export default function HomeTab() {
 
       <div className="relative z-10">
       {/* Sticky filter bars — translucent so the photo shows through up here too */}
-      <div className="sticky top-0 z-10 bg-[#F2F5F9]/25 dark:bg-[#0B0F18]/30 backdrop-blur-md pt-4 pb-2 space-y-2">
+      <div className="sticky top-[var(--sticky-top,0px)] z-10 bg-[#F2F5F9]/25 dark:bg-[#0B0F18]/30 backdrop-blur-md pt-4 pb-2 space-y-2">
         <div className="px-4 max-w-2xl mx-auto space-y-2">
           {/* Search + reporter dropdown on the same line */}
           <div className="flex items-center gap-2">

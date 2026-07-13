@@ -54,7 +54,12 @@ const config: Config = {
         },
         slideUp: {
           '0%': { transform: 'translateY(12px)', opacity: '0' },
-          '100%': { transform: 'translateY(0)', opacity: '1' },
+          // End at `none` (not translateY(0)): the animation runs with
+          // `forwards` fill on <main>, and a retained transform would make it
+          // the containing block for position:fixed children (the news photo
+          // backdrop, the floating search button) — breaking them as soon as
+          // <main> is taller than the viewport (browser flow mode).
+          '100%': { transform: 'none', opacity: '1' },
         },
         pulseVeto: {
           '0%, 100%': { opacity: '1' },

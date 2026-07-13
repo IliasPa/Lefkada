@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { ArrowUp, Search } from 'lucide-react';
 import { AppProvider, useApp, type TabKey } from '@/context/AppContext';
 import { showAlertNotification } from '@/lib/notify';
+import { subscribeToPush } from '@/lib/backend';
 import AppHeader from '@/components/AppHeader';
 import HomeTab from '@/components/tabs/HomeTab';
 
@@ -43,11 +44,18 @@ function ServiceWorkerRegistration() {
 }
 
 // Re-sends the risk-alert notification on every app open (in case it was missed)
-// when notifications are enabled.
+// when notifications are enabled — and re-upserts the push subscription, so the
+// server-side row self-heals for already-subscribed devices. (Devices with NO
+// subscription can only get one from the Settings toggle: iOS allows
+// pushManager.subscribe() only inside a user gesture.)
 function AlertNotifier() {
   const { notifications, lang } = useApp();
   useEffect(() => {
-    if (notifications) showAlertNotification(lang);
+    if (!notifications) return;
+    showAlertNotification(lang);
+    subscribeToPush().then((r) => {
+      if (typeof r === 'object') console.warn('Push re-subscribe failed:', r.error);
+    });
   }, [notifications, lang]);
   return null;
 }
@@ -80,25 +88,31 @@ function AppShell() {
     void el.offsetHeight;
     el.classList.add('tab-content');
     el.scrollTop = 0;
+    window.scrollTo(0, 0); // flow mode: the document is the scroller
   }, [activeTab]);
 
   return (
     <div
-      className="fixed inset-0 flex flex-col bg-[#F2F5F9] dark:bg-[#0B0F18]"
-      style={{ paddingTop: 'var(--sat)' }}
+      className="app-shell flex flex-col bg-[#F2F5F9] dark:bg-[#0B0F18]"
+      style={{ paddingTop: 'calc(var(--sat) + 4px)' }}
     >
       {/* Combined header: logo + tabs + controls */}
       <AppHeader />
 
-      {/* Scrollable content */}
+      {/* Scrollable content — no bottom padding here: content runs edge-to-edge
+          under the iPhone home indicator (the .scroll-area rule pads the END of
+          the scrolled content instead, so nothing hides behind the indicator).
+          Padding the container left a dead ~34px band in the installed PWA. */}
       <main
         ref={contentRef}
         className="flex-1 overflow-hidden relative tab-content"
-        style={{ paddingBottom: 'var(--sab)' }}
       >
         <TabContent tab={activeTab} />
-        <FloatingButton onSearch={() => setSearchOpen(true)} />
       </main>
+
+      {/* Outside <main>: its tab-switch animation must never become the
+          containing block for this button's fixed positioning (flow mode). */}
+      <FloatingButton onSearch={() => setSearchOpen(true)} />
 
       {searchOpen && <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />}
     </div>
@@ -115,6 +129,12 @@ function FloatingButton({ onSearch }: { onSearch: () => void }) {
 
   useEffect(() => {
     const onScroll = (e: Event) => {
+      if (e.target === document) {
+        // flow mode — the document itself scrolls
+        targetRef.current = null;
+        setScrolled(window.scrollY > 400);
+        return;
+      }
       const el = e.target as HTMLElement;
       if (!el?.classList?.contains('scroll-area')) return;
       targetRef.current = el;
@@ -128,15 +148,15 @@ function FloatingButton({ onSearch }: { onSearch: () => void }) {
   // Reset to the search state whenever the tab changes (new scroll area starts at top).
   useEffect(() => { setScrolled(false); }, [activeTab]);
 
-  const backToTop = () => targetRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  const backToTop = () =>
+    (targetRef.current ?? window).scrollTo({ top: 0, behavior: 'smooth' });
 
   return (
     <button
       onClick={scrolled ? backToTop : onSearch}
       aria-label={scrolled ? t('scroll_top') : t('search_open')}
       title={scrolled ? t('scroll_top') : t('search_open')}
-      className="absolute z-30 bottom-4 right-4 w-12 h-12 rounded-full flex items-center justify-center bg-primary text-white shadow-lg shadow-primary/30 active:scale-90 transition-transform"
-      style={{ marginBottom: 'var(--sab)' }}
+      className="float-btn z-30 w-12 h-12 rounded-full flex items-center justify-center bg-primary text-white shadow-lg shadow-primary/30 active:scale-90 transition-transform"
     >
       {scrolled ? <ArrowUp size={20} /> : <Search size={20} />}
     </button>

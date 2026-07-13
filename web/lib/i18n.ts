@@ -408,11 +408,17 @@ const el: Record<string, string> = {
   apply_form_sending: "Αποστολή…",
   apply_form_error: "Η αποστολή απέτυχε. Δοκιμάστε ξανά.",
 
+  // Mayor message delivery failure
+  settings_mayor_error:
+    "Το μήνυμα δεν στάλθηκε — ελέγξτε τη σύνδεσή σας και δοκιμάστε ξανά.",
+
   // Notifications toggle feedback
   settings_notify_unsupported:
     "Οι ειδοποιήσεις δεν υποστηρίζονται εδώ. Σε iPhone/iPad: προσθέστε πρώτα την εφαρμογή στην αρχική οθόνη (Κοινοποίηση → Προσθήκη στην αρχική οθόνη) και ενεργοποιήστε τις από εκεί.",
   settings_notify_denied:
     "Οι ειδοποιήσεις έχουν αποκλειστεί στις ρυθμίσεις του προγράμματος περιήγησης. Επιτρέψτε τις για αυτόν τον ιστότοπο και δοκιμάστε ξανά.",
+  settings_notify_push_failed:
+    "Οι ειδοποιήσεις ενεργοποιήθηκαν, αλλά η εγγραφή της συσκευής για push από τον Δήμο απέτυχε — απενεργοποιήστε και ενεργοποιήστε ξανά τον διακόπτη για νέα προσπάθεια.",
 
   // Game tab
   game_title: "Wordle Ελληνικά",
@@ -915,11 +921,17 @@ const en: Record<string, string> = {
   apply_form_sending: "Sending…",
   apply_form_error: "Submission failed. Please try again.",
 
+  // Mayor message delivery failure
+  settings_mayor_error:
+    "The message was not sent — check your connection and try again.",
+
   // Notifications toggle feedback
   settings_notify_unsupported:
     "Notifications aren't supported here. On iPhone/iPad: first add the app to your Home Screen (Share → Add to Home Screen), then enable them from there.",
   settings_notify_denied:
     "Notifications are blocked in your browser settings. Allow them for this site and try again.",
+  settings_notify_push_failed:
+    "Notifications are on, but registering this device for municipality push failed — toggle off and on again to retry.",
 
   // Game tab
   game_title: "Greek Wordle",

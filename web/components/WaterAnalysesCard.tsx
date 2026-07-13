@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Droplets, FlaskConical, ChevronDown, FileText } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { waterAnalyses, type WaterAnalysisType } from "@/data/water";
+import { fetchLiveWater, useLive } from "@/lib/backend";
 
 type Lang = "el" | "en";
 
@@ -22,6 +23,9 @@ function typeLabel(t: (k: string) => string, type: WaterAnalysisType) {
 export default function WaterAnalysesCard() {
   const { t, lang } = useApp();
   const [year, setYear] = useState<number | null>(null);
+  // PDFs added from /admin ▸ Νερό, merged into the bundled year/unit/community tree.
+  const liveTree = useLive(() => fetchLiveWater(waterAnalyses));
+  const analyses = liveTree ?? waterAnalyses;
 
   return (
     <div className="rounded-2xl border border-gray-100 dark:border-[#1E2D4E] bg-white dark:bg-[#141929] shadow-sm overflow-hidden">
@@ -51,7 +55,7 @@ export default function WaterAnalysesCard() {
 
       {/* Year buttons */}
       <div className="flex flex-wrap gap-2 px-4 pb-3">
-        {waterAnalyses.map((y) => {
+        {analyses.map((y) => {
           const active = year === y.year;
           return (
             <button
@@ -70,7 +74,7 @@ export default function WaterAnalysesCard() {
       {/* Expanded tree */}
       {year !== null && (
         <div className="px-3 pb-4 border-t border-gray-100 dark:border-[#1E2D4E] pt-2">
-          {waterAnalyses
+          {analyses
             .filter((y) => y.year === year)
             .map((y) => (
               <div key={y.year} className="space-y-3">

@@ -7,8 +7,23 @@
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
-  --header-h: 56px;
+  --header-h: 48px; /* h-12 AppHeader */
   --tabbar-h: 64px;
+  /* Offset for sticky bars inside the content: 0 in fixed-shell modes (they
+     stick to their own scroll container, right below the pinned header); the
+     header height in browser flow mode (they stick to the window under the
+     sticky header). */
+  --sticky-top: 0px;
+}
+
+/* The strip a PWA can show around/behind the app (e.g. above the iPhone home
+   indicator) is painted with the <html> background — match the app colours so
+   it never reads as a dead band. */
+html {
+  background-color: #f2f5f9;
+}
+html.dark {
+  background-color: #0b0f18;
 }
 
 *,
@@ -39,6 +54,92 @@ main {
   height: 100%;
 }
 
+/* ── App shell: two explicit modes, set on <html> before first paint ─────────
+   .pwa  — installed to the Home Screen (and the /admin portals everywhere):
+           a fixed shell with inner scroll areas.
+   .flow — the public app in a regular browser tab: the DOCUMENT itself is the
+           scroller, so Safari can collapse its bottom bar into the floating
+           link pill and the app paints edge-to-edge behind it (a fixed shell
+           with inner scrollers never window-scrolls, so the bar would stay
+           docked forever). */
+.app-shell {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100vh;
+  height: 100dvh;
+}
+/* Installed PWA: sized in real PIXELS from the visual viewport (kept in
+   --app-height by the layout script). iOS standalone can leave the layout
+   viewport — and every viewport unit (dvh/lvh) with it — stuck at a reduced
+   height after the keyboard/viewport dance; explicit pixels always paint to
+   the true bottom of the screen. The lvh line is the no-JS fallback (no
+   collapsible chrome exists in standalone, so lvh is exactly the screen). */
+html.pwa .app-shell {
+  height: 100lvh;
+  height: var(--app-height, 100lvh);
+}
+
+/* ── Browser flow mode ── */
+html.flow {
+  --sticky-top: var(--header-h);
+  height: auto;
+}
+html.flow body {
+  height: auto;
+  min-height: 100dvh;
+  overflow: visible;
+  overscroll-behavior: auto;
+}
+html.flow .app-shell {
+  position: static;
+  height: auto;
+  min-height: 100dvh;
+}
+html.flow .app-shell > header {
+  position: sticky;
+  top: 0;
+}
+html.flow .app-shell > main {
+  height: auto;
+  overflow: visible;
+}
+html.flow main .scroll-area {
+  height: auto;
+  overflow: visible;
+  min-height: calc(100dvh - var(--header-h));
+}
+/* Subtab bars (Culture/About/Education) sit above their scroll area in the
+   fixed shell; in flow mode they stick under the header instead. */
+html.flow main .subtab-bar {
+  position: sticky;
+  top: var(--header-h);
+  z-index: 15;
+  background: #f2f5f9;
+}
+html.dark.flow main .subtab-bar {
+  background: #0b0f18;
+}
+/* Full-height panes without a scroll area (the Culture map) get an explicit
+   height in flow mode — their h-full chain resolves to auto there. */
+html.flow main .map-pane {
+  height: calc(100dvh - var(--header-h) - 140px);
+  min-height: 320px;
+}
+
+/* Floating search / back-to-top circle: pinned to the viewport in flow mode;
+   anchored inside the shell in the PWA (the shell's pixel height is reliable
+   even when a stale viewport would mis-anchor `position: fixed`). */
+.float-btn {
+  position: fixed;
+  right: 1rem;
+  bottom: calc(1rem + var(--sab));
+}
+html:not(.flow) .float-btn {
+  position: absolute;
+}
+
 /* Scrollable content area */
 .scroll-area {
   overflow-y: auto;
@@ -46,6 +147,10 @@ main {
   overscroll-behavior-y: contain;
   scrollbar-width: thin;
   scrollbar-color: rgba(120, 130, 150, 0.5) transparent;
+  /* iPhone PWA: content scrolls edge-to-edge; padding the END of the scrolled
+     content (instead of the container) lets the last item clear the home
+     indicator without leaving a dead band at the bottom of the screen. */
+  padding-bottom: var(--sab);
 }
 .scroll-area::-webkit-scrollbar {
   width: 8px;
@@ -86,9 +191,13 @@ main {
   scroll-snap-type: none;
 }
 
-/* Smooth tab transitions */
+/* Smooth tab transitions. No `forwards` fill: the animation ends at the
+   element's natural state anyway, and a *filling* transform animation keeps
+   <main> a containing block for position:fixed children forever in Safari —
+   even with the final keyframe at `transform: none` — which pinned the
+   floating button to the bottom of the page instead of the viewport. */
 .tab-content {
-  animation: slideUp 0.22s ease-out forwards;
+  animation: slideUp 0.22s ease-out;
 }
 
 /* ── Accessibility (WCAG 2.2 AA) ───────────────────────────────────────── */

@@ -119,6 +119,21 @@ Lets you notify every subscribed citizen from `/admin ▸ Ειδοποιήσει
 Citizens who enable «Ειδοποιήσεις» in the app's settings are subscribed
 automatically; the count shows up in `/admin ▸ Ειδοποιήσεις`.
 
+**Troubleshooting «0 συσκευές»:**
+
+- On **iPhone/iPad** the app must be installed to the Home Screen, and the
+  subscription can only be created by the Settings **toggle itself** (iOS
+  requires the subscribe call to happen inside the user's tap). Devices that
+  enabled notifications **before** push was fixed/configured must toggle
+  **off → on** once — the app now shows the real error if registration fails,
+  instead of silently staying unsubscribed.
+- If you ever **regenerate the VAPID keys**, update Vercel, `web/.env.local`
+  *and* the Supabase secrets together, then redeploy both the site and the
+  `send-push` function. Devices subscribed under the old key re-subscribe
+  themselves the next time the toggle is used (the app detects the key change).
+- `/admin` warns on this tab if `NEXT_PUBLIC_VAPID_PUBLIC_KEY` is missing from
+  the deployment it is running on.
+
 ## What lives where
 
 | Data | Where | Who can write | Who can read |

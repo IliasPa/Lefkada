@@ -66,7 +66,7 @@ export default function AboutTab() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="px-4 pt-4 pb-2 max-w-3xl mx-auto w-full flex-shrink-0">
+      <div className="subtab-bar px-4 pt-4 pb-2 max-w-3xl mx-auto w-full flex-shrink-0">
         <h1 className="text-xs font-bold tracking-[0.12em] uppercase text-gray-400 dark:text-gray-500 ml-1 mb-2">
           {t("about_title")}
         </h1>

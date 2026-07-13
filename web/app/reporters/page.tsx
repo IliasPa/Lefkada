@@ -11,6 +11,17 @@ import { useCallback, useEffect, useState } from 'react';
 import { Newspaper, Plus, Trash2, X, Instagram, Facebook, Twitter } from 'lucide-react';
 import AdminShell, { Card, Field, GhostBtn, PrimaryBtn, inputCls } from '@/components/admin/AdminShell';
 import { getSupabase } from '@/lib/supabase';
+import { storageGet, storageSet } from '@/lib/storage';
+
+/** The app's Pegasus rendered as a single-colour mark (same as the Home feed's
+ *  reporter-website button). */
+function PegasusMark({ className }: { className?: string }) {
+  const mask = "url('/pegasus-mark.png') center / contain no-repeat";
+  return (
+    <span aria-hidden className={`inline-block flex-shrink-0 ${className ?? ''}`}
+      style={{ WebkitMask: mask, mask }} />
+  );
+}
 
 const TOPICS = [
   { v: 'Infrastructure', l: 'Υποδομές' },
@@ -27,6 +38,7 @@ interface MyNewsRow {
   title_el: string; title_en: string;
   subtitle_el: string; subtitle_en: string;
   topic: string;
+  reporter_url: string;
   links: { instagram?: string; facebook?: string; twitter?: string };
   published: boolean;
 }
@@ -35,6 +47,7 @@ const EMPTY = {
   title_el: '', title_en: '',
   subtitle_el: '', subtitle_en: '',
   topic: 'Council',
+  website: '',
   instagram: '', facebook: '', twitter: '',
 };
 
@@ -58,7 +71,7 @@ function ReporterApp({ displayName }: { displayName: string }) {
     if (!u.user) return;
     const { data } = await sb
       .from('news')
-      .select('id, created_at, title_el, title_en, subtitle_el, subtitle_en, topic, links, published')
+      .select('id, created_at, title_el, title_en, subtitle_el, subtitle_en, topic, reporter_url, links, published')
       .eq('created_by', u.user.id)
       .order('created_at', { ascending: false });
     setRows((data as MyNewsRow[]) ?? []);
@@ -76,6 +89,7 @@ function ReporterApp({ displayName }: { displayName: string }) {
     if (form.twitter.trim()) links.twitter = form.twitter.trim();
     const { error } = await sb.from('news').insert({
       reporter_name: displayName,
+      reporter_url: form.website.trim(),
       title_el: form.title_el, title_en: form.title_en || form.title_el,
       subtitle_el: form.subtitle_el, subtitle_en: form.subtitle_en || form.subtitle_el,
       topic: form.topic,
@@ -83,6 +97,7 @@ function ReporterApp({ displayName }: { displayName: string }) {
     });
     setBusy(false);
     if (error) { alert('Σφάλμα: ' + error.message); return; }
+    storageSet('reporter_site', form.website.trim()); // remember for next time
     setForm(null);
     load();
   };
@@ -100,7 +115,7 @@ function ReporterApp({ displayName }: { displayName: string }) {
           <Newspaper size={18} style={{ color: '#6D44C8' }} /> Οι ειδήσεις μου
         </h2>
         {!form && (
-          <PrimaryBtn onClick={() => setForm({ ...EMPTY })}>
+          <PrimaryBtn onClick={() => setForm({ ...EMPTY, website: storageGet('reporter_site', '') })}>
             <Plus size={13} className="inline mr-1" /> Νέα είδηση
           </PrimaryBtn>
         )}
@@ -133,6 +148,15 @@ function ReporterApp({ displayName }: { displayName: string }) {
               {TOPICS.map((t) => <option key={t.v} value={t.v}>{t.l}</option>)}
             </select>
           </Field>
+          <Field label="Προσωπική ιστοσελίδα — εμφανίζεται με το σήμα του Πηγάσου στην είδηση">
+            <div className="flex items-center gap-2">
+              <span className="w-7 h-7 rounded-full flex items-center justify-center bg-[#E3F0FB] dark:bg-[#16314F] flex-shrink-0">
+                <PegasusMark className="w-4 h-4 bg-[#1B5E9B] dark:bg-blue-300" />
+              </span>
+              <input type="url" value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })}
+                placeholder="https://www.example.gr" className={inputCls} />
+            </div>
+          </Field>
           <Field label="Σύνδεσμοι κοινωνικών δικτύων (προαιρετικά)">
             <div className="space-y-2">
               {([['instagram', <Instagram key="i" size={14} />], ['facebook', <Facebook key="f" size={14} />], ['twitter', <Twitter key="t" size={14} />]] as const).map(([k, icon]) => (
@@ -162,6 +186,13 @@ function ReporterApp({ displayName }: { displayName: string }) {
                 {TOPICS.find((t) => t.v === r.topic)?.l ?? r.topic} · {new Date(r.created_at).toLocaleDateString('el-GR')}
               </p>
             </div>
+            {r.reporter_url && (
+              <a href={r.reporter_url} target="_blank" rel="noopener noreferrer" title={r.reporter_url}
+                aria-label="Ιστοσελίδα ανταποκριτή"
+                className="w-8 h-8 rounded-full flex items-center justify-center bg-[#E3F0FB] dark:bg-[#16314F] active:scale-90 transition-transform flex-shrink-0">
+                <PegasusMark className="w-4 h-4 bg-[#1B5E9B] dark:bg-blue-300" />
+              </a>
+            )}
             <span className={`text-[10px] font-black px-2 py-1 rounded-full ${
               r.published ? 'bg-green-50 dark:bg-green-900/20 text-green-600' : 'bg-gray-100 dark:bg-[#252A3A] text-gray-400'}`}>
               {r.published ? 'Δημοσιευμένη' : 'Αποσυρμένη από τον Δήμο'}

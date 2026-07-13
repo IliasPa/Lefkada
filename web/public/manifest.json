@@ -7,7 +7,7 @@
   "display": "standalone",
   "orientation": "portrait-primary",
   "theme_color": "#0D5EAF",
-  "background_color": "#FFFFFF",
+  "background_color": "#F2F5F9",
   "lang": "el",
   "categories": ["government", "productivity", "utilities"],
   "icons": [

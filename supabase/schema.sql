@@ -139,12 +139,18 @@ create table if not exists public.content (
   id         uuid primary key default gen_random_uuid(),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  kind       text not null check (kind in
-             ('alert', 'job', 'event', 'decision', 'tender', 'bylaw',
-              'consultation', 'council', 'budget')),
+  kind       text not null,
   data       jsonb not null,
   published  boolean not null default true
 );
+
+-- Allowed kinds — kept as a separate named constraint so re-running this file
+-- upgrades existing databases when new kinds are added
+-- (v1.1: water, lesson, competition).
+alter table public.content drop constraint if exists content_kind_check;
+alter table public.content add constraint content_kind_check check (kind in
+  ('alert', 'job', 'event', 'decision', 'tender', 'bylaw',
+   'consultation', 'council', 'budget', 'water', 'lesson', 'competition'));
 create index if not exists content_kind_idx on public.content (kind, published);
 alter table public.content enable row level security;
 drop policy if exists "public reads published content" on public.content;
@@ -223,6 +229,11 @@ create table if not exists public.push_subscriptions (
   subscription jsonb not null
 );
 alter table public.push_subscriptions enable row level security;
+-- NOTE: the app INSERTs plainly and treats a 23505 duplicate-endpoint error as
+-- "already subscribed". Do NOT switch it to upsert: Postgres runs this table's
+-- SELECT policies for the ON CONFLICT arbiter check, and citizens (anon) may
+-- not read subscriptions — an upsert therefore always fails RLS. (Adding a
+-- public SELECT policy instead would expose every device's push endpoint.)
 drop policy if exists "anyone subscribes" on public.push_subscriptions;
 create policy "anyone subscribes" on public.push_subscriptions
   for insert to anon, authenticated with check (true);

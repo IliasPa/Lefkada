@@ -136,7 +136,7 @@ export default function CultureTab() {
   return (
     <div className="h-full flex flex-col">
       {/* Header + subtabs */}
-      <div className="px-4 pt-4 pb-2 max-w-3xl mx-auto w-full flex-shrink-0">
+      <div className="subtab-bar px-4 pt-4 pb-2 max-w-3xl mx-auto w-full flex-shrink-0">
         <div className="flex items-center justify-between gap-2 mb-2">
           <h1 className="text-xs font-bold tracking-[0.12em] uppercase text-gray-400 dark:text-gray-500 ml-1">
             {t("culture_title")}
@@ -163,7 +163,7 @@ export default function CultureTab() {
 
       {/* Content */}
       {mode === "map" ? (
-        <div className="flex-1 min-h-0">
+        <div className="map-pane flex-1 min-h-0">
           <LazyMap initialKind="all" />
         </div>
       ) : (
@@ -636,7 +636,7 @@ function DayDetails({
 }) {
   const wrap = bare
     ? ""
-    : "bg-white dark:bg-[#141929] rounded-2xl border border-gray-100 dark:border-[#1E2D4E] p-4 shadow-sm sticky top-2";
+    : "bg-white dark:bg-[#141929] rounded-2xl border border-gray-100 dark:border-[#1E2D4E] p-4 shadow-sm sticky top-[calc(var(--sticky-top,0px)_+_0.5rem)]";
 
   if (!dateKey) {
     return (

@@ -15,6 +15,9 @@ import type { NewsItem, Reporter, BilingualText } from '@/data/news';
 import type { CultureEvent } from '@/data/events';
 import type { Poll } from '@/data/voting';
 import type { GovItem, GovType } from '@/data/governance';
+import type { Lesson } from '@/data/education';
+import type { WaterYear, WaterAnalysisType } from '@/data/water';
+import type { BudgetReport } from '@/data/budget';
 
 // ── Small helpers ────────────────────────────────────────────────────────────
 
@@ -175,6 +178,103 @@ export async function fetchLiveReferendums(): Promise<Poll[] | null> {
   }));
 }
 
+export async function fetchLiveLessons(): Promise<Lesson[] | null> {
+  const rows = await fetchContent('lesson');
+  if (rows === null) return null;
+  return rows.map((r) => ({ id: r.id, ...(r.data as Omit<Lesson, 'id'>) }));
+}
+
+export interface LiveCompetition {
+  id: string;
+  category: Lesson['category'];
+  title: BilingualText;
+  date: string;
+  location?: BilingualText;
+  url?: string;
+  past?: boolean;
+}
+
+/** Competitions added from /admin ▸ Παιδεία (any lesson category). */
+export async function fetchLiveCompetitions(): Promise<LiveCompetition[] | null> {
+  const rows = await fetchContent('competition');
+  if (rows === null) return null;
+  return rows.map((r) => ({ id: r.id, ...(r.data as Omit<LiveCompetition, 'id'>) }));
+}
+
+/** Admin-added budget documents, shaped as link-only (scanned) BudgetReports
+ *  so they slot into the Financials ▸ Reports lists unchanged. */
+export async function fetchLiveBudgetReports(): Promise<BudgetReport[] | null> {
+  const rows = await fetchContent('budget');
+  if (rows === null) return null;
+  return rows
+    .filter((r) => typeof r.data.pdfUrl === 'string' && r.data.pdfUrl)
+    .map((r) => ({
+      ...(r.data as Omit<BudgetReport, 'id' | 'scanned' | 'date'>),
+      date: (r.data.date as string | undefined) ?? null,
+      id: `live-${r.id}`,
+      scanned: true,
+    }));
+}
+
+interface WaterRow {
+  year: number;
+  /** Municipal unit / community — stored as the Greek name (admin selects);
+   *  older rows may carry {el,en} objects. */
+  unit: string | { el: string; en?: string };
+  community: string | { el: string; en?: string };
+  month?: number;
+  type: WaterAnalysisType;
+  url: string;
+}
+
+/** Merge admin-added water-analysis PDFs into the bundled year→unit→community
+ *  tree (creating years/units/communities that don't exist yet). */
+export async function fetchLiveWater(base: WaterYear[]): Promise<WaterYear[] | null> {
+  const rows = await fetchContent('water');
+  if (rows === null || rows.length === 0) return null;
+
+  // deep-ish clone so the bundled data stays untouched
+  const tree: WaterYear[] = base.map((y) => ({
+    ...y,
+    units: y.units.map((u) => ({ ...u, communities: u.communities.map((c) => ({ ...c, pdfs: [...c.pdfs] })) })),
+  }));
+
+  for (const r of rows) {
+    const d = r.data as unknown as WaterRow;
+    if (!d?.year || !d?.url) continue;
+    let year = tree.find((y) => y.year === Number(d.year));
+    if (!year) {
+      year = { year: Number(d.year), units: [] };
+      tree.push(year);
+      tree.sort((a, b) => b.year - a.year);
+    }
+    const unitEl = typeof d.unit === 'string' ? d.unit : d.unit?.el ?? '—';
+    let unit = year.units.find((u) => u.name.el === unitEl);
+    if (!unit) {
+      // Reuse the English unit name from any other year that has this unit.
+      const known = base.flatMap((y) => y.units).find((u) => u.name.el === unitEl);
+      unit = { name: known ? { ...known.name } : bt(unitEl, unitEl), communities: [] };
+      year.units.push(unit);
+    }
+    const commEl = typeof d.community === 'string' ? d.community : d.community?.el ?? '—';
+    let community = unit.communities.find((c) => c.name.el === commEl);
+    if (!community) {
+      // Reuse the English community name from the bundled data when known.
+      const knownComm = base
+        .flatMap((y) => y.units)
+        .filter((u) => u.name.el === unitEl)
+        .flatMap((u) => u.communities)
+        .find((c) => c.name.el === commEl);
+      const commEn = typeof d.community === 'object' ? d.community?.en : undefined;
+      community = { name: knownComm ? { ...knownComm.name } : bt(commEl, commEn ?? commEl), pdfs: [] };
+      unit.communities.push(community);
+      unit.communities.sort((a, b) => a.name.el.localeCompare(b.name.el, 'el'));
+    }
+    community.pdfs.push({ type: d.type, ...(d.month ? { month: Number(d.month) } : {}), url: d.url });
+  }
+  return tree;
+}
+
 export interface LiveNews {
   items: NewsItem[];
   reporters: Reporter[];
@@ -246,26 +346,62 @@ function urlBase64ToUint8Array(base64: string): Uint8Array {
   return Uint8Array.from(raw.split('').map((c) => c.charCodeAt(0)));
 }
 
+/** 'ok' — subscribed and stored; 'unavailable' — push can't work here (no
+ *  backend/VAPID key/Push API), by design silent; { error } — it should have
+ *  worked but didn't, so the caller can tell the user why. */
+export type PushResult = 'ok' | 'unavailable' | { error: string };
+
 /** Subscribe this browser to web push and store the subscription server-side.
- *  Returns true on success. No-op (false) when push isn't available. */
-export async function subscribeToPush(): Promise<boolean> {
+ *  iOS/Safari only allows pushManager.subscribe() while the user's tap
+ *  activation is still alive (subscribe() itself shows the permission prompt
+ *  when needed) — so call this FIRST inside the gesture handler, before
+ *  anything else that could consume the activation. */
+export async function subscribeToPush(): Promise<PushResult> {
   const sb = getSupabase();
-  if (!sb || !VAPID_PUBLIC_KEY) return false;
-  if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+  if (!sb || !VAPID_PUBLIC_KEY) return 'unavailable';
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) return 'unavailable';
   try {
     const reg = await navigator.serviceWorker.ready;
-    const sub =
-      (await reg.pushManager.getSubscription()) ??
+    const key = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+    let sub = await reg.pushManager.getSubscription();
+    // A subscription minted under a previous VAPID key can never receive our
+    // pushes — drop it and subscribe fresh with the current key.
+    if (sub?.options.applicationServerKey) {
+      const existing = new Uint8Array(sub.options.applicationServerKey);
+      if (existing.length !== key.length || existing.some((b, i) => b !== key[i])) {
+        await sub.unsubscribe().catch(() => {});
+        sub = null;
+      }
+    }
+    sub =
+      sub ??
       (await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as unknown as BufferSource,
+        applicationServerKey: key as unknown as BufferSource,
       }));
+    // Plain INSERT — deliberately NOT upsert: Postgres runs the table's SELECT
+    // policies for an ON CONFLICT arbiter check, and only the mayor may read
+    // this table, so an upsert is always rejected by RLS for citizens. A
+    // duplicate endpoint (23505) just means this device is already registered.
     const { error } = await sb
       .from('push_subscriptions')
-      .upsert({ endpoint: sub.endpoint, subscription: sub.toJSON() }, { onConflict: 'endpoint', ignoreDuplicates: true });
-    return !error;
+      .insert({ endpoint: sub.endpoint, subscription: sub.toJSON() });
+    return error && error.code !== '23505' ? { error: error.message } : 'ok';
+  } catch (e) {
+    return { error: e instanceof Error ? `${e.name}: ${e.message}` : String(e) };
+  }
+}
+
+/** Kill this device's push subscription (notifications toggled off). The
+ *  server row dies on the next send (the endpoint returns 410 and is pruned). */
+export async function unsubscribeFromPush(): Promise<void> {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    await sub?.unsubscribe();
   } catch {
-    return false;
+    /* nothing to clean up */
   }
 }
 

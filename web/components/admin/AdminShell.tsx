@@ -21,11 +21,14 @@ export default function AdminShell({
   title,
   accent = '#0D5EAF',
   allowedRoles,
+  nav,
   children,
 }: {
   title: string;
   accent?: string;
   allowedRoles: RoleInfo['role'][];
+  /** Optional navigation rendered centered in the header (like the public app). */
+  nav?: React.ReactNode;
   children: (session: Session, role: RoleInfo) => React.ReactNode;
 }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -131,19 +134,25 @@ export default function AdminShell({
   }
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-[#F2F5F9] dark:bg-[#0B0F18] text-gray-900 dark:text-gray-100">
-      <header className="flex-shrink-0 flex items-center justify-between gap-3 px-4 py-3 bg-white dark:bg-[#141929] border-b border-gray-200 dark:border-[#1E2D4E]">
-        <div className="flex items-center gap-2.5 min-w-0">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/PegasusFlag.png" alt="" className="w-8 h-8 rounded-lg flex-shrink-0" />
-          <div className="min-w-0">
+    <div className="app-shell flex flex-col bg-[#F2F5F9] dark:bg-[#0B0F18] text-gray-900 dark:text-gray-100">
+      <header className="flex-shrink-0 flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-[#141929] border-b border-gray-200 dark:border-[#1E2D4E]"
+        style={{ paddingTop: 'calc(0.625rem + var(--sat, 0px))' }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/PegasusFlag.png" alt="" title={title} className="w-8 h-8 rounded-lg flex-shrink-0" />
+        {nav ? (
+          /* Tabs live in the header, centered — like the public app. */
+          <div className="flex-1 min-w-0 overflow-x-auto px-1" style={{ scrollbarWidth: 'none' }}>
+            <div className="w-max mx-auto">{nav}</div>
+          </div>
+        ) : (
+          <div className="flex-1 min-w-0">
             <h1 className="font-black text-[15px] leading-tight truncate">{title}</h1>
             <p className="text-[11px] text-gray-400 truncate">{role.display_name || session.user.email}</p>
           </div>
-        </div>
-        <button onClick={signOut} title="Αποσύνδεση" aria-label="Αποσύνδεση"
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#252A3A] active:scale-95 flex-shrink-0">
-          <LogOut size={14} /> <span className="hidden sm:inline">Αποσύνδεση</span>
+        )}
+        <button onClick={signOut} title={`Αποσύνδεση (${role.display_name || session.user.email})`} aria-label="Αποσύνδεση"
+          className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-[12px] font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#252A3A] active:scale-95 flex-shrink-0">
+          <LogOut size={14} />
         </button>
       </header>
       <div className="flex-1 overflow-y-auto overscroll-contain">

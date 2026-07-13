@@ -20,6 +20,7 @@ import GameTab from "@/components/tabs/GameTab";
 import { ebooksData } from "@/data/ebooks";
 import { placesData } from "@/data/places";
 import { lessonsData, LESSON_CATEGORIES, roboticsCompetitions, type LessonCategory } from "@/data/education";
+import { fetchLiveCompetitions, fetchLiveLessons, useLive, type LiveCompetition } from "@/lib/backend";
 
 type Lang = "el" | "en";
 type Mode = "lessons" | "ebooks" | "libraries" | "game";
@@ -40,7 +41,7 @@ export default function EducationTab() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="px-4 pt-4 pb-2 max-w-3xl mx-auto w-full flex-shrink-0">
+      <div className="subtab-bar px-4 pt-4 pb-2 max-w-3xl mx-auto w-full flex-shrink-0">
         <h1 className="text-xs font-bold tracking-[0.12em] uppercase text-gray-400 dark:text-gray-500 ml-1 mb-2">
           {t("tab_education")}
         </h1>
@@ -189,9 +190,23 @@ function LibrariesView({ lang, t }: { lang: Lang; t: (k: string) => string }) {
 function LessonsView({ lang, t }: { lang: Lang; t: (k: string) => string }) {
   const [cat, setCat] = useState<LessonCategory | "all">("all");
   const [showOld, setShowOld] = useState(false);
-  const shown = cat === "all" ? lessonsData : lessonsData.filter((l) => l.category === cat);
+  // Lessons and competitions added from /admin ▸ Παιδεία, ahead of the bundled ones.
+  const liveLessons = useLive(fetchLiveLessons);
+  const liveComps = useLive(fetchLiveCompetitions);
+  const allLessons = [...(liveLessons ?? []), ...lessonsData];
+  // Competitions now exist for every category: the bundled robotics ones plus
+  // whatever the municipality adds per category.
+  const allComps: LiveCompetition[] = [
+    ...(liveComps ?? []),
+    ...roboticsCompetitions.map((c) => ({ ...c, category: "robotics" as LessonCategory })),
+  ];
+  const shown = cat === "all" ? allLessons : allLessons.filter((l) => l.category === cat);
   const catAccent = (c: LessonCategory) => LESSON_CATEGORIES.find((x) => x.key === c)!.accent;
-  const comps = roboticsCompetitions.filter((c) => showOld || !c.past);
+  const compsFor = (c: LessonCategory) => allComps.filter((x) => x.category === c && (showOld || !x.past));
+  const hasOldComps = (c: LessonCategory) => allComps.some((x) => x.category === c && x.past);
+  // The competitions block attaches to the FIRST shown lesson of each category.
+  const firstOfCategory = new Map<LessonCategory, string>();
+  for (const l of shown) if (!firstOfCategory.has(l.category)) firstOfCategory.set(l.category, l.id);
 
   return (
     <>
@@ -229,14 +244,14 @@ function LessonsView({ lang, t }: { lang: Lang; t: (k: string) => string }) {
                 <p className="text-[12.5px] text-gray-500 dark:text-gray-400 leading-relaxed mt-1">{l.desc[lang]}</p>
                 {l.when && <p className="text-[11.5px] font-semibold text-primary dark:text-primary-300 mt-2">{l.when[lang]}</p>}
 
-                {/* Robotics: competitions the programme targets */}
-                {l.category === "robotics" && (
+                {/* Competitions of this category (bundled robotics + /admin additions) */}
+                {firstOfCategory.get(l.category) === l.id && compsFor(l.category).length > 0 && (
                   <div className="mt-3 pt-3 border-t border-gray-100 dark:border-[#1E2D4E]">
                     <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-2">
                       <Trophy size={12} /> {t("edu_competitions")}
                     </p>
                     <div className="space-y-2">
-                      {comps.map((c) => (
+                      {compsFor(l.category).map((c) => (
                         <div key={c.id} className={`flex items-center gap-2 px-3 py-2 rounded-lg ${c.past ? "bg-gray-50 dark:bg-[#10141F] opacity-70" : "bg-purple-50 dark:bg-purple-900/20"}`}>
                           <CalendarDays size={13} className="flex-shrink-0 text-purple-500" />
                           <span className="flex-1 min-w-0 text-[12px] font-semibold text-gray-700 dark:text-gray-300">{c.title[lang]}</span>
@@ -249,7 +264,7 @@ function LessonsView({ lang, t }: { lang: Lang; t: (k: string) => string }) {
                         </div>
                       ))}
                     </div>
-                    {roboticsCompetitions.some((c) => c.past) && (
+                    {hasOldComps(l.category) && (
                       <button
                         onClick={() => setShowOld((v) => !v)}
                         className="mt-2 text-[11px] font-bold text-primary dark:text-primary-300 active:scale-95"
