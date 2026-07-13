@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useCallback } from "react";
 import { animate, spring } from "animejs";
-import { useApp } from "@/context/AppContext";
+import { useAppOptional } from "@/context/AppContext";
 
 export interface SegOption {
   key: string;
@@ -32,7 +32,16 @@ export default function AnimatedSegmented({
   size?: "sm" | "md";
   className?: string;
 }) {
-  const { a11y } = useApp();
+  // Optional so the component also works on the standalone /admin pages
+  // (no AppProvider there — reduce-motion falls back to the OS preference).
+  const app = useAppOptional();
+  const a11y = app?.a11y ?? {
+    reduceMotion:
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    highContrast: false,
+    largeText: false,
+  };
   const rowRef = useRef<HTMLDivElement>(null);
   const btnRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const indRef = useRef<HTMLDivElement>(null);

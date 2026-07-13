@@ -28,6 +28,8 @@
 | 📞 **Επαφές**   | Searchable directory of municipal phones, emails and hours                 |
 | 👤 **Προφίλ**   | **Active votings** (each with its countdown), the VETO action & message to the Mayor (profile/CV/doctors live in ⚙️ Settings) |
 
+> **🔌 Backend (v1.0):** the app now has an optional **Supabase backend** (free tier) powering real functionality — see the [v1.0 section](#v10--backend) and [SETUP_BACKEND.md](SETUP_BACKEND.md). Without it configured, everything falls back to the bundled data exactly as before.
+
 > **🔍 Universal search (v0.9):** the floating bottom-right circle is **search** when you're near the top of any page and **morphs into ↑ back-to-top** once you scroll down. It opens a **full-screen overlay** that searches **everything at once** — tabs, News, Services, Governance acts, the full **3,975-decision archive** (lazy-loaded), Culture places, Contacts, Jobs, Education lessons and e-Books — with Greek accent-insensitive matching, results grouped by category, deep-linking to the right place, plus "Jump to…" shortcuts and recent searches.
 
 ## Tab Design & User Experience
@@ -216,6 +218,39 @@
 - **CV upload:** Your resume persists locally and auto-attaches to job applications; no re-uploading each time.
 - **Message to the Mayor + 4MyCity:** Anonymous or identified messaging to municipal leadership. On the opposite side of the anonymity toggle, a **4MyCity** button links to the municipality's issue-reporting platform; on very small screens the anonymity toggle collapses to a tight icon-only segmented control so the 4MyCity button always has room.
 - **Local-first storage:** All data lives on your device; no cloud sync, no data collection, no tracking. You control what exists.
+
+## v1.0 — Backend
+
+v1.0 adds a real backend on **Supabase** (Postgres + Auth + Storage + Edge
+Functions, all on the free tier) while keeping the site a static export on
+Vercel — the browser talks to Supabase directly, protected by Row-Level
+Security. **Everything degrades gracefully:** with no `NEXT_PUBLIC_SUPABASE_*`
+env vars set, the app behaves exactly like v0.9 (bundled data, local-only
+actions). Setup is a one-time, ~10-minute checklist in
+[SETUP_BACKEND.md](SETUP_BACKEND.md); the schema + security rules live in
+[`supabase/schema.sql`](supabase/schema.sql).
+
+**Private areas** (email+password via Supabase Auth; sign-ups disabled — accounts are created only by the administrator, and every table checks the user's role server-side):
+
+- **`/admin` — the mayor's dashboard** (role `mayor`):
+  - **Μηνύματα:** every "Message to the Mayor" lands here — drag messages onto colour-coded **folders** (create/delete them freely), add free-text **#tags**, filter by folder/tag, full-text search, unread markers, reply by email for non-anonymous senders.
+  - **Υποψήφιοι:** job applications grouped **per job** with name, **email** (tap to write), submission date and the **CV** (stored in a *private* bucket; downloads use short-lived signed URLs). Same folder/drag system, plus a Νέα/Shortlist/Απορρίφθηκε status per candidate.
+  - **Δημοψηφίσματα:** create referendums with title, **short/medium/full** explanation texts (EL/EN), 2–6 options, **end date/time**, optional YouTube id and an uploaded **PDF**; publish/unpublish, edit, delete. Published referendums appear in the app's Profile ▸ Active votings and, when finished, in Governance ▸ Consultations. *(Vote collection itself is intentionally still on-device — a proper identity system comes later.)*
+  - **Περιεχόμενο:** add/edit/publish **risk alerts ⚠️, jobs, events, decisions, tenders, bylaws, consultations** with real forms (bilingual fields; English falls back to Greek), plus free-form JSON records for **council/budget** data. Published entries appear in the app instantly, merged ahead of the bundled data; alerts offer a one-click **push notification** on publish.
+  - **Ειδήσεις:** moderate reporter-submitted news (unpublish/delete).
+  - **Ειδοποιήσεις:** see how many devices subscribed and **send a Web Push** to all of them.
+- **`/reporters`** (role `reporter`): reporters submit news — title, topic, short subtitle and per-network social links — which appear at the top of the Home feed under their byline; they manage (and can delete) their own items.
+- **`/pharmacies`** (role `pharmacy`): each pharmacy declares its **on-duty dates** and hours; on the day itself the app's pharmacy finder highlights it automatically.
+
+**Public-app wiring:**
+
+- *Message to the Mayor* and *job applications* (now a real form: name, email, CV file) submit to the database; anyone can **write**, only the mayor can **read** (RLS).
+- Alerts, referendums, jobs, news, events, decisions, tenders, bylaws, consultations and the pharmacy duty roster are fetched live and merged in front of the bundled data.
+- Enabling **Notifications** in Settings also registers the device for **Web Push** (VAPID), so the municipality can reach it even when the app is closed; the `send-push` **Edge Function** (`supabase/functions/send-push`) fans the message out and prunes dead subscriptions.
+
+**Still local-only by design (v1.0):** profile/CV personal data, game stats and health exams (privacy: they leave the device only when *you* submit something), and the voting/veto tallies (need real identity first — the schema is ready for an HMAC-hashed-identity scheme discussed for v1.1). The job-application form **prefills name/email from the locally-stored profile** — the data still never leaves the device until the user presses submit.
+
+**v1.0 polish:** the `/admin` navigation uses the same liquid-glass `AnimatedSegmented` spring indicator as the public app (the component now works without the AppProvider); mobile form controls are forced to ≥16 px on small screens so **iOS Safari no longer auto-zooms into focused inputs** (the zoom used to push the fixed header off-screen and persist across reloads — pinch-zoom stays available per WCAG 1.4.4), plus a `focusout` handler snaps the window back after the keyboard closes; the notifications toggle now **explains why** it can't enable (iOS needs the app installed to the Home Screen first / notifications blocked in browser settings) instead of silently snapping off; the `/admin` login surfaces the real Supabase auth error; the Supabase client trims whitespace/trailing slashes from env values; the setup guide follows Supabase's new **API Keys** dashboard (publishable `sb_publishable_…` key).
 
 ## Tech stack
 

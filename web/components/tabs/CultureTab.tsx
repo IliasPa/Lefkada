@@ -33,6 +33,7 @@ import {
 } from "@/data/places";
 import { historyData, HISTORY_ACCENT, historicalReferences, type HistoryEntry } from "@/data/history";
 import AnimatedSegmented from "@/components/AnimatedSegmented";
+import { fetchLiveEvents, useLive } from "@/lib/backend";
 
 const LazyMap = dynamic(() => import("@/components/LefkadaMap"), {
   ssr: false,
@@ -101,23 +102,27 @@ export default function CultureTab() {
     [],
   );
 
+  // Events created in /admin joined with the bundled programme.
+  const liveEvents = useLive(fetchLiveEvents);
+  const allEvents = useMemo(() => [...(liveEvents ?? []), ...eventsData], [liveEvents]);
+
   // Map every calendar day -> events occurring that day (covers multi-day spans).
   const eventsByDay = useMemo(() => {
     const map = new Map<string, CultureEvent[]>();
-    for (const ev of eventsData) {
+    for (const ev of allEvents) {
       for (const day of eachDay(ev.date, ev.endDate ?? ev.date)) {
         (map.get(day) ?? map.set(day, []).get(day)!).push(ev);
       }
     }
     return map;
-  }, []);
+  }, [allEvents]);
 
   const upcoming = useMemo(
     () =>
-      eventsData
+      allEvents
         .filter((ev) => (ev.endDate ?? ev.date) >= todayKey)
         .sort((a, b) => a.date.localeCompare(b.date)),
-    [todayKey],
+    [todayKey, allEvents],
   );
 
   const subtabs = [

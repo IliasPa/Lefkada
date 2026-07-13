@@ -169,6 +169,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Like useApp but returns null outside AppProvider — for shared components
+ *  (e.g. AnimatedSegmented) also used on the standalone /admin pages. */
+export function useAppOptional(): AppContextValue | null {
+  return useContext(AppContext);
+}
+
 export function useApp(): AppContextValue {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error('useApp must be used within AppProvider');

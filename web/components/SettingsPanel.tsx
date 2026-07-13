@@ -18,6 +18,7 @@ import VetoOverlay from "@/components/VetoOverlay";
 import AnimatedSegmented from "@/components/AnimatedSegmented";
 import PollBlock, { isPollClosed } from "@/components/PollBlock";
 import { pollsData } from "@/data/voting";
+import { fetchLiveReferendums, submitMayorMessage, useLive } from "@/lib/backend";
 
 export default function SettingsPanel() {
   const { t, lang, setActiveTab, setGovIntent } = useApp();
@@ -25,11 +26,14 @@ export default function SettingsPanel() {
   const [anonymous, setAnonymous] = useState(true);
   const [message, setMessage] = useState("");
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
   const [countdown, setCountdown] = useState(5);
   const [vetoActive, setVetoActive] = useState(false);
   const [vetoOverlay, setVetoOverlay] = useState(false);
   const [identity, setIdentity] = useState<{ fullName: string; email: string }>({ fullName: "", email: "" });
-  const activePolls = pollsData.filter((p) => !isPollClosed(p, Date.now()));
+  // Referendums created in /admin come first, then the bundled ones.
+  const liveReferendums = useLive(fetchLiveReferendums);
+  const activePolls = [...(liveReferendums ?? []), ...pollsData].filter((p) => !isPollClosed(p, Date.now()));
 
   useEffect(() => {
     setAnonymous(storageGet<boolean>(KEYS.mayorAnonymous, true));
@@ -60,14 +64,24 @@ export default function SettingsPanel() {
 
   const handleAnon = (a: boolean) => { setAnonymous(a); storageSet(KEYS.mayorAnonymous, a); };
 
-  const handleSend = () => {
-    if (!message.trim()) return;
+  const handleSend = async () => {
+    if (!message.trim() || sending) return;
+    setSending(true);
+    // Deliver to the mayor's inbox (Supabase). Keep a local copy either way so
+    // the UX is unchanged when the backend isn't configured.
+    await submitMayorMessage({
+      body: message,
+      anonymous,
+      name: identity.fullName,
+      email: identity.email,
+    });
     storageSet(KEYS.mayorMessage, {
       text: message,
       anonymous,
       ...(anonymous ? {} : { name: identity.fullName, email: identity.email }),
       timestamp: new Date().toISOString(),
     });
+    setSending(false);
     setSent(true);
     setMessage("");
   };
@@ -167,9 +181,9 @@ export default function SettingsPanel() {
                   )}
                   <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder={t("settings_mayor_placeholder")} rows={4}
                     className="w-full px-3.5 py-3 rounded-xl text-[14px] leading-relaxed resize-none bg-gray-50 dark:bg-[#252A3A] border border-gray-200 dark:border-[#3A4155] text-gray-900 dark:text-gray-100 placeholder-gray-300 dark:placeholder-gray-600 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-colors" />
-                  <button onClick={handleSend} disabled={!message.trim()}
-                    className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-[14px] transition-all active:scale-[0.98] ${message.trim() ? "bg-primary text-white shadow-md shadow-primary/30" : "bg-gray-100 dark:bg-[#252A3A] text-gray-300 dark:text-gray-600 cursor-not-allowed"}`}>
-                    <Send size={16} />{t("settings_mayor_send")}
+                  <button onClick={handleSend} disabled={!message.trim() || sending}
+                    className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-[14px] transition-all active:scale-[0.98] ${message.trim() && !sending ? "bg-primary text-white shadow-md shadow-primary/30" : "bg-gray-100 dark:bg-[#252A3A] text-gray-300 dark:text-gray-600 cursor-not-allowed"}`}>
+                    <Send size={16} />{sending ? t("apply_form_sending") : t("settings_mayor_send")}
                   </button>
                 </div>
               )}

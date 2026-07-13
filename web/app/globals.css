@@ -212,3 +212,16 @@ html:not(.dark):not(.hc) .text-gray-300 {
 .dark .skeleton {
   background: linear-gradient(90deg, #252A3A 25%, #1C2130 50%, #252A3A 75%);
 }
+
+/* ── Mobile input focus fixes ────────────────────────────────────────────────
+   iOS Safari auto-zooms into any focused form control whose font-size is
+   below 16px. That zoom pushes the fixed header/tab bar off-screen and can
+   persist even across reloads. Forcing ≥16px on touch layouts prevents the
+   auto-zoom entirely while keeping pinch-zoom available (WCAG 1.4.4). */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}

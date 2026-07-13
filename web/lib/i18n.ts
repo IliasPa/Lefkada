@@ -400,6 +400,20 @@ const el: Record<string, string> = {
   apply_notif_ok: "Εντάξει",
   apply_notif_settings: "Ρυθμίσεις",
 
+  // Apply form (real submission when the backend is configured)
+  apply_form_name: "Ονοματεπώνυμο",
+  apply_form_email: "Email",
+  apply_form_cv: "Βιογραφικό (PDF, προαιρετικό)",
+  apply_form_submit: "Υποβολή αίτησης",
+  apply_form_sending: "Αποστολή…",
+  apply_form_error: "Η αποστολή απέτυχε. Δοκιμάστε ξανά.",
+
+  // Notifications toggle feedback
+  settings_notify_unsupported:
+    "Οι ειδοποιήσεις δεν υποστηρίζονται εδώ. Σε iPhone/iPad: προσθέστε πρώτα την εφαρμογή στην αρχική οθόνη (Κοινοποίηση → Προσθήκη στην αρχική οθόνη) και ενεργοποιήστε τις από εκεί.",
+  settings_notify_denied:
+    "Οι ειδοποιήσεις έχουν αποκλειστεί στις ρυθμίσεις του προγράμματος περιήγησης. Επιτρέψτε τις για αυτόν τον ιστότοπο και δοκιμάστε ξανά.",
+
   // Game tab
   game_title: "Wordle Ελληνικά",
   game_info_tooltip:
@@ -892,6 +906,20 @@ const en: Record<string, string> = {
   apply_notif_cv_no: "No CV uploaded. You can add one in Settings.",
   apply_notif_ok: "OK",
   apply_notif_settings: "Settings",
+
+  // Apply form (real submission when the backend is configured)
+  apply_form_name: "Full name",
+  apply_form_email: "Email",
+  apply_form_cv: "CV (PDF, optional)",
+  apply_form_submit: "Submit application",
+  apply_form_sending: "Sending…",
+  apply_form_error: "Submission failed. Please try again.",
+
+  // Notifications toggle feedback
+  settings_notify_unsupported:
+    "Notifications aren't supported here. On iPhone/iPad: first add the app to your Home Screen (Share → Add to Home Screen), then enable them from there.",
+  settings_notify_denied:
+    "Notifications are blocked in your browser settings. Allow them for this site and try again.",
 
   // Game tab
   game_title: "Greek Wordle",

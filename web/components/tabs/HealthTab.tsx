@@ -6,6 +6,8 @@ import { useApp } from '@/context/AppContext';
 import { healthCategories, type ResultStatus, type YearlyResult } from '@/data/healthTests';
 import { pharmaciesData, pharmacyDirectionsUrl } from '@/data/pharmacies';
 import { storageGet, storageSet } from '@/lib/storage';
+import { backendConfigured } from '@/lib/supabase';
+import { fetchPharmacyDuty, useLive } from '@/lib/backend';
 
 const EXAMS_KEY = 'health_exams';
 type ExamsStore = Record<string, YearlyResult[]>;
@@ -306,8 +308,23 @@ function PharmacyModal({
   t: (k: string) => string;
   onClose: () => void;
 }) {
+  // Live on-duty schedule (maintained by the pharmacies at /pharmacies).
+  // When configured, today's declarations replace the bundled onDuty flags.
+  const duty = useLive(fetchPharmacyDuty);
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayDuty = (duty ?? []).filter((d) => d.duty_date === todayKey);
+
+  const pharmacies = backendConfigured && duty
+    ? pharmaciesData.map((ph) => {
+        const row = todayDuty.find((d) => d.pharmacy_id === ph.id);
+        return row
+          ? { ...ph, onDuty: true, dutyHours: { el: row.hours_el, en: row.hours_en } }
+          : { ...ph, onDuty: false, dutyHours: undefined };
+      })
+    : pharmaciesData;
+
   // On-duty pharmacies first.
-  const list = [...pharmaciesData].sort(
+  const list = [...pharmacies].sort(
     (a, b) => Number(!!b.onDuty) - Number(!!a.onDuty),
   );
   return (

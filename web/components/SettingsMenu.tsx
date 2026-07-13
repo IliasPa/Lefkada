@@ -30,6 +30,7 @@ import {
 import { useApp, HIDEABLE_TABS } from "@/context/AppContext";
 import type { TabKey } from "@/context/AppContext";
 import { requestNotificationPermission, showAlertNotification } from "@/lib/notify";
+import { subscribeToPush } from "@/lib/backend";
 import AnimatedSegmented from "@/components/AnimatedSegmented";
 import ProfileForm from "@/components/ProfileForm";
 
@@ -66,8 +67,12 @@ export default function SettingsMenu() {
     if (perm === "granted") {
       setNotifications(true);
       showAlertNotification(lang); // fire immediately if risks are active
+      subscribeToPush(); // register for municipality web-push (no-op if backend unset)
     } else {
       setNotifications(false);
+      // Say WHY the toggle refused, instead of silently snapping back off.
+      if (perm === "unsupported") alert(t("settings_notify_unsupported"));
+      else if (perm === "denied") alert(t("settings_notify_denied"));
     }
   };
 

@@ -1,4 +1,24 @@
-const CACHE_NAME = 'lefkada-v1.4';
+const CACHE_NAME = 'lefkada-v1.5';
+
+// Web-push messages sent by the municipality (see /admin ▸ Ειδοποιήσεις).
+self.addEventListener('push', (event) => {
+  let payload = { title: 'Δήμος Λευκάδος', body: '', url: '/' };
+  try {
+    payload = { ...payload, ...event.data.json() };
+  } catch (e) {
+    payload.body = event.data ? event.data.text() : '';
+  }
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body,
+      icon: '/PegasusFlag.png',
+      badge: '/PegasusFlag.png',
+      tag: 'lefkada-push',
+      renotify: true,
+      data: { url: payload.url || '/' },
+    })
+  );
+});
 
 // Open the app/website when a risk-alert notification is tapped.
 self.addEventListener('notificationclick', (event) => {

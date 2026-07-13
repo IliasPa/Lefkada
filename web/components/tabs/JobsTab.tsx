@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { MapPin, Building2, Clock, Send, CheckCircle2, FileText, Settings, X } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { MapPin, Building2, Clock, Send, CheckCircle2, FileText, Settings, X, Paperclip } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { jobsData, type EmploymentType, type JobPosting } from '@/data/jobs';
 import { KEYS, storageGet } from '@/lib/storage';
+import { backendConfigured } from '@/lib/supabase';
+import { fetchLiveJobs, submitApplication, useLive } from '@/lib/backend';
 
 const TYPE_TKEY: Record<string, string> = {
   'Full-time': 'jobs_type_Fulltime',
@@ -45,15 +47,25 @@ export default function JobsTab() {
   const { t, lang, setActiveTab } = useApp();
   const [filter, setFilter] = useState<FilterType>('all');
   const [notif, setNotif] = useState<ApplyNotif | null>(null);
+  const [applyJob, setApplyJob] = useState<JobPosting | null>(null);
 
   const types: FilterType[] = ['all', 'Full-time', 'Part-time', 'Seasonal', 'Contract'];
 
+  // Postings created in /admin come first, then the bundled ones.
+  const liveJobs = useLive(fetchLiveJobs);
+  const allJobs = useMemo(() => [...(liveJobs ?? []), ...jobsData], [liveJobs]);
+
   const filtered = useMemo(
-    () => filter === 'all' ? jobsData : jobsData.filter((j) => j.employmentType === filter),
-    [filter]
+    () => filter === 'all' ? allJobs : allJobs.filter((j) => j.employmentType === filter),
+    [filter, allJobs]
   );
 
   const handleApply = (job: JobPosting) => {
+    if (backendConfigured) {
+      // Real application: name/email/CV submitted to the municipality.
+      setApplyJob(job);
+      return;
+    }
     const cv = storageGet<string>(KEYS.cvFilename, '');
     setNotif({ jobTitle: job.title[lang], hasCv: !!cv });
   };
@@ -158,7 +170,108 @@ export default function JobsTab() {
           onSettings={() => { setNotif(null); setActiveTab('account'); }}
         />
       )}
+
+      {/* Real application form (backend configured) */}
+      {applyJob && (
+        <ApplyFormModal job={applyJob} t={t} lang={lang} onClose={() => setApplyJob(null)} />
+      )}
     </>
+  );
+}
+
+/** Real job application: name, email and CV file are submitted to the
+ *  municipality (Supabase); the mayor reviews them in /admin ▸ Υποψήφιοι. */
+function ApplyFormModal({ job, t, lang, onClose }: {
+  job: JobPosting;
+  t: (k: string) => string;
+  lang: 'el' | 'en';
+  onClose: () => void;
+}) {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [cv, setCv] = useState<File | null>(null);
+  const [state, setState] = useState<'idle' | 'sending' | 'done' | 'error'>('idle');
+
+  // Prefill from the locally-stored profile (Settings ▸ Profile) every time
+  // the form opens, without overwriting anything already typed.
+  useEffect(() => {
+    const p = storageGet<{ fullName?: string; email?: string }>(KEYS.profile, {});
+    if (p.fullName) setName((v) => v || p.fullName!);
+    if (p.email) setEmail((v) => v || p.email!);
+  }, []);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (state === 'sending') return;
+    setState('sending');
+    const res = await submitApplication({
+      jobId: job.id,
+      jobTitle: job.title.el || job.title.en,
+      name: name.trim(),
+      email: email.trim(),
+      cvFile: cv,
+    });
+    setState(res.ok ? 'done' : 'error');
+  };
+
+  const inputCls =
+    'w-full px-3.5 py-3 rounded-xl text-[14px] bg-gray-50 dark:bg-[#252A3A] border border-gray-200 dark:border-[#3A4155] ' +
+    'text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:border-primary ' +
+    'focus:ring-1 focus:ring-primary/20 transition-colors';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center px-4 pb-6 sm:pb-0">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-sm bg-white dark:bg-[#141929] rounded-3xl shadow-2xl overflow-hidden animate-slide-up">
+        <div className="bg-primary px-6 pt-5 pb-4">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <h3 className="font-black text-[17px] text-white leading-snug">{t('jobs_apply')}</h3>
+              <p className="text-blue-100 text-[13px] mt-1">{job.title[lang]}</p>
+            </div>
+            <button onClick={onClose} aria-label={t('close')}
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-white/80 hover:bg-white/10 active:scale-90 flex-shrink-0">
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+
+        {state === 'done' ? (
+          <div className="px-6 py-8 text-center">
+            <CheckCircle2 size={40} className="text-green-500 mx-auto mb-3" />
+            <p className="font-bold text-[15px] text-gray-900 dark:text-white">{t('apply_notif_title')}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              {cv ? t('apply_notif_cv_yes') : ''}
+            </p>
+            <button onClick={onClose}
+              className="mt-4 px-6 py-3 rounded-xl bg-primary text-white font-bold text-[13px] active:scale-95 transition-transform">
+              {t('apply_notif_ok')}
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={submit} className="px-6 py-5 space-y-3">
+            <input required value={name} onChange={(e) => setName(e.target.value)}
+              placeholder={t('apply_form_name')} autoComplete="name" className={inputCls} />
+            <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+              placeholder={t('apply_form_email')} autoComplete="email" className={inputCls} />
+            <label className="flex items-center gap-2.5 px-3.5 py-3 rounded-xl border border-dashed border-gray-300 dark:border-[#3A4155] cursor-pointer text-[13px] text-gray-500 dark:text-gray-400">
+              <Paperclip size={15} className="flex-shrink-0 text-primary dark:text-primary-300" />
+              <span className="truncate">{cv ? cv.name : t('apply_form_cv')}</span>
+              <input type="file" accept=".pdf,.doc,.docx,application/pdf" className="hidden"
+                onChange={(e) => setCv(e.target.files?.[0] ?? null)} />
+            </label>
+            {state === 'error' && (
+              <p className="text-[12px] font-semibold text-red-500">{t('apply_form_error')}</p>
+            )}
+            <button type="submit" disabled={state === 'sending'}
+              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-primary text-white font-bold text-[14px] shadow-md shadow-primary/30 active:scale-[0.98] transition-all disabled:opacity-60">
+              <Send size={15} />
+              {state === 'sending' ? t('apply_form_sending') : t('apply_form_submit')}
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
   );
 }
 

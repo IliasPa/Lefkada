@@ -1,14 +1,26 @@
 "use client";
 
-import { alertsData, ALERT_META } from "@/data/alerts";
+import { alertsData, ALERT_META, type CityAlert } from "@/data/alerts";
+import { backendConfigured } from "@/lib/supabase";
+import { fetchLiveAlerts } from "@/lib/backend";
 
 export function hasActiveAlerts() {
   return alertsData.length > 0;
 }
 
-export async function requestNotificationPermission(): Promise<NotificationPermission> {
+/** Current alerts: /admin-managed when the backend is configured, else bundled. */
+async function currentAlerts(): Promise<CityAlert[]> {
+  if (!backendConfigured) return alertsData;
+  return (await fetchLiveAlerts()) ?? [];
+}
+
+export type NotifyPermission = NotificationPermission | "unsupported";
+
+/** "unsupported" ⇒ the Notification API doesn't exist here — on iPhone/iPad
+ *  that means the app must be installed to the Home Screen first. */
+export async function requestNotificationPermission(): Promise<NotifyPermission> {
   if (typeof window === "undefined" || typeof Notification === "undefined")
-    return "denied";
+    return "unsupported";
   try {
     return await Notification.requestPermission();
   } catch {
@@ -22,16 +34,17 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
 export async function showAlertNotification(lang: "el" | "en"): Promise<void> {
   if (typeof window === "undefined" || typeof Notification === "undefined") return;
   if (Notification.permission !== "granted") return;
-  if (alertsData.length === 0) return;
+  const alerts = await currentAlerts();
+  if (alerts.length === 0) return;
 
-  const types = Array.from(new Set(alertsData.map((a) => a.type)));
+  const types = Array.from(new Set(alerts.map((a) => a.type)));
   const emojis = types.map((ty) => ALERT_META[ty].emoji).join(" ");
   const title =
     lang === "el" ? "Ειδοποιήσεις Κινδύνου — Λευκάδα" : "Risk alerts — Lefkada";
   const body =
     lang === "el"
-      ? `${alertsData.length} ενεργές ειδοποιήσεις ${emojis}`
-      : `${alertsData.length} active alerts ${emojis}`;
+      ? `${alerts.length} ενεργές ειδοποιήσεις ${emojis}`
+      : `${alerts.length} active alerts ${emojis}`;
 
   const options: NotificationOptions & { renotify?: boolean } = {
     body,

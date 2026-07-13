@@ -9,19 +9,25 @@ import {
   ALERT_ORDER,
   type AlertType,
 } from "@/data/alerts";
+import { backendConfigured } from "@/lib/supabase";
+import { fetchLiveAlerts, useLive } from "@/lib/backend";
 
 /** Circular emoji alert buttons (water/power/fire/weather/road). A type only
- *  appears when it has at least one active alert. Tapping opens its details. */
+ *  appears when it has at least one active alert. Tapping opens its details.
+ *  With the backend configured, /admin is the source of truth for alerts. */
 export default function NewsAlerts() {
   const { t, lang } = useApp();
   const [sel, setSel] = useState<AlertType | null>(null);
 
+  const liveAlerts = useLive(fetchLiveAlerts);
+  const alerts = backendConfigured ? (liveAlerts ?? []) : alertsData;
+
   const active = ALERT_ORDER.filter((ty) =>
-    alertsData.some((a) => a.type === ty),
+    alerts.some((a) => a.type === ty),
   );
   if (active.length === 0) return null;
 
-  const selAlerts = sel ? alertsData.filter((a) => a.type === sel) : [];
+  const selAlerts = sel ? alerts.filter((a) => a.type === sel) : [];
 
   return (
     <>

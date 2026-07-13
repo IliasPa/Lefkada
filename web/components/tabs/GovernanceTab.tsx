@@ -42,6 +42,7 @@ import CouncilView from "@/components/CouncilView";
 import CommunitiesView from "@/components/CommunitiesView";
 import ReferendumCard from "@/components/ReferendumCard";
 import { isPollClosed } from "@/components/PollBlock";
+import { fetchLiveDecisions, fetchLiveGovItems, fetchLiveReferendums, useLive } from "@/lib/backend";
 
 type Lang = "el" | "en";
 type TopSection = "townhall" | "communities";
@@ -96,17 +97,28 @@ export default function GovernanceTab() {
   const [limit, setLimit] = useState(PAGE);
 
   // Lazy decision archive (heavy ~4k items) — fetched once when Decisions is opened.
+  // Decisions added from /admin are prepended to the static archive.
   const [decisions, setDecisions] = useState<GovItem[] | null>(null);
   const [decLoading, setDecLoading] = useState(false);
   useEffect(() => {
     if (type !== "Decision" || decisions || decLoading) return;
     setDecLoading(true);
-    fetch("/decisions.json")
-      .then((r) => r.json())
-      .then((raw: RawDecision[]) => setDecisions(raw.map((r, i) => decisionToItem(r, i, lang))))
+    Promise.all([
+      fetch("/decisions.json").then((r) => r.json()).catch(() => []),
+      fetchLiveDecisions().catch(() => null),
+    ])
+      .then(([raw, live]: [RawDecision[], Record<string, string>[] | null]) => {
+        const all = [...((live as unknown as RawDecision[]) ?? []), ...raw];
+        setDecisions(all.map((r, i) => decisionToItem(r, i, lang)));
+      })
       .catch(() => setDecisions([]))
       .finally(() => setDecLoading(false));
   }, [type, decisions, decLoading, lang]);
+
+  // Tenders/bylaws/consultations added from /admin.
+  const liveTenders = useLive(() => fetchLiveGovItems("tender"));
+  const liveBylaws = useLive(() => fetchLiveGovItems("bylaw"));
+  const liveConsultations = useLive(() => fetchLiveGovItems("consultation"));
 
   // Consume a one-shot deep-link intent (e.g. from Services ▸ Social Grocery / NSRF).
   useEffect(() => {
@@ -123,18 +135,22 @@ export default function GovernanceTab() {
   useEffect(() => { setLimit(PAGE); }, [type, body, annTag, query]);
 
   // Finished referendums (former Vote tab) shown inside Consultations.
-  const finishedPolls = useMemo(() => pollsData.filter((p) => isPollClosed(p, Date.now())), []);
+  const liveReferendums = useLive(fetchLiveReferendums);
+  const finishedPolls = useMemo(
+    () => [...(liveReferendums ?? []), ...pollsData].filter((p) => isPollClosed(p, Date.now())),
+    [liveReferendums],
+  );
 
-  // Source list for the active type.
+  // Source list for the active type (live /admin entries first).
   const source: GovItem[] = useMemo(() => {
     switch (type) {
-      case "Bylaw": return bylawsData;                 // already sorted by name
-      case "Consultation": return consultationsData;   // already sorted by date
-      case "Tender": return tendersData;
+      case "Bylaw": return [...(liveBylaws ?? []), ...bylawsData];                     // already sorted by name
+      case "Consultation": return [...(liveConsultations ?? []), ...consultationsData]; // already sorted by date
+      case "Tender": return [...(liveTenders ?? []), ...tendersData];
       case "Decision": return [...decisionArchive, ...(decisions ?? [])];
       default: return governanceData.filter((g) => g.type === type);
     }
-  }, [type, decisions]);
+  }, [type, decisions, liveBylaws, liveConsultations, liveTenders]);
 
   // Bodies present for the active type — drive the Meetings/Decisions sub-filter.
   const bodiesPresent = useMemo(() => {

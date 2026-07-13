@@ -53,6 +53,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   document.documentElement.classList.add('dark');
                 }
               } catch(e) {}
+              // iOS: when the keyboard closes, the window can stay scrolled so
+              // the fixed header/tab bar is left off-screen — snap it back.
+              document.addEventListener('focusout', function () {
+                setTimeout(function () { window.scrollTo(0, 0); }, 60);
+              });
               // Force-evict any stale service worker that caches HTML
               if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.getRegistrations().then(function(regs) {

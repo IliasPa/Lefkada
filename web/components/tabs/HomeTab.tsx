@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Instagram, Facebook, Twitter, Search, X, ChevronDown } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
-import { newsData, reporters, type NewsCategory } from '@/data/news';
+import { newsData, reporters, type NewsCategory, type Reporter } from '@/data/news';
 import NewsBackground from '@/components/NewsBackground';
 import NewsAlerts from '@/components/NewsAlerts';
+import { fetchLiveNews, useLive } from '@/lib/backend';
 
 const CATEGORIES: Array<{ key: NewsCategory; tKey: string }> = [
   { key: 'Infrastructure', tKey: 'news_cat_Infrastructure' },
@@ -32,9 +33,14 @@ export default function HomeTab() {
     scrollRef.current?.scrollTo({ top: 0 });
   }, [activeReporter, cats]);
 
+  // Reporter-submitted news (from /reporters) first, then the bundled items.
+  const live = useLive(fetchLiveNews);
+  const allNews = useMemo(() => (live ? [...live.items, ...newsData] : newsData), [live]);
+  const allReporters = useMemo(() => (live ? [...reporters, ...live.reporters] : reporters), [live]);
+
   const filtered = useMemo(() => {
     const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
-    return newsData.filter((n) => {
+    return allNews.filter((n) => {
       if (cats.length && !cats.includes(n.category)) return false;
       if (activeReporter !== 'all' && n.reporterId !== activeReporter) return false;
       if (words.length) {
@@ -45,7 +51,7 @@ export default function HomeTab() {
       }
       return true;
     });
-  }, [query, activeReporter, cats, t]);
+  }, [query, activeReporter, cats, t, allNews]);
 
   return (
     <div ref={scrollRef} className="h-full scroll-area relative">
@@ -75,7 +81,7 @@ export default function HomeTab() {
               )}
             </div>
             <div className="flex-shrink-0 min-w-[11rem]">
-              <ReporterDropdown value={activeReporter} onChange={setActiveReporter} t={t} />
+              <ReporterDropdown value={activeReporter} onChange={setActiveReporter} t={t} reporters={allReporters} />
             </div>
           </div>
 
@@ -114,7 +120,7 @@ export default function HomeTab() {
         )}
 
         {filtered.map((item) => {
-          const reporter = reporters.find((r) => r.id === item.reporterId);
+          const reporter = allReporters.find((r) => r.id === item.reporterId);
           return (
           <article
             key={item.id}
@@ -217,10 +223,12 @@ function ReporterDropdown({
   value,
   onChange,
   t,
+  reporters,
 }: {
   value: string;
   onChange: (id: string) => void;
   t: (k: string) => string;
+  reporters: Reporter[];
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
