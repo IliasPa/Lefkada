@@ -13,7 +13,7 @@ import {
   type BudgetReport, type BudgetSide, type BudgetLine,
 } from "@/data/budget";
 import type { Lang } from "@/lib/i18n";
-import { fetchLiveBudgetReports } from "@/lib/backend";
+import { fetchLiveBudgetReports, mergeById } from "@/lib/backend";
 
 const DIAVGEIA_URL = "https://et.diavgeia.gov.gr/f/dimos_lefkadas";
 
@@ -619,7 +619,7 @@ export default function FinancialsTab() {
     // Reports added from /admin ▸ Δαπάνες are link-only (scanned) entries —
     // they appear in the Reports lists but never affect the parsed charts.
     Promise.all([loadBudgetReports(), fetchLiveBudgetReports().catch(() => null)])
-      .then(([bundled, live]) => setReports([...(live ?? []), ...bundled]));
+      .then(([bundled, live]) => setReports(mergeById(live, bundled)));
   }, []);
 
   return (

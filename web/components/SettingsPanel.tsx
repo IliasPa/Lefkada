@@ -18,7 +18,7 @@ import VetoOverlay from "@/components/VetoOverlay";
 import AnimatedSegmented from "@/components/AnimatedSegmented";
 import PollBlock, { isPollClosed } from "@/components/PollBlock";
 import { pollsData } from "@/data/voting";
-import { fetchLiveReferendums, submitMayorMessage, useLive } from "@/lib/backend";
+import { fetchLiveReferendums, mergeById, submitMayorMessage, useLive } from "@/lib/backend";
 import { backendConfigured } from "@/lib/supabase";
 
 export default function SettingsPanel() {
@@ -35,7 +35,7 @@ export default function SettingsPanel() {
   const [identity, setIdentity] = useState<{ fullName: string; email: string }>({ fullName: "", email: "" });
   // Referendums created in /admin come first, then the bundled ones.
   const liveReferendums = useLive(fetchLiveReferendums);
-  const activePolls = [...(liveReferendums ?? []), ...pollsData].filter((p) => !isPollClosed(p, Date.now()));
+  const activePolls = mergeById(liveReferendums, pollsData).filter((p) => !isPollClosed(p, Date.now()));
 
   useEffect(() => {
     setAnonymous(storageGet<boolean>(KEYS.mayorAnonymous, true));

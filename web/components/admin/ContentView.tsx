@@ -13,11 +13,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Eye, EyeOff, FileText, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase';
 import { waterAnalyses } from '@/data/water';
+import { GOV_BODIES } from '@/data/governance';
+import { communityActs } from '@/data/communities';
 import { Card, Field, GhostBtn, PrimaryBtn, inputCls } from './AdminShell';
 
 export type Kind =
   | 'alert' | 'job' | 'event' | 'decision' | 'tender' | 'bylaw'
-  | 'consultation' | 'council' | 'budget' | 'water' | 'lesson' | 'competition';
+  | 'consultation' | 'council' | 'budget' | 'water' | 'lesson' | 'competition'
+  | 'meeting' | 'ebook' | 'contact' | 'community';
 
 interface ContentRow {
   id: string;
@@ -169,6 +172,28 @@ export const GOVERNANCE_KINDS: KindSpec[] = [
       { key: 'f', label: 'Αρχείο απόφασης', type: 'pdf', optional: true },
     ],
   },
+  {
+    kind: 'meeting', label: 'Συνεδριάσεις (προσκλήσεις)',
+    fields: [
+      { key: 'body', label: 'Όργανο', type: 'select',
+        options: GOV_BODIES.map((b) => ({ v: b.key, l: b.name.el })) },
+      { key: 'title', label: 'Τίτλος πρόσκλησης', type: 'bi' },
+      { key: 'summary', label: 'Περίληψη (προαιρετική)', type: 'bi-ta', optional: true },
+      { key: 'date', label: 'Ημερομηνία', type: 'date', half: true },
+      { key: 'time', label: 'Ώρα', type: 'time', half: true, optional: true },
+      { key: 'pdfUrl', label: 'Πρόσκληση (PDF)', type: 'pdf', optional: true },
+      { key: 'minutesPdf', label: 'Πρακτικά (PDF)', type: 'pdf', optional: true },
+    ],
+    // The bundled invitations all carry this standard summary — default to it.
+    beforeSave: (data) => {
+      const s = data.summary as { el?: string; en?: string } | undefined;
+      if (!s?.el) data.summary = {
+        el: 'Πρόσκληση σε συνεδρίαση — η ημερήσια διάταξη στο έγγραφο.',
+        en: 'Session invitation — the agenda is in the document.',
+      };
+      return null;
+    },
+  },
   ...(['tender', 'bylaw', 'consultation'] as const).map((k) => ({
     kind: k as Kind,
     label: k === 'tender' ? 'Διαγωνισμοί' : k === 'bylaw' ? 'Κανονισμοί' : 'Διαβουλεύσεις',
@@ -181,8 +206,31 @@ export const GOVERNANCE_KINDS: KindSpec[] = [
     ] as FieldSpec[],
   })),
   {
-    kind: 'council', label: 'Συμβούλιο (JSON)', fields: 'json',
-    jsonTemplate: '{\n  "note": "Δομή ελεύθερη — προσωρινή αποθήκευση στοιχείων συμβουλίου"\n}',
+    kind: 'community', label: 'Αποφάσεις κοινοτήτων',
+    fields: [
+      { key: 'community', label: 'Κοινότητα', type: 'select',
+        options: communityActs.map((c) => ({ v: c.key, l: c.name.el })) },
+      { key: 'title', label: 'Τίτλος απόφασης', type: 'bi' },
+      { key: 'num', label: 'Αριθμός (π.χ. 12/2026)', type: 'text', half: true, optional: true },
+      { key: 'date', label: 'Ημερομηνία', type: 'date', half: true },
+      { key: 'pdf', label: 'Αρχείο απόφασης', type: 'pdf', optional: true },
+    ],
+  },
+  {
+    // A full CouncilTerm object (see web/data/council.ts). Saving a term whose
+    // "id" matches a bundled one REPLACES it in the app (corrections); a new
+    // id becomes the newest term tab.
+    kind: 'council', label: 'Θητείες συμβουλίου (JSON)', fields: 'json',
+    jsonTemplate: [
+      '{',
+      '  "id": "term-2023",',
+      '  "startYear": 2023,',
+      '  "startDate": "2024-01-01",',
+      '  "mayor": { "id": "mayor", "name": { "el": "…", "en": "…" }, "role": { "el": "Δήμαρχος", "en": "Mayor" } },',
+      '  "deputyMayors": [],',
+      '  "committees": []',
+      '}',
+    ].join('\n'),
   },
 ];
 
@@ -213,6 +261,31 @@ export const LESSON_KIND: KindSpec = {
     { key: 'desc', label: 'Περιγραφή', type: 'bi-ta' },
     { key: 'when', label: 'Πότε & πού', type: 'bi', optional: true },
     { key: 'ages', label: 'Ηλικίες (π.χ. 9–15)', type: 'text', optional: true },
+  ],
+};
+
+export const EBOOK_KIND: KindSpec = {
+  kind: 'ebook', label: 'e-Βιβλία',
+  fields: [
+    { key: 'title', label: 'Τίτλος', type: 'bi' },
+    { key: 'author', label: 'Συγγραφέας / πηγή', type: 'text' },
+    { key: 'desc', label: 'Περιγραφή', type: 'bi-ta' },
+    { key: 'pdf', label: 'PDF βιβλίου', type: 'pdf' },
+    { key: 'cover', label: 'Εξώφυλλο (URL εικόνας)', type: 'url', optional: true },
+  ],
+};
+
+export const CONTACT_KIND: KindSpec = {
+  kind: 'contact', label: 'Τηλέφωνα & επαφές',
+  fields: [
+    { key: 'name', label: 'Όνομα υπηρεσίας', type: 'bi' },
+    { key: 'category', label: 'Κατηγορία', type: 'select', options: [
+      { v: 'Administration', l: 'Διοίκηση' }, { v: 'Services', l: 'Υπηρεσίες' },
+      { v: 'Emergency', l: 'Έκτακτη ανάγκη' }, { v: 'Utilities', l: 'Δίκτυα (ΔΕΗ/ύδρευση…)' },
+      { v: 'Tourism', l: 'Τουρισμός' }, { v: 'Health', l: 'Υγεία' }] },
+    { key: 'phone', label: 'Τηλέφωνο (+30…)', type: 'text', half: true, optional: true },
+    { key: 'email', label: 'Email', type: 'text', half: true, optional: true },
+    { key: 'hours', label: 'Ωράριο (κενό = τυπικό ωράριο ★)', type: 'bi', optional: true },
   ],
 };
 

@@ -1,4 +1,5 @@
 import type { BilingualText } from './news';
+import raw from './alerts.json';
 
 export type AlertType = 'water' | 'electricity' | 'fire' | 'weather' | 'road';
 
@@ -32,46 +33,9 @@ export const ALERT_ORDER: AlertType[] = [
   'road',
 ];
 
-// Active alerts. Types with no entries simply don't show a button.
-export const alertsData: CityAlert[] = [
-  {
-    id: 'a1',
-    type: 'water',
-    area: { el: 'Νυδρί & Περιγιάλι', en: 'Nidri & Perigiali' },
-    time: { el: 'Σήμερα 09:00–14:00', en: 'Today 09:00–14:00' },
-    message: {
-      el: 'Διακοπή υδροδότησης λόγω επισκευής αγωγού. Συνιστάται αποθήκευση νερού.',
-      en: 'Water supply interruption for pipe repair. Storing water is advised.',
-    },
-  },
-  {
-    id: 'a2',
-    type: 'electricity',
-    area: { el: 'Καρυά & Σφακιώτες', en: 'Karya & Sfakiotes' },
-    time: { el: 'Αύριο 08:00–11:00', en: 'Tomorrow 08:00–11:00' },
-    message: {
-      el: 'Προγραμματισμένη διακοπή ρεύματος ΔΕΔΔΗΕ για συντήρηση δικτύου.',
-      en: 'Scheduled power outage (DEDDIE) for network maintenance.',
-    },
-  },
-  {
-    id: 'a3',
-    type: 'fire',
-    area: { el: 'Όλο το νησί', en: 'Island-wide' },
-    time: { el: 'Σήμερα, κατηγορία κινδύνου 4 (πολύ υψηλή)', en: 'Today, risk category 4 (very high)' },
-    message: {
-      el: 'Πολύ υψηλός κίνδυνος πυρκαγιάς. Απαγορεύεται η καύση και η χρήση φωτιάς σε υπαίθριους χώρους.',
-      en: 'Very high fire risk. Burning and outdoor fires are prohibited.',
-    },
-  },
-  {
-    id: 'a4',
-    type: 'road',
-    area: { el: 'Επαρχιακή οδός προς Αθάνι', en: 'Road to Athani' },
-    time: { el: 'Έως Παρασκευή', en: 'Until Friday' },
-    message: {
-      el: 'Διακοπή κυκλοφορίας λόγω καθαρισμού κατολίσθησης. Χρησιμοποιήστε εναλλακτική διαδρομή.',
-      en: 'Road closed for landslide clearing. Please use an alternative route.',
-    },
-  },
-];
+// alerts.json = { bundled: [...], baked: [content rows, kind=alert] }.
+// Deliberately NOT merged: risk alerts are time-critical and live-REPLACE
+// semantics apply (with the backend configured, /admin is the source of truth
+// so clearing an alert clears the app; a stale baked alert must never keep
+// showing). The baked rows exist purely as the git archive.
+export const alertsData: CityAlert[] = raw.bundled as unknown as CityAlert[];

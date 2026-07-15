@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { fetchLiveCouncilTerms, useLive } from "@/lib/backend";
 import {
   Crown,
   UserCog,
@@ -53,12 +54,15 @@ function fmtDate(s: string, lang: Lang) {
 
 export default function CouncilView() {
   const { t, lang } = useApp();
-  const [termId, setTermId] = useState(councilTerms[0].id);
+  // Live /admin term overrides applied over the bundled+baked terms — a term
+  // with a known id replaces it in place, a new id becomes the newest term.
+  const terms = useLive(() => fetchLiveCouncilTerms(councilTerms)) ?? councilTerms;
+  const [termId, setTermId] = useState(terms[0].id);
   const [person, setPerson] = useState<CouncilPerson | null>(null);
   const [committee, setCommittee] = useState<Committee | null>(null);
 
-  const term = councilTerms.find((tm) => tm.id === termId) ?? councilTerms[0];
-  const isCurrent = term.id === councilTerms[0].id;
+  const term = terms.find((tm) => tm.id === termId) ?? terms[0];
+  const isCurrent = term.id === terms[0].id;
   const close = () => {
     setPerson(null);
     setCommittee(null);
@@ -68,7 +72,7 @@ export default function CouncilView() {
     <div className="space-y-4">
       {/* Term selector — one tab per council, labelled by start year */}
       <AnimatedSegmented
-        options={councilTerms.map((tm) => ({ key: tm.id, label: String(tm.startYear) }))}
+        options={terms.map((tm) => ({ key: tm.id, label: String(tm.startYear) }))}
         value={termId}
         onChange={setTermId}
         size="sm"

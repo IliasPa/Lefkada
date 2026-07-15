@@ -142,7 +142,7 @@ automatically; the count shows up in `/admin ▸ Ειδοποιήσεις`.
 | Job applications | `applications` + private `cvs` bucket | anyone (submit only) | mayor |
 | Folders/tags | `folders` table | mayor | mayor |
 | Referendums | `referendums` table | mayor | everyone (published) |
-| Alerts, jobs, events, decisions, tenders, bylaws, consultations, council, budget | `content` table | mayor | everyone (published) |
+| Alerts, jobs, events, decisions, meetings, tenders, bylaws, consultations, council terms, community decisions, budget, water, lessons, competitions, e-books, contacts | `content` table | mayor | everyone (published) |
 | News | `news` table | reporters (own) + mayor | everyone (published) |
 | Pharmacy duty | `pharmacy_duty` table | pharmacies (own) + mayor | everyone |
 | Push subscriptions | `push_subscriptions` table | anyone (subscribe only) | mayor |
@@ -150,3 +150,32 @@ automatically; the count shows up in `/admin ▸ Ειδοποιήσεις`.
 Free-tier headroom: the 500 MB database fits millions of rows; the 1 GB `cvs`
 bucket fits roughly 1,000–5,000 CVs. Deleting an application in /admin also
 deletes its CV file.
+
+## 7. Weekly data sync → git (v1.2, one secret)
+
+Since v1.2, **git is the permanent home of all published content**: every
+Sunday the GitHub Action `.github/workflows/sync-data.yml` bakes the published
+Supabase rows into `web/data/*.json` + `web/public/{decisions,budgetReports}.json`,
+commits (the deploy redeploys with the data in the bundle), and then prunes
+rows older than 30 days that are verifiably in git — so the database stays
+small. Drafts, risk alerts and still-open referendums are never pruned; the
+private tables (messages, applications, push subscriptions) are never synced.
+
+One-time setup:
+
+1. Supabase dashboard → **Project Settings → Database → Connection string** →
+   copy the **Session pooler** URI (it includes the database password).
+2. GitHub → repo → **Settings → Secrets and variables → Actions → New
+   repository secret** — name `SUPABASE_DB_URL`, value that URI.
+3. Test it: **Actions → "Weekly data sync (Supabase → git)" → Run workflow.**
+
+Running it by hand from this machine needs no secret at all — the linked
+Supabase CLI logs in for you:
+
+```bash
+node scripts/sync-data.mjs          # bake current published rows into the files
+node scripts/sync-data.mjs --prune  # only after the sync is committed AND pushed
+```
+
+If the Action ever fails, GitHub emails you; nothing is lost — Supabase simply
+keeps growing until the next successful run.

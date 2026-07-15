@@ -1,0 +1,22 @@
+{
+  "baked": [
+    {
+      "created_at": "2026-07-13T17:22:39.829956+00:00",
+      "duty_date": "2026-07-16",
+      "hours_el": "Εφημερία όλο το 24ωρο",
+      "hours_en": "On duty 24h",
+      "id": "52284aae-de81-46a8-8dad-f21f68504452",
+      "pharmacy_id": "p2",
+      "pharmacy_name": "Φαρμακείο Λογοθέτη"
+    },
+    {
+      "created_at": "2026-07-13T17:23:15.521774+00:00",
+      "duty_date": "2026-07-13",
+      "hours_el": "Εφημερία όλο το 24ωρο",
+      "hours_en": "On duty 24h",
+      "id": "79c13a54-b29c-4f06-b892-d5fca9242dba",
+      "pharmacy_id": "p4",
+      "pharmacy_name": "Φαρμακείο Λυγιάς"
+    }
+  ]
+}

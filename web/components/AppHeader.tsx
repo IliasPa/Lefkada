@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { animate, spring } from "animejs";
+import { slideGlass, snapGlass } from "@/lib/glass";
 import {
   Newspaper,
   Amphora,
@@ -45,6 +45,7 @@ export default function AppHeader() {
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const indRef = useRef<HTMLDivElement>(null);
   const firstRef = useRef(true);
+  const lastLeftRef = useRef(0);
   const isDark = theme === "dark";
   const onAccount = activeTab === "account";
 
@@ -73,17 +74,11 @@ export default function AppHeader() {
       const width = el.offsetWidth - 6;
 
       if (withSpring && !firstRef.current && !a11y.reduceMotion) {
-        animate(indicator, {
-          left,
-          width,
-          opacity: 1,
-          ease: spring({ bounce: 0.4, duration: 620 }),
-        });
+        slideGlass(indicator, { left, width, distance: left - lastLeftRef.current });
       } else {
-        indicator.style.left = `${left}px`;
-        indicator.style.width = `${width}px`;
-        indicator.style.opacity = "1";
+        snapGlass(indicator, { left, width });
       }
+      lastLeftRef.current = left;
       firstRef.current = false;
     },
     [activeTab, a11y.reduceMotion, a11y.largeText, hiddenTabs],
@@ -92,6 +87,24 @@ export default function AppHeader() {
   useEffect(() => {
     place(true);
   }, [place]);
+
+  // "Larger text" reveals the tab labels AND CSS-zooms the header — but the
+  // .a11y-large class is set by the provider's effect, which runs AFTER this
+  // child's. Measuring now would read the pre-toggle layout, so re-place once
+  // the new layout has actually been painted; the indicator springs to the
+  // resized tab instead of being left behind.
+  useEffect(() => {
+    if (firstRef.current) return;
+    let inner = 0;
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(() => place(true));
+    });
+    return () => {
+      cancelAnimationFrame(outer);
+      cancelAnimationFrame(inner);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [a11y.largeText]);
 
   useEffect(() => {
     const onResize = () => place(false);

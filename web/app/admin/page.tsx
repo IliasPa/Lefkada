@@ -11,12 +11,12 @@ import { useCallback, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import {
   Amphora, BarChart3, Bell, Briefcase, Droplets, Eye, EyeOff,
-  GraduationCap, Inbox, Landmark, Newspaper, Trash2, Users, Vote,
+  GraduationCap, Inbox, Landmark, Newspaper, Phone, Trash2, Users, Vote,
 } from 'lucide-react';
 import AdminShell, { Card, GhostBtn } from '@/components/admin/AdminShell';
 import AnimatedSegmented from '@/components/AnimatedSegmented';
 import KindManager, {
-  BUDGET_KIND, COMPETITION_KIND, EVENT_KIND, GOVERNANCE_KINDS, JOB_KIND, LESSON_KIND, WATER_KIND,
+  BUDGET_KIND, COMPETITION_KIND, CONTACT_KIND, EBOOK_KIND, EVENT_KIND, GOVERNANCE_KINDS, JOB_KIND, LESSON_KIND, WATER_KIND,
 } from '@/components/admin/ContentView';
 import { getSupabase } from '@/lib/supabase';
 
@@ -27,21 +27,23 @@ const AlertsView = dynamic(() => import('@/components/admin/AlertsView'), { ssr:
 
 type View =
   | 'inbox' | 'jobs' | 'referendums' | 'alerts' | 'culture'
-  | 'budget' | 'governance' | 'water' | 'education' | 'news';
+  | 'budget' | 'governance' | 'water' | 'education' | 'news' | 'contacts';
 
 /** Icons match the public app's tabs (Briefcase=Θέσεις, Amphora=Πολιτισμός,
- *  BarChart3=Δαπάνες, Landmark=Διακυβέρνηση, GraduationCap=Παιδεία…). */
+ *  BarChart3=Δαπάνες, Landmark=Διακυβέρνηση, GraduationCap=Παιδεία…), at the
+ *  same size — the nav renders them with the title underneath, like the app. */
 const VIEWS: { key: View; label: string; icon: React.ReactNode }[] = [
-  { key: 'inbox', label: 'Μηνύματα', icon: <Inbox size={14} /> },
-  { key: 'jobs', label: 'Θέσεις', icon: <Briefcase size={14} /> },
-  { key: 'referendums', label: 'Δημοψηφίσματα', icon: <Vote size={14} /> },
-  { key: 'alerts', label: 'Ειδοποιήσεις', icon: <Bell size={14} /> },
-  { key: 'culture', label: 'Πολιτισμός', icon: <Amphora size={14} /> },
-  { key: 'budget', label: 'Δαπάνες', icon: <BarChart3 size={14} /> },
-  { key: 'governance', label: 'Διακυβέρνηση', icon: <Landmark size={14} /> },
-  { key: 'water', label: 'Νερό', icon: <Droplets size={14} /> },
-  { key: 'education', label: 'Παιδεία', icon: <GraduationCap size={14} /> },
-  { key: 'news', label: 'Ειδήσεις', icon: <Newspaper size={14} /> },
+  { key: 'inbox', label: 'Μηνύματα', icon: <Inbox size={18} /> },
+  { key: 'jobs', label: 'Θέσεις', icon: <Briefcase size={18} /> },
+  { key: 'referendums', label: 'Δημοψηφίσματα', icon: <Vote size={18} /> },
+  { key: 'alerts', label: 'Ειδοποιήσεις', icon: <Bell size={18} /> },
+  { key: 'culture', label: 'Πολιτισμός', icon: <Amphora size={18} /> },
+  { key: 'budget', label: 'Δαπάνες', icon: <BarChart3 size={18} /> },
+  { key: 'governance', label: 'Διακυβέρνηση', icon: <Landmark size={18} /> },
+  { key: 'water', label: 'Νερό', icon: <Droplets size={18} /> },
+  { key: 'education', label: 'Παιδεία', icon: <GraduationCap size={18} /> },
+  { key: 'news', label: 'Ειδήσεις', icon: <Newspaper size={18} /> },
+  { key: 'contacts', label: 'Επικοινωνία', icon: <Phone size={18} /> },
 ];
 
 export default function AdminPage() {
@@ -52,9 +54,10 @@ export default function AdminPage() {
       title="Διαχείριση — Δήμος Λευκάδος"
       allowedRoles={['mayor']}
       nav={
-        /* Tabs in the header next to the logo — same liquid-glass indicator as the app */
+        /* Tabs in the header next to the logo — icon with the title underneath,
+           no background, same liquid-glass indicator: the public app's tab bar. */
         <AnimatedSegmented
-          size="sm"
+          variant="nav"
           options={VIEWS.map((v) => ({ key: v.key, label: v.label, icon: v.icon }))}
           value={view}
           onChange={(k) => setView(k as View)}
@@ -78,8 +81,12 @@ export default function AdminPage() {
             <KindManager kinds={[WATER_KIND]} intro="Αναλύσεις πόσιμου νερού ανά κοινότητα — εμφανίζονται στις Υπηρεσίες ▸ Αναλύσεις νερού." />
           )}
           {view === 'education' && (
-            <KindManager kinds={[LESSON_KIND, COMPETITION_KIND]}
-              intro="Μαθήματα & διαγωνισμοί ανά κατηγορία — εμφανίζονται στην Παιδεία ▸ Μαθήματα." />
+            <KindManager kinds={[LESSON_KIND, COMPETITION_KIND, EBOOK_KIND]}
+              intro="Μαθήματα & διαγωνισμοί ανά κατηγορία και e-Βιβλία — εμφανίζονται στην Παιδεία." />
+          )}
+          {view === 'contacts' && (
+            <KindManager kinds={[CONTACT_KIND]}
+              intro="Τηλέφωνα & επαφές υπηρεσιών — εμφανίζονται στην καρτέλα Επικοινωνία της εφαρμογής." />
           )}
           {view === 'news' && <NewsModerationView />}
         </div>

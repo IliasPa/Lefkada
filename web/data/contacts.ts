@@ -1,4 +1,6 @@
 import type { BilingualText } from './news';
+import raw from './contacts.json';
+import { mapContactRows, type ContentRow } from '@/lib/rows';
 
 export type ContactCategory =
   | 'Administration'
@@ -27,119 +29,9 @@ export const STANDARD_HOURS: BilingualText = {
   en: 'Mon–Fri 08:00–14:00',
 };
 
+// contacts.json = { bundled: [...], baked: [content rows, kind=contact] } —
+// /admin-added contacts (synced weekly) come ahead of the curated directory.
 export const contactsData: Contact[] = [
-  {
-    id: 'mayor',
-    name: { el: 'Γραφείο Δημάρχου', en: "Mayor's Office" },
-    phone: '+302645360500',
-    phones: ['+302645360507', '+302645360511'],
-    email: 'dimarxos@lefkada.gov.gr',
-    category: 'Administration',
-  },
-  {
-    id: 'secretary-general',
-    name: { el: 'Γενικός Γραμματέας', en: 'Secretary General' },
-    phone: '+302645360519',
-    category: 'Administration',
-  },
-  {
-    id: 'legal',
-    name: { el: 'Νομική Υπηρεσία', en: 'Legal Service' },
-    phone: '+302645360588',
-    category: 'Administration',
-  },
-  {
-    id: 'kep',
-    name: { el: 'ΚΕΠ – Κέντρο Εξυπηρέτησης Πολιτών', en: 'Citizen Service Centre (KEP)' },
-    phone: '+302645360700',
-    email: 'kep@lefkada.gov.gr',
-    category: 'Services',
-  },
-  {
-    id: 'registry',
-    name: { el: 'Δημοτολόγιο / Ληξιαρχείο', en: 'Registry Office' },
-    phone: '+302645360520',
-    email: 'dimotologio@lefkada.gov.gr',
-    category: 'Services',
-  },
-  {
-    id: 'technical',
-    name: { el: 'Τεχνική Υπηρεσία', en: 'Technical Services' },
-    phone: '+302645360540',
-    email: 'texniki@lefkada.gov.gr',
-    category: 'Administration',
-  },
-  {
-    id: 'finance',
-    name: { el: 'Οικονομική Υπηρεσία / Ταμείο', en: 'Finance & Treasury' },
-    phone: '+302645360560',
-    email: 'tameio@lefkada.gov.gr',
-    category: 'Administration',
-  },
-  {
-    id: 'cleaning',
-    name: { el: 'Υπηρεσία Καθαριότητας & Ανακύκλωσης', en: 'Cleaning & Recycling' },
-    phone: '+302645360580',
-    email: 'katharaiotita@lefkada.gov.gr',
-    hours: { el: 'Δευτ–Σαβ 06:00–14:00', en: 'Mon–Sat 06:00–14:00' },
-    category: 'Utilities',
-  },
-  {
-    id: 'deya',
-    name: { el: 'ΔΕΥΑ Λευκάδας (Ύδρευση)', en: 'Water Utility (DEYA)' },
-    phone: '+302645025060',
-    email: 'info@deyalefkadas.gr',
-    category: 'Utilities',
-  },
-  {
-    id: 'tourism',
-    name: { el: 'Γραφείο Τουρισμού', en: 'Tourism Office' },
-    phone: '+302645360610',
-    email: 'tourism@lefkada.gov.gr',
-    hours: { el: 'Καθημερινά 09:00–21:00 (καλοκαίρι)', en: 'Daily 09:00–21:00 (summer)' },
-    category: 'Tourism',
-  },
-  {
-    id: 'culture',
-    name: { el: 'Πνευματικό Κέντρο / Πολιτισμός', en: 'Cultural Centre' },
-    phone: '+302645360630',
-    email: 'politismos@lefkada.gov.gr',
-    category: 'Services',
-  },
-  {
-    id: 'health-center',
-    name: { el: 'Γενικό Νοσοκομείο Λευκάδας', en: 'Lefkada General Hospital' },
-    phone: '+302645360200',
-    hours: { el: '24 ώρες', en: '24 hours' },
-    category: 'Health',
-  },
-  {
-    id: 'police',
-    name: { el: 'Αστυνομικό Τμήμα Λευκάδας', en: 'Lefkada Police' },
-    phone: '+302645029370',
-    hours: { el: '24 ώρες', en: '24 hours' },
-    category: 'Emergency',
-  },
-  {
-    id: 'fire',
-    name: { el: 'Πυροσβεστική Υπηρεσία', en: 'Fire Service' },
-    phone: '199',
-    hours: { el: '24 ώρες', en: '24 hours' },
-    category: 'Emergency',
-  },
-  {
-    id: 'port',
-    name: { el: 'Λιμεναρχείο Λευκάδας', en: 'Port Authority' },
-    phone: '+302645360950',
-    hours: { el: '24 ώρες', en: '24 hours' },
-    category: 'Emergency',
-  },
-  {
-    id: 'civil-protection',
-    name: { el: 'Πολιτική Προστασία Δήμου', en: 'Civil Protection' },
-    phone: '+302645360660',
-    email: 'politiki.prostasia@lefkada.gov.gr',
-    hours: { el: '24 ώρες (περίοδος κινδύνου)', en: '24 hours (risk periods)' },
-    category: 'Emergency',
-  },
+  ...mapContactRows(raw.baked as ContentRow[]),
+  ...(raw.bundled as unknown as Contact[]),
 ];

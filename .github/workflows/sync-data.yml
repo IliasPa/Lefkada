@@ -1,0 +1,55 @@
+name: Weekly data sync (Supabase → git)
+
+# Git is the permanent home of all published content; Supabase buffers the
+# recent weeks. Every Sunday this job bakes the current published Supabase
+# rows into web/data/*.json + web/public/{decisions,budgetReports}.json,
+# commits (the same files every week — git history keeps the versions), and
+# pushes — which triggers the normal deploy, so the app ships the new data.
+# Only after a successful push does it prune: DB rows older than 30 days that
+# are verifiably baked into the pushed files are deleted, keeping Supabase
+# small. Drafts, risk alerts and still-open referendums are never pruned.
+#
+# Needs one repo secret: SUPABASE_DB_URL — the Postgres "Session pooler"
+# connection string (Supabase → Project Settings → Database), password included.
+
+on:
+  schedule:
+    - cron: '0 3 * * 0' # Sundays 03:00 UTC
+  workflow_dispatch: {} # …and a manual "Run workflow" button
+
+permissions:
+  contents: write # the job commits the refreshed data files
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest # psql + node are preinstalled
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bake published Supabase rows into the data files
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: node scripts/sync-data.mjs
+
+      - name: Commit and push (only if something changed)
+        id: push
+        run: |
+          git config user.name  'data-sync-bot'
+          git config user.email 'actions@github.com'
+          git add web/data web/public/decisions.json web/public/budgetReports.json
+          if git diff --cached --quiet; then
+            echo 'No content changes this week.'
+            echo 'pushed=false' >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "data sync $(date -u +%Y-%m-%d)"
+            git push
+            echo 'pushed=true' >> "$GITHUB_OUTPUT"
+          fi
+
+      # Prune ONLY in the same run that just pushed — the script re-reads the
+      # baked files from disk (the exact pushed state) before deleting anything.
+      - name: Prune Supabase rows that are >30 days old and safely in git
+        if: steps.push.outputs.pushed == 'true'
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: node scripts/sync-data.mjs --prune

@@ -230,12 +230,19 @@ export default function SettingsMenu() {
             </div>
           </Section>
 
+          {/* The municipality's previous websites — equal-width buttons that
+              wrap onto their own full-width line when the labels don't fit. */}
+          <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-gray-100 dark:border-[#1E2D4E]">
+            <OldSiteLink href="https://lefkada.gov.gr/" label={t("settings_old_site")} />
+            <OldSiteLink href="https://old-lefkada-static.crowdapps.net/" label={t("settings_old_old_site")} />
+          </div>
+
           {/* WCAG note — links to Lighthouse */}
           <a
             href="https://achecks.org/achecker"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 pt-1 border-t border-gray-100 dark:border-[#1E2D4E] text-[11px] font-semibold text-green-600 dark:text-green-400 hover:underline"
+            className="flex items-center gap-1.5 text-[11px] font-semibold text-green-600 dark:text-green-400 hover:underline"
           >
             <Check size={13} className="flex-shrink-0" />
             {t("a11y_wcag")}
@@ -244,6 +251,24 @@ export default function SettingsMenu() {
         </div>
       )}
     </div>
+  );
+}
+
+/** One of the municipality's previous websites. Equal flex basis keeps the
+ *  pair the same size side by side; the nowrap label means a button whose text
+ *  can't fit its half wraps onto its own full-width line instead of truncating. */
+function OldSiteLink({ href, label }: { href: string; label: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={label}
+      className="flex-1 basis-[calc(50%-0.1875rem)] inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-[#252A3A] hover:bg-gray-200 dark:hover:bg-[#2E3448] transition-colors active:scale-95"
+    >
+      <span className="whitespace-nowrap">{label}</span>
+      <ExternalLink size={11} className="flex-shrink-0" />
+    </a>
   );
 }
 

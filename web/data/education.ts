@@ -1,4 +1,6 @@
 import type { BilingualText } from './news';
+import raw from './education.json';
+import { mapLessonRows, mapCompetitionRows, type ContentRow, type LiveCompetition } from '@/lib/rows';
 
 export type LessonCategory = 'sports' | 'music' | 'school' | 'robotics';
 
@@ -28,44 +30,18 @@ export const LESSON_CATEGORIES: { key: LessonCategory; label: BilingualText; acc
   { key: 'school', label: { el: 'Σχολική βοήθεια', en: 'School help' }, accent: '#0D5EAF' },
 ];
 
+// education.json = { bundled: {lessons, roboticsCompetitions},
+//                    baked: [content rows, kind=lesson|competition] }.
+// The baked rows keep their `kind`, so each mapper filters its own.
+const baked = raw.baked as ContentRow[];
+
 export const lessonsData: Lesson[] = [
-  {
-    id: 'robotics-spike',
-    category: 'robotics',
-    title: { el: 'Εκπαιδευτική Ρομποτική — LEGO SPIKE Prime', en: 'Educational Robotics — LEGO SPIKE Prime' },
-    desc: {
-      el: 'Μαθήματα ρομποτικής & προγραμματισμού με LEGO® Education SPIKE™ Prime: κατασκευή, αισθητήρες, κινητήρες και block-based προγραμματισμός, με προετοιμασία για διαγωνισμούς.',
-      en: 'Robotics & coding classes with LEGO® Education SPIKE™ Prime: building, sensors, motors and block-based programming, with preparation for competitions.',
-    },
-    when: { el: 'Δηλώσεις συμμετοχής — νέο τμήμα', en: 'Registrations open — new group' },
-    ages: '9–15',
-  },
-  {
-    id: 'music-school',
-    category: 'music',
-    title: { el: 'Δημοτικό Ωδείο — μουσικά όργανα', en: 'Municipal Conservatory — instruments' },
-    desc: { el: 'Μαθήματα μουσικής και οργάνων για παιδιά και ενήλικες.', en: 'Music and instrument lessons for children and adults.' },
-  },
-  {
-    id: 'sports-academies',
-    category: 'sports',
-    title: { el: 'Αθλητικές ακαδημίες', en: 'Sports academies' },
-    desc: { el: 'Δημοτικές αθλητικές δραστηριότητες (κολύμβηση, στίβος, ομαδικά αθλήματα).', en: 'Municipal sports activities (swimming, athletics, team sports).' },
-  },
-  {
-    id: 'school-support',
-    category: 'school',
-    title: { el: 'Ενισχυτική διδασκαλία', en: 'Tutoring & study help' },
-    desc: { el: 'Υποστήριξη μαθητών μέσω του Κέντρου Κοινότητας του Δήμου.', en: 'Pupil support through the municipality’s Community Centre.' },
-  },
+  ...mapLessonRows(baked),
+  ...(raw.bundled.lessons as unknown as Lesson[]),
 ];
 
-/** Robotics competitions the SPIKE Prime programme targets. */
-export const roboticsCompetitions: RoboticsCompetition[] = [
-  { id: 'wro-2026', title: { el: 'World Robot Olympiad (WRO) — Ελλάδα', en: 'World Robot Olympiad (WRO) — Greece' }, date: '2026', url: 'https://wro.gr/' },
-  { id: 'fll-2026', title: { el: 'FIRST LEGO League', en: 'FIRST LEGO League' }, date: '2026', url: 'https://www.firstlegoleague.org/' },
-  { id: 'panekfe-2026', title: { el: 'Πανελλήνιος Διαγωνισμός Εκπαιδευτικής Ρομποτικής', en: 'Panhellenic Educational Robotics Competition' }, date: '2026' },
-  // Past seasons (revealed via "see older").
-  { id: 'wro-2025', title: { el: 'World Robot Olympiad (WRO) 2025', en: 'World Robot Olympiad (WRO) 2025' }, date: '2025', url: 'https://wro.gr/', past: true },
-  { id: 'fll-2025', title: { el: 'FIRST LEGO League 2025', en: 'FIRST LEGO League 2025' }, date: '2025', url: 'https://www.firstlegoleague.org/', past: true },
-];
+export const roboticsCompetitions: RoboticsCompetition[] =
+  raw.bundled.roboticsCompetitions as unknown as RoboticsCompetition[];
+
+/** Competitions synced from /admin ▸ Παιδεία (all lesson categories). */
+export const bakedCompetitions: LiveCompetition[] = mapCompetitionRows(baked);

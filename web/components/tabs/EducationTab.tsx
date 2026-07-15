@@ -19,8 +19,8 @@ import AnimatedSegmented from "@/components/AnimatedSegmented";
 import GameTab from "@/components/tabs/GameTab";
 import { ebooksData } from "@/data/ebooks";
 import { placesData } from "@/data/places";
-import { lessonsData, LESSON_CATEGORIES, roboticsCompetitions, type LessonCategory } from "@/data/education";
-import { fetchLiveCompetitions, fetchLiveLessons, useLive, type LiveCompetition } from "@/lib/backend";
+import { bakedCompetitions, lessonsData, LESSON_CATEGORIES, roboticsCompetitions, type LessonCategory } from "@/data/education";
+import { fetchLiveCompetitions, fetchLiveEbooks, fetchLiveLessons, mergeById, useLive, type LiveCompetition } from "@/lib/backend";
 
 type Lang = "el" | "en";
 type Mode = "lessons" | "ebooks" | "libraries" | "game";
@@ -68,7 +68,12 @@ export default function EducationTab() {
 // ── Ebooks ───────────────────────────────────────────────────────────────────
 function EbooksView({ lang, t }: { lang: Lang; t: (k: string) => string }) {
   const [limit, setLimit] = useState(PAGE);
-  const books = ebooksData;
+  // /admin-added books first; dedupe on the pdf URL (an entry can be both
+  // fetched live and already baked into ebooks.json by the weekly sync).
+  const liveBooks = useLive(fetchLiveEbooks);
+  const books = liveBooks
+    ? [...liveBooks, ...ebooksData.filter((b) => !liveBooks.some((l) => l.pdf === b.pdf))]
+    : ebooksData;
   return (
     <>
       <a
@@ -193,11 +198,11 @@ function LessonsView({ lang, t }: { lang: Lang; t: (k: string) => string }) {
   // Lessons and competitions added from /admin ▸ Παιδεία, ahead of the bundled ones.
   const liveLessons = useLive(fetchLiveLessons);
   const liveComps = useLive(fetchLiveCompetitions);
-  const allLessons = [...(liveLessons ?? []), ...lessonsData];
+  const allLessons = mergeById(liveLessons, lessonsData);
   // Competitions now exist for every category: the bundled robotics ones plus
   // whatever the municipality adds per category.
   const allComps: LiveCompetition[] = [
-    ...(liveComps ?? []),
+    ...mergeById(liveComps, bakedCompetitions),
     ...roboticsCompetitions.map((c) => ({ ...c, category: "robotics" as LessonCategory })),
   ];
   const shown = cat === "all" ? allLessons : allLessons.filter((l) => l.category === cat);

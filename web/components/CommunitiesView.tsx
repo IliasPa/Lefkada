@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { fetchLiveCommunityActs, useLive } from "@/lib/backend";
 import { Users, FolderOpen, CalendarDays, FileText, Hash } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import SubTabs from "@/components/SubTabs";
@@ -89,7 +90,11 @@ function CouncillorsView({ lang, t }: { lang: Lang; t: (k: string) => string }) 
 
 function CommunityActsView({ lang, t }: { lang: Lang; t: (k: string) => string }) {
   const [comm, setComm] = useState<string>("all");
-  const present = communityActs.filter((c) => c.items.length);
+  // Live /admin decisions merged over the bundled+baked lists (duplicates of
+  // already-baked entries are skipped inside the merge).
+  const liveActs = useLive(() => fetchLiveCommunityActs(communityActs));
+  const acts = liveActs ?? communityActs;
+  const present = acts.filter((c) => c.items.length);
   const items = useMemo(() => {
     const list = present
       .filter((c) => comm === "all" || c.key === comm)

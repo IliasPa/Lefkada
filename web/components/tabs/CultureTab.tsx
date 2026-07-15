@@ -33,7 +33,7 @@ import {
 } from "@/data/places";
 import { historyData, HISTORY_ACCENT, historicalReferences, type HistoryEntry } from "@/data/history";
 import AnimatedSegmented from "@/components/AnimatedSegmented";
-import { fetchLiveEvents, useLive } from "@/lib/backend";
+import { fetchLiveEvents, mergeById, useLive } from "@/lib/backend";
 
 const LazyMap = dynamic(() => import("@/components/LefkadaMap"), {
   ssr: false,
@@ -104,7 +104,7 @@ export default function CultureTab() {
 
   // Events created in /admin joined with the bundled programme.
   const liveEvents = useLive(fetchLiveEvents);
-  const allEvents = useMemo(() => [...(liveEvents ?? []), ...eventsData], [liveEvents]);
+  const allEvents = useMemo(() => mergeById(liveEvents, eventsData), [liveEvents]);
 
   // Map every calendar day -> events occurring that day (covers multi-day spans).
   const eventsByDay = useMemo(() => {

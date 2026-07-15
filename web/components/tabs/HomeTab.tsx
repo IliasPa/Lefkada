@@ -6,7 +6,7 @@ import { useApp } from '@/context/AppContext';
 import { newsData, reporters, type NewsCategory, type Reporter } from '@/data/news';
 import NewsBackground from '@/components/NewsBackground';
 import NewsAlerts from '@/components/NewsAlerts';
-import { fetchLiveNews, useLive } from '@/lib/backend';
+import { fetchLiveNews, mergeById, useLive } from '@/lib/backend';
 
 const CATEGORIES: Array<{ key: NewsCategory; tKey: string }> = [
   { key: 'Infrastructure', tKey: 'news_cat_Infrastructure' },
@@ -36,8 +36,13 @@ export default function HomeTab() {
 
   // Reporter-submitted news (from /reporters) first, then the bundled items.
   const live = useLive(fetchLiveNews);
-  const allNews = useMemo(() => (live ? [...live.items, ...newsData] : newsData), [live]);
-  const allReporters = useMemo(() => (live ? [...reporters, ...live.reporters] : reporters), [live]);
+  // mergeById: an item can be both fetched live AND already baked into news.json
+  // by the weekly sync — the live copy wins, the baked twin is dropped.
+  const allNews = useMemo(() => (live ? mergeById(live.items, newsData) : newsData), [live]);
+  const allReporters = useMemo(
+    () => (live ? [...reporters, ...live.reporters.filter((r) => !reporters.some((x) => x.id === r.id))] : reporters),
+    [live],
+  );
 
   const filtered = useMemo(() => {
     const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);

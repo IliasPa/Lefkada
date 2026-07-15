@@ -9,32 +9,29 @@
 
 import { useEffect, useState } from 'react';
 import { getSupabase, backendConfigured } from './supabase';
+import {
+  mapAlertRows, mapJobRows, mapEventRows, mapGovRows, mapLessonRows,
+  mapCompetitionRows, mapNewsRows, mapReferendumRows, mergeWaterRows,
+  mapEbookRows, mapContactRows, mapCouncilTermRows, mergeCouncilTerms, mergeCommunityRows,
+  type ContentRow, type NewsRow, type ReferendumRow, type LiveCompetition, type GovContentKind,
+} from './rows';
 import type { CityAlert } from '@/data/alerts';
 import type { JobPosting } from '@/data/jobs';
-import type { NewsItem, Reporter, BilingualText } from '@/data/news';
+import type { NewsItem, Reporter } from '@/data/news';
 import type { CultureEvent } from '@/data/events';
 import type { Poll } from '@/data/voting';
-import type { GovItem, GovType } from '@/data/governance';
+import type { GovItem } from '@/data/governance';
 import type { Lesson } from '@/data/education';
-import type { WaterYear, WaterAnalysisType } from '@/data/water';
+import type { WaterYear } from '@/data/water';
 import type { BudgetReport } from '@/data/budget';
+import type { Ebook } from '@/data/ebooks';
+import type { Contact } from '@/data/contacts';
+import type { CouncilTerm } from '@/data/council';
+import type { CommunityActs } from '@/data/communities';
 
-// ── Small helpers ────────────────────────────────────────────────────────────
-
-/** "Πριν 2 ώρες" / "2 hours ago" from an ISO timestamp. */
-export function relativeTime(iso: string): BilingualText {
-  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
-  if (mins < 60) return { el: `Πριν ${mins}′`, en: `${mins}m ago` };
-  const hours = Math.round(mins / 60);
-  if (hours < 24) return { el: `Πριν ${hours} ώρες`, en: `${hours} hours ago` };
-  const days = Math.round(hours / 24);
-  if (days < 30) return { el: `Πριν ${days} μέρες`, en: `${days} days ago` };
-  const d = new Date(iso);
-  const s = d.toLocaleDateString('el-GR');
-  return { el: s, en: d.toLocaleDateString('en-GB') };
-}
-
-const bt = (el?: string, en?: string): BilingualText => ({ el: el ?? '', en: en || el || '' });
+// The row→shape mappers live in lib/rows.ts, shared with the baked-data
+// wrappers in data/*.ts so a live item and its baked twin come out identical.
+export { relativeTime, mergeById, type LiveCompetition } from './rows';
 
 // ── Submissions (write paths) ────────────────────────────────────────────────
 
@@ -104,47 +101,57 @@ async function fetchContent(kind: string): Promise<{ id: string; created_at: str
  *  (so clearing an alert in /admin clears it in the app). */
 export async function fetchLiveAlerts(): Promise<CityAlert[] | null> {
   const rows = await fetchContent('alert');
-  if (rows === null) return null;
-  return rows.map((r) => ({ id: r.id, ...(r.data as Omit<CityAlert, 'id'>) }));
+  return rows === null ? null : mapAlertRows(rows);
 }
 
 export async function fetchLiveJobs(): Promise<JobPosting[] | null> {
   const rows = await fetchContent('job');
-  if (rows === null) return null;
-  return rows.map((r) => ({
-    id: r.id,
-    postedAt: relativeTime(r.created_at),
-    ...(r.data as Omit<JobPosting, 'id' | 'postedAt'>),
-  }));
+  return rows === null ? null : mapJobRows(rows);
 }
 
 export async function fetchLiveEvents(): Promise<CultureEvent[] | null> {
   const rows = await fetchContent('event');
-  if (rows === null) return null;
-  return rows.map((r) => ({ id: r.id, ...(r.data as Omit<CultureEvent, 'id'>) }));
+  return rows === null ? null : mapEventRows(rows);
 }
 
-/** Decisions in the RawDecision shape used by /public/decisions.json. */
+/** Decisions in the RawDecision shape used by /public/decisions.json. The
+ *  hidden `_id` (the Supabase row id) lets callers dedupe against the entries
+ *  the weekly sync has already baked into that file. */
 export async function fetchLiveDecisions(): Promise<Record<string, string>[] | null> {
   const rows = await fetchContent('decision');
   if (rows === null) return null;
-  return rows.map((r) => r.data as Record<string, string>);
+  return rows.map((r) => ({ ...(r.data as Record<string, string>), _id: r.id }));
 }
 
-const GOV_KIND_TO_TYPE: Record<string, GovType> = {
-  tender: 'Tender',
-  bylaw: 'Bylaw',
-  consultation: 'Consultation',
-};
-
-export async function fetchLiveGovItems(kind: 'tender' | 'bylaw' | 'consultation'): Promise<GovItem[] | null> {
+export async function fetchLiveGovItems(kind: GovContentKind): Promise<GovItem[] | null> {
   const rows = await fetchContent(kind);
+  return rows === null ? null : mapGovRows(rows, kind);
+}
+
+export async function fetchLiveEbooks(): Promise<(Ebook & { id: string })[] | null> {
+  const rows = await fetchContent('ebook');
+  return rows === null ? null : mapEbookRows(rows);
+}
+
+export async function fetchLiveContacts(): Promise<Contact[] | null> {
+  const rows = await fetchContent('contact');
+  return rows === null ? null : mapContactRows(rows);
+}
+
+/** Live council-term overrides applied over the (already baked) bundled terms. */
+export async function fetchLiveCouncilTerms(base: CouncilTerm[]): Promise<CouncilTerm[] | null> {
+  const rows = await fetchContent('council');
   if (rows === null) return null;
-  return rows.map((r) => ({
-    id: r.id,
-    type: GOV_KIND_TO_TYPE[kind],
-    ...(r.data as Omit<GovItem, 'id' | 'type'>),
-  }));
+  const terms = mapCouncilTermRows(rows);
+  return terms.length === 0 ? null : mergeCouncilTerms(terms, base);
+}
+
+/** Live community decisions merged into the (already baked) per-community
+ *  lists — duplicates of baked entries are skipped inside the merge. */
+export async function fetchLiveCommunityActs(base: CommunityActs[]): Promise<CommunityActs[] | null> {
+  const rows = await fetchContent('community');
+  if (rows === null || rows.length === 0) return null;
+  return mergeCommunityRows(base, rows);
 }
 
 /** Published referendums mapped onto the existing Poll shape so PollBlock and
@@ -158,47 +165,18 @@ export async function fetchLiveReferendums(): Promise<Poll[] | null> {
     .eq('published', true)
     .order('ends_at', { ascending: false });
   if (error || !data) return null;
-
-  return data.map((r) => ({
-    id: `ref_${r.id}`,
-    title: bt(r.title_el, r.title_en),
-    options: ((r.options as { id: string; el: string; en?: string }[]) ?? []).map((o) => ({
-      id: o.id,
-      text: bt(o.el, o.en),
-    })),
-    explanations: {
-      short: bt(r.small_el, r.small_en),
-      medium: bt(r.medium_el || r.small_el, r.medium_en || r.small_en),
-      full: bt(r.large_el || r.medium_el || r.small_el, r.large_en || r.medium_en || r.small_en),
-    },
-    seedVotes: {},
-    endDate: r.ends_at,
-    ...(r.youtube_id ? { youtubeId: r.youtube_id } : {}),
-    ...(r.pdf_url ? { pdfUrl: r.pdf_url } : {}),
-  }));
+  return mapReferendumRows(data as ReferendumRow[]);
 }
 
 export async function fetchLiveLessons(): Promise<Lesson[] | null> {
   const rows = await fetchContent('lesson');
-  if (rows === null) return null;
-  return rows.map((r) => ({ id: r.id, ...(r.data as Omit<Lesson, 'id'>) }));
-}
-
-export interface LiveCompetition {
-  id: string;
-  category: Lesson['category'];
-  title: BilingualText;
-  date: string;
-  location?: BilingualText;
-  url?: string;
-  past?: boolean;
+  return rows === null ? null : mapLessonRows(rows);
 }
 
 /** Competitions added from /admin ▸ Παιδεία (any lesson category). */
 export async function fetchLiveCompetitions(): Promise<LiveCompetition[] | null> {
   const rows = await fetchContent('competition');
-  if (rows === null) return null;
-  return rows.map((r) => ({ id: r.id, ...(r.data as Omit<LiveCompetition, 'id'>) }));
+  return rows === null ? null : mapCompetitionRows(rows);
 }
 
 /** Admin-added budget documents, shaped as link-only (scanned) BudgetReports
@@ -216,63 +194,13 @@ export async function fetchLiveBudgetReports(): Promise<BudgetReport[] | null> {
     }));
 }
 
-interface WaterRow {
-  year: number;
-  /** Municipal unit / community — stored as the Greek name (admin selects);
-   *  older rows may carry {el,en} objects. */
-  unit: string | { el: string; en?: string };
-  community: string | { el: string; en?: string };
-  month?: number;
-  type: WaterAnalysisType;
-  url: string;
-}
-
-/** Merge admin-added water-analysis PDFs into the bundled year→unit→community
- *  tree (creating years/units/communities that don't exist yet). */
+/** Merge admin-added water-analysis PDFs into the (already baked) bundled
+ *  year→unit→community tree — mergeWaterRows skips PDFs the tree already has,
+ *  so rows both baked and still live don't double up. */
 export async function fetchLiveWater(base: WaterYear[]): Promise<WaterYear[] | null> {
   const rows = await fetchContent('water');
   if (rows === null || rows.length === 0) return null;
-
-  // deep-ish clone so the bundled data stays untouched
-  const tree: WaterYear[] = base.map((y) => ({
-    ...y,
-    units: y.units.map((u) => ({ ...u, communities: u.communities.map((c) => ({ ...c, pdfs: [...c.pdfs] })) })),
-  }));
-
-  for (const r of rows) {
-    const d = r.data as unknown as WaterRow;
-    if (!d?.year || !d?.url) continue;
-    let year = tree.find((y) => y.year === Number(d.year));
-    if (!year) {
-      year = { year: Number(d.year), units: [] };
-      tree.push(year);
-      tree.sort((a, b) => b.year - a.year);
-    }
-    const unitEl = typeof d.unit === 'string' ? d.unit : d.unit?.el ?? '—';
-    let unit = year.units.find((u) => u.name.el === unitEl);
-    if (!unit) {
-      // Reuse the English unit name from any other year that has this unit.
-      const known = base.flatMap((y) => y.units).find((u) => u.name.el === unitEl);
-      unit = { name: known ? { ...known.name } : bt(unitEl, unitEl), communities: [] };
-      year.units.push(unit);
-    }
-    const commEl = typeof d.community === 'string' ? d.community : d.community?.el ?? '—';
-    let community = unit.communities.find((c) => c.name.el === commEl);
-    if (!community) {
-      // Reuse the English community name from the bundled data when known.
-      const knownComm = base
-        .flatMap((y) => y.units)
-        .filter((u) => u.name.el === unitEl)
-        .flatMap((u) => u.communities)
-        .find((c) => c.name.el === commEl);
-      const commEn = typeof d.community === 'object' ? d.community?.en : undefined;
-      community = { name: knownComm ? { ...knownComm.name } : bt(commEl, commEn ?? commEl), pdfs: [] };
-      unit.communities.push(community);
-      unit.communities.sort((a, b) => a.name.el.localeCompare(b.name.el, 'el'));
-    }
-    community.pdfs.push({ type: d.type, ...(d.month ? { month: Number(d.month) } : {}), url: d.url });
-  }
-  return tree;
+  return mergeWaterRows(base, rows as ContentRow[]);
 }
 
 export interface LiveNews {
@@ -291,25 +219,7 @@ export async function fetchLiveNews(): Promise<LiveNews | null> {
     .order('created_at', { ascending: false })
     .limit(100);
   if (error || !data) return null;
-
-  const reporters = new Map<string, Reporter>();
-  const items: NewsItem[] = data.map((r) => {
-    const name = r.reporter_name || 'Ανταποκριτής';
-    const repId = 'live-' + name.toLowerCase().replace(/[^\wͰ-Ͽ]+/g, '-');
-    if (!reporters.has(repId)) reporters.set(repId, { id: repId, name, url: r.reporter_url || '#' });
-    const links = (r.links ?? {}) as { instagram?: string; facebook?: string; twitter?: string };
-    return {
-      id: `live-${r.id}`,
-      title: bt(r.title_el, r.title_en),
-      description: bt(r.subtitle_el, r.subtitle_en),
-      timestamp: relativeTime(r.created_at),
-      accentColor: '#0D5EAF',
-      category: r.topic as NewsItem['category'],
-      reporterId: repId,
-      ...(Object.keys(links).length ? { socialLinks: links } : {}),
-    };
-  });
-  return { items, reporters: Array.from(reporters.values()) };
+  return mapNewsRows(data as NewsRow[]);
 }
 
 export interface DutyRow {

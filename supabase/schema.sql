@@ -146,11 +146,12 @@ create table if not exists public.content (
 
 -- Allowed kinds — kept as a separate named constraint so re-running this file
 -- upgrades existing databases when new kinds are added
--- (v1.1: water, lesson, competition).
+-- (v1.1: water, lesson, competition · v1.2: meeting, ebook, contact, community).
 alter table public.content drop constraint if exists content_kind_check;
 alter table public.content add constraint content_kind_check check (kind in
   ('alert', 'job', 'event', 'decision', 'tender', 'bylaw',
-   'consultation', 'council', 'budget', 'water', 'lesson', 'competition'));
+   'consultation', 'council', 'budget', 'water', 'lesson', 'competition',
+   'meeting', 'ebook', 'contact', 'community'));
 create index if not exists content_kind_idx on public.content (kind, published);
 alter table public.content enable row level security;
 drop policy if exists "public reads published content" on public.content;

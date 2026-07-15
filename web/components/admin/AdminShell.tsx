@@ -135,7 +135,9 @@ export default function AdminShell({
 
   return (
     <div className="app-shell flex flex-col bg-[#F2F5F9] dark:bg-[#0B0F18] text-gray-900 dark:text-gray-100">
-      <header className="flex-shrink-0 flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-[#141929] border-b border-gray-200 dark:border-[#1E2D4E]"
+      {/* Same liquid-glass bar as the public app's header (translucent + blur),
+          so the private areas read as the same product. */}
+      <header className="flex-shrink-0 flex items-center gap-2 px-3 py-2.5 bg-white/[0.84] dark:bg-[#0B0F18]/[0.88] backdrop-blur-[20px] backdrop-saturate-[2] border-b border-black/[0.07] dark:border-white/[0.05] shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_16px_rgba(0,0,0,0.35)]"
         style={{ paddingTop: 'calc(0.625rem + var(--sat, 0px))' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/PegasusFlag.png" alt="" title={title} className="w-8 h-8 rounded-lg flex-shrink-0" />

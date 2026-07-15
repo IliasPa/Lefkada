@@ -62,6 +62,8 @@ const el: Record<string, string> = {
   settings_notifications: "Ειδοποιήσεις",
   settings_notify_alerts: "Ειδοποιήσεις κινδύνων",
   settings_tabs: "Καρτέλες",
+  settings_old_site: "Παλιός ιστότοπος",
+  settings_old_old_site: "Παλαιότερος ιστότοπος",
 
   // ── Home tab ──
   home_title: "Τελευταία Νέα",
@@ -590,6 +592,8 @@ const en: Record<string, string> = {
   settings_notifications: "Notifications",
   settings_notify_alerts: "Risk alerts",
   settings_tabs: "Tabs",
+  settings_old_site: "Old website",
+  settings_old_old_site: "Old-old website",
 
   home_title: "Latest News",
   home_social: "Share",

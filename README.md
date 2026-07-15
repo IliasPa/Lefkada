@@ -224,15 +224,19 @@
 The app runs on an optional backend on **Supabase** (Postgres + Auth + Storage
 + Edge Functions, all on the free tier) while the site itself stays a static
 export on Vercel — the browser talks to Supabase directly, protected by
-Row-Level Security. **Everything degrades gracefully:** with no
-`NEXT_PUBLIC_SUPABASE_*` env vars set, the app runs fully offline on the
-bundled data with local-only actions. Setup is a one-time, ~10-minute
-checklist in [SETUP_BACKEND.md](SETUP_BACKEND.md); the schema + security rules
-live in [`supabase/schema.sql`](supabase/schema.sql).
+Row-Level Security. Since v1.2 Supabase is a **buffer, not the archive**: it
+holds the recent weeks of published content, unpublished drafts, and the
+private tables (mayor's inbox, job applications, push subscriptions); the
+[weekly sync](#data--content) bakes everything published into git and prunes
+what's safely there after 30 days. **Everything degrades gracefully:** with no
+`NEXT_PUBLIC_SUPABASE_*` env vars set, the app runs on the bundled + baked
+data with local-only actions. Setup is a one-time, ~10-minute checklist in
+[SETUP_BACKEND.md](SETUP_BACKEND.md); the schema + security rules live in
+[`supabase/schema.sql`](supabase/schema.sql).
 
 **Private areas** (email+password via Supabase Auth; sign-ups disabled — accounts are created only by the administrator, and every table checks the user's role server-side):
 
-- **`/admin` — the mayor's dashboard** (role `mayor`). Its navigation mirrors the public app — the tabs sit **in the header next to the logo** (scrollable on the phone) with the same icons and the liquid-glass indicator, one domain per tab: **Μηνύματα · Θέσεις 💼 · Δημοψηφίσματα · Ειδοποιήσεις 🔔 · Πολιτισμός 🏺 · Δαπάνες 📊 · Διακυβέρνηση 🏛 · Νερό 💧 · Παιδεία 🎓 · Ειδήσεις**. A reusable `KindManager` (per-kind forms with publish toggles) powers every content tab; published entries appear in the app instantly, merged ahead of the bundled data. The editors support **direct PDF upload** to the public docs bucket (or pasting a URL), real `time`/number inputs and sensible defaults; bilingual fields fall back from English to Greek.
+- **`/admin` — the mayor's dashboard** (role `mayor`). Its navigation mirrors the public app exactly — the same translucent liquid-glass header bar, and the tabs sit **in the header next to the logo** (scrollable on the phone) as **icon-over-title** buttons with no pill background, sharing the same liquid-glass indicator, one domain per tab: **Μηνύματα · Θέσεις 💼 · Δημοψηφίσματα · Ειδοποιήσεις 🔔 · Πολιτισμός 🏺 · Δαπάνες 📊 · Διακυβέρνηση 🏛 · Νερό 💧 · Παιδεία 🎓 · Ειδήσεις · Επικοινωνία 📞**. Διακυβέρνηση covers decisions, **meeting invitations**, tenders, bylaws, consultations, **community decisions** and **council-term corrections (JSON)**; Παιδεία covers lessons, competitions and **e-books**; Επικοινωνία manages the phone/contact directory. A reusable `KindManager` (per-kind forms with publish toggles) powers every content tab; published entries appear in the app instantly, merged ahead of the bundled data. The editors support **direct PDF upload** to the public docs bucket (or pasting a URL), real `time`/number inputs and sensible defaults; bilingual fields fall back from English to Greek.
   - **Μηνύματα:** every "Message to the Mayor" lands here — drag messages onto colour-coded **folders** (create/delete them freely), add free-text **#tags**, filter by folder/tag, full-text search, unread markers, reply by email for non-anonymous senders.
   - **Θέσεις:** two sub-views — **Αγγελίες** creates/edits the job postings themselves, and **Υποψήφιοι** shows applications grouped **per job** with name, **email** (tap to write), submission date and the **CV** (stored in a *private* bucket; downloads use short-lived signed URLs), with the same folder/drag system plus a Νέα/Shortlist/Απορρίφθηκε status per candidate.
   - **Δημοψηφίσματα:** create referendums with title, **short/medium/full** explanation texts (EL/EN), 2–6 options, **end date/time**, optional YouTube id and an uploaded **PDF**; publish/unpublish, edit, delete. Published referendums appear in the app's Profile ▸ Active votings and, when finished, in Governance ▸ Consultations. *(Vote collection itself is intentionally still on-device — a proper identity system comes later.)*
@@ -267,7 +271,7 @@ live in [`supabase/schema.sql`](supabase/schema.sql).
 - **TypeScript** (strict mode)
 - **Tailwind CSS** — no external UI libraries
 - **lucide-react** — icons
-- **anime.js** — spring physics for the liquid-glass indicator, shared by **every** segmented control/subtab (header tabs, Culture subtabs, Budget Expenses/Income, the Vote explanation selector, the Town Hall Acts/Council + type controls, Settings and the Mayor toggle) via a reusable `AnimatedSegmented` component (it also works without the AppProvider, so `/admin` uses it too). In the header, the indicator lives **outside** the scrolling tab row (at header level) so its spring overshoot can breathe unclipped instead of hitting the scroll-container edge, and it is positioned in **layout space (`offsetLeft`/`offsetWidth`)** rather than screen space, so it stays aligned even when the **Larger text** setting CSS-zooms the UI
+- **anime.js** — spring physics for the liquid-glass indicator, shared by **every** segmented control/subtab (header tabs, Culture subtabs, Budget Expenses/Income, the Vote explanation selector, the Town Hall Acts/Council + type controls, Settings and the Mayor toggle) and the `/admin` navigation, via a reusable `AnimatedSegmented` component and a shared `lib/glass` helper (both also work without the AppProvider). As it slides horizontally the pill also **deforms on the vertical axis** — it squashes on take-off and wobbles back to square as it settles (the amount scales with the travel distance), so it reads like a blob of liquid glass rather than a rigid rectangle. In the header, the indicator lives **outside** the scrolling tab row (at header level) so its spring overshoot can breathe unclipped instead of hitting the scroll-container edge, and it is positioned in **layout space (`offsetLeft`/`offsetWidth`)** rather than screen space, so it stays aligned even when the **Larger text** setting CSS-zooms the UI — toggling Larger text now re-runs the animation once the zoomed layout has painted, so the pill springs onto the resized tab instead of being left behind
 - **Leaflet + OpenStreetMap** — the shared Lefkada map (lazy-loaded; CSS served locally from `public/leaflet.css`)
 - **PWA** — installable, offline-capable via Service Worker
 - **Supabase** (optional) — live content, private submissions, auth-gated portals and Web Push; without it the app runs entirely on bundled data, with device state persisted in `localStorage` (`lefkada_*` keys)
@@ -280,6 +284,7 @@ live in [`supabase/schema.sql`](supabase/schema.sql).
 - **Accessibility** — Reduce motion, High contrast, Larger text (see below).
 - **Notifications** — opt-in to **risk alerts** as PWA notifications. Toggling on first registers the device for the municipality's **Web Push** (the subscribe call runs inside the tap gesture — an iOS requirement), then confirms notification permission; if there are active alerts it notifies immediately, re-notifies on every app open (in case one was missed), and tapping a notification opens the app (the service worker handles the click). With the backend configured, pushes reach the device **even while the app is fully closed**; toggling off unsubscribes it.
 - **Tabs** — show/hide any of the main tabs; stored in `localStorage` (this is a device preference and is intentionally **not** tied to a future account). Profile stays reachable via the logo, and hiding the active tab falls back to the first visible one.
+- **Previous municipality websites** — two links side by side at the foot of the menu (above the WCAG note): **Old website** (`lefkada.gov.gr`) and **Old-old website** (`old-lefkada-static.crowdapps.net`).
 
 ## Accessibility (WCAG 2.2 AA)
 
@@ -301,7 +306,20 @@ Targeted Lighthouse fixes: **zoom re-enabled** (`user-scalable` no longer disabl
 
 ## Data & content
 
-The bundled content lives in `web/data/*.ts` — `news`, `events`, `voting`, `jobs`, `contacts`, `pharmacies`, `alerts`, `healthTests`, `places`, `history`, `council`, `about`, `services`, `water`, `councillors`, and **`budget`** (real budget-execution reports, lazy-loaded from `/public/budgetReports.json`). The universal search index is assembled in `lib/search.ts`. The public directories that would normally feed some of this (e.g. the pharmacy list at `lefkadaopen.gr`) block automated fetching and a static export can't call them at runtime, so these lists are **curated locally in their data file**. With the [Supabase backend](#backend-supabase) configured, the *changing* content (news, events, alerts, jobs, referendums, governance acts, water analyses, lessons, budget documents, pharmacy duty) is managed from the `/admin`, `/reporters` and `/pharmacies` portals and merged live in front of the bundled data — no code change needed.
+**Git is the single, permanent home of all published content** (v1.2). The repo holds both worlds, one file per content type:
+
+- **Bundled-only content** stays as TypeScript — `web/data/*.ts`: `pharmacies`, `healthTests`, `places`, `history`, `about`, `services`, `councillors`, `budget` charts… These change only by code commits.
+- **Live-updated types** are JSON with the code as a thin typed wrapper — `web/data/{news,events,jobs,alerts,voting,education,ebooks,water,governance,governanceActs,contacts,council,communities,pharmacyDuty}.json`, each shaped `{ bundled: …, baked: […] }`: `bundled` is the original curated data, `baked` holds **raw Supabase rows** synced in weekly. Decisions and budget reports bake into their existing lazy-loaded files `public/decisions.json` / `public/budgetReports.json` instead. The wrapper (`web/data/*.ts`) maps the baked rows through the **same functions the live fetch uses** (`lib/rows.ts`) and merges them ahead of the bundled items — so the entire archive ships in the build, loads instantly, and works offline.
+
+**The weekly sync** (`scripts/sync-data.mjs`, run by `.github/workflows/sync-data.yml` every Sunday, or by hand — locally it connects through the linked Supabase CLI, no password needed):
+
+1. Bakes the current **published** Supabase rows into those files — the DB state wins for every row still in the database, so edits and un-publishes propagate into git; rows already pruned keep their baked copy (git remembers what Supabase forgot). Drafts (`published=false`) never enter the public repo.
+2. Commits and pushes (same filenames every week — **git history is the time machine**: `git log -- web/data/news.json`), which triggers the normal deploy so the app ships the refreshed data.
+3. Only after a successful push, **prunes**: published rows older than **30 days** that are verifiably baked into the pushed files are deleted from Supabase — the database stays small (free tier forever), and /admin keeps full edit power over anything recent. Never pruned: drafts, risk alerts (the DB row *is* the active alert), and referendums until 30 days after they close. Fixing an item older than the window means editing its JSON file on GitHub.
+
+At runtime the app still fetches the recent window live (`lib/backend.ts`) and shows it ahead of the bundle; `mergeById` (and a URL check for the water tree) drops the baked twin of anything that also arrived live, so an item that is both baked and still in Supabase renders once. Losing Supabase entirely would cost at most the days since the last sync.
+
+The universal search index is assembled in `lib/search.ts` (it sees baked content automatically, since the wrappers export the merged arrays). Public directories that block automated fetching (e.g. the pharmacy list at `lefkadaopen.gr`) remain curated locally in their data file.
 
 ## Run locally
 

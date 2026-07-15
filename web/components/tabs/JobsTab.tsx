@@ -6,7 +6,7 @@ import { useApp } from '@/context/AppContext';
 import { jobsData, type EmploymentType, type JobPosting } from '@/data/jobs';
 import { KEYS, storageGet } from '@/lib/storage';
 import { backendConfigured } from '@/lib/supabase';
-import { fetchLiveJobs, submitApplication, useLive } from '@/lib/backend';
+import { fetchLiveJobs, mergeById, submitApplication, useLive } from '@/lib/backend';
 
 const TYPE_TKEY: Record<string, string> = {
   'Full-time': 'jobs_type_Fulltime',
@@ -53,7 +53,7 @@ export default function JobsTab() {
 
   // Postings created in /admin come first, then the bundled ones.
   const liveJobs = useLive(fetchLiveJobs);
-  const allJobs = useMemo(() => [...(liveJobs ?? []), ...jobsData], [liveJobs]);
+  const allJobs = useMemo(() => mergeById(liveJobs, jobsData), [liveJobs]);
 
   const filtered = useMemo(
     () => filter === 'all' ? allJobs : allJobs.filter((j) => j.employmentType === filter),

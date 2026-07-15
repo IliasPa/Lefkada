@@ -1,0 +1,110 @@
+{
+  "bundled": [
+    {
+      "id": "a1",
+      "type": "water",
+      "area": {
+        "el": "Νυδρί & Περιγιάλι",
+        "en": "Nidri & Perigiali"
+      },
+      "time": {
+        "el": "Σήμερα 09:00–14:00",
+        "en": "Today 09:00–14:00"
+      },
+      "message": {
+        "el": "Διακοπή υδροδότησης λόγω επισκευής αγωγού. Συνιστάται αποθήκευση νερού.",
+        "en": "Water supply interruption for pipe repair. Storing water is advised."
+      }
+    },
+    {
+      "id": "a2",
+      "type": "electricity",
+      "area": {
+        "el": "Καρυά & Σφακιώτες",
+        "en": "Karya & Sfakiotes"
+      },
+      "time": {
+        "el": "Αύριο 08:00–11:00",
+        "en": "Tomorrow 08:00–11:00"
+      },
+      "message": {
+        "el": "Προγραμματισμένη διακοπή ρεύματος ΔΕΔΔΗΕ για συντήρηση δικτύου.",
+        "en": "Scheduled power outage (DEDDIE) for network maintenance."
+      }
+    },
+    {
+      "id": "a3",
+      "type": "fire",
+      "area": {
+        "el": "Όλο το νησί",
+        "en": "Island-wide"
+      },
+      "time": {
+        "el": "Σήμερα, κατηγορία κινδύνου 4 (πολύ υψηλή)",
+        "en": "Today, risk category 4 (very high)"
+      },
+      "message": {
+        "el": "Πολύ υψηλός κίνδυνος πυρκαγιάς. Απαγορεύεται η καύση και η χρήση φωτιάς σε υπαίθριους χώρους.",
+        "en": "Very high fire risk. Burning and outdoor fires are prohibited."
+      }
+    },
+    {
+      "id": "a4",
+      "type": "road",
+      "area": {
+        "el": "Επαρχιακή οδός προς Αθάνι",
+        "en": "Road to Athani"
+      },
+      "time": {
+        "el": "Έως Παρασκευή",
+        "en": "Until Friday"
+      },
+      "message": {
+        "el": "Διακοπή κυκλοφορίας λόγω καθαρισμού κατολίσθησης. Χρησιμοποιήστε εναλλακτική διαδρομή.",
+        "en": "Road closed for landslide clearing. Please use an alternative route."
+      }
+    }
+  ],
+  "baked": [
+    {
+      "created_at": "2026-07-13T19:24:04.761435+00:00",
+      "data": {
+        "area": {
+          "el": "f",
+          "en": "f"
+        },
+        "message": {
+          "el": "g",
+          "en": "g"
+        },
+        "time": {
+          "el": "g",
+          "en": "g"
+        },
+        "type": "road"
+      },
+      "id": "d2a59ece-474b-4d6a-b9f6-c8311287b019",
+      "kind": "alert"
+    },
+    {
+      "created_at": "2026-07-13T19:22:38.504381+00:00",
+      "data": {
+        "area": {
+          "el": "esf",
+          "en": "esf"
+        },
+        "message": {
+          "el": "s",
+          "en": "s"
+        },
+        "time": {
+          "el": "sd",
+          "en": "sd"
+        },
+        "type": "water"
+      },
+      "id": "263d4a71-9941-4258-9287-8b1e03882fbd",
+      "kind": "alert"
+    }
+  ]
+}

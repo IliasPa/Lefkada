@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { fetchLiveContacts, mergeById, useLive } from "@/lib/backend";
 import { Search, Phone, Mail, Clock, X } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import {
@@ -32,10 +33,15 @@ export default function ContactsTab() {
   const { t, lang } = useApp();
   const [query, setQuery] = useState("");
 
+  // /admin-added contacts (live) ahead of the curated directory (which already
+  // includes the baked ones — mergeById drops the twins).
+  const liveContacts = useLive(fetchLiveContacts);
+  const allContacts = useMemo(() => mergeById(liveContacts, contactsData), [liveContacts]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return contactsData;
-    return contactsData.filter((c) => {
+    if (!q) return allContacts;
+    return allContacts.filter((c) => {
       const hay = [
         c.name.el,
         c.name.en,
@@ -47,7 +53,7 @@ export default function ContactsTab() {
         .toLowerCase();
       return hay.includes(q);
     });
-  }, [query, t]);
+  }, [query, t, allContacts]);
 
   return (
     <div className="h-full scroll-area">
