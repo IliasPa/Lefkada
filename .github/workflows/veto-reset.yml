@@ -1,0 +1,52 @@
+name: Weekly veto reset
+
+# The veto counter lives for exactly one week: this job WIPES public.vetos
+# every Monday at 03:00 Europe/Athens — the app and /admin treat the table as
+# "the current week" by construction (rows store only the weekday 1–7, no
+# timestamps). Two UTC crons cover summer/winter time; the job exits without
+# touching anything unless it is actually 03:xx in Athens. Per-day totals are
+# printed to the run log before deleting; weekly archival into the private
+# git repository arrives in a future version.
+
+on:
+  schedule:
+    - cron: '5 0 * * 1' # 03:05 Athens during summer time (EEST, UTC+3)
+    - cron: '5 1 * * 1' # 03:05 Athens during winter time (EET, UTC+2)
+  workflow_dispatch: {} # manual runs outside 03:xx Athens skip harmlessly
+
+permissions:
+  contents: read
+  issues: write # the failure alarm
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wipe the weekly veto table (only at 03:xx Athens)
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          hour=$(TZ=Europe/Athens date +%H)
+          if [ "$hour" != "03" ]; then
+            echo "Athens hour is $hour — not the reset hour; skipping (DST guard)."
+            exit 0
+          fi
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "SUPABASE_DB_URL secret is missing" >&2
+            exit 1
+          fi
+          echo "Per-day veto totals about to be cleared:"
+          psql "$SUPABASE_DB_URL" -c "select day, count(distinct voter_key) as vetos from public.vetos group by day order by day;"
+          psql "$SUPABASE_DB_URL" -c "delete from public.vetos;"
+          echo "Veto table cleared for the new week."
+
+      - name: Open a can't-miss issue (GitHub emails it) on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          BODY=$'# 🔴 Ο εβδομαδιαίος μηδενισμός του βέτο απέτυχε\n\n## Ο μετρητής βέτο ΔΕΝ μηδενίστηκε — δείχνει ακόμη την προηγούμενη εβδομάδα.\n\n**Τι να κάνετε:** δείτε το [αποτυχημένο run]('"$RUN_URL"$') — συνηθέστερη αιτία: το secret `SUPABASE_DB_URL` λείπει ή άλλαξε ο κωδικός της βάσης. Μετά τη διόρθωση τρέξτε το workflow χειροκίνητα (Δευτέρα 03:00–03:59 ώρα Ελλάδας) ή διαγράψτε τις γραμμές του πίνακα `vetos` από το SQL Editor.\n\n*Αυτόματο issue από το workflow «Weekly veto reset».*'
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "🔴 VETO RESET FAILED — $(date -u +%Y-%m-%d)" \
+            --body "$BODY"

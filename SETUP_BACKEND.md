@@ -146,6 +146,11 @@ automatically; the count shows up in `/admin ▸ Ειδοποιήσεις`.
 | News | `news` table | reporters (own) + mayor | everyone (published) |
 | Pharmacy duty | `pharmacy_duty` table | pharmacies (own) + mayor | everyone |
 | Push subscriptions | `push_subscriptions` table | anyone (subscribe only) | mayor |
+| Votes | `votes` table (hashed voter keys, insert-only; one `resident` flag: null = anonymous, true/false = signed-in citizen per the municipal roll — RLS re-checks both the key and the value) | anyone (vote/change vote) | mayor |
+| Vetos | `vetos` table (hashed voter keys, insert-only, same resident stamp; the weekly counter buckets rows into Monday-03:00 Athens weeks — no on/off, no recall, nothing deleted) | anyone (one shot per week) | mayor |
+| Participation registry | `poll_participants` table (WHO of the verified voters took part — no timestamps stored, never linkable to a ballot row) | verified citizens (own row only) | mayor |
+| Published results | `poll_results` table (counts-only snapshots for the front page) | mayor | everyone (published) |
+| Citizen registry | `citizens` table (name/ΑΦΜ/email self-provided; the Δημότης flag is mayor-only — a trigger blocks everyone else) | citizens (own identity) + mayor (the flag) | each their own row + mayor |
 
 Free-tier headroom: the 500 MB database fits millions of rows; the 1 GB `cvs`
 bucket fits roughly 1,000–5,000 CVs. Deleting an application in /admin also
@@ -179,3 +184,151 @@ node scripts/sync-data.mjs --prune  # only after the sync is committed AND pushe
 
 If the Action ever fails, GitHub emails you; nothing is lost — Supabase simply
 keeps growing until the next successful run.
+
+## 8. Keepalive & failure alarms (v1.3, zero setup)
+
+`.github/workflows/keepalive.yml` pings the Data API **every day at 03:17 UTC**
+so the free-tier project always shows activity and is never paused — the
+longest possible quiet gap is 1 day, independent of the weekly sync. It needs
+no secrets (it uses the public URL + publishable key that already ship in the
+app bundle).
+
+If **either** workflow fails, it automatically opens a GitHub **issue** with a
+big red heading and step-by-step instructions — GitHub emails you the rendered
+issue, so the alarm is unmissable without any SMTP service. Close the issue
+once fixed.
+
+Two gotchas, learned the hard way:
+
+- The key hardcoded in `keepalive.yml` must be the **same publishable key the
+  app uses** (`NEXT_PUBLIC_SUPABASE_ANON_KEY`). If you ever regenerate the API
+  keys in Supabase, update the workflow file too — with a dead key the ping
+  gets 401 and the alarm fires every day.
+- GitHub sometimes never starts a schedule until the workflow has run once:
+  after pushing, open **Actions → the workflow → Run workflow** one time by
+  hand and confirm it goes green.
+
+Two more scheduled workflows joined in v1.3 (both need the same
+`SUPABASE_DB_URL` secret):
+
+- **`veto-reset.yml`** — every Monday 03:00 Europe/Athens (two UTC crons +
+  an Athens-hour guard, so summer/winter time both land right) it WIPES the
+  day-only `vetos` table: the weekly counter starts fresh. Per-day totals are
+  printed to the run log; weekly archival to the private git repo is planned
+  for a future version.
+- **`veto-alert.yml`** — hourly; whenever the veto ratio (active Δημότες /
+  confirmed Δημότες) crosses a new 10% step it opens a GitHub issue titled
+  «🔴 ΒΕΤΟ ≥ X% — εβδομάδα …» and closes it immediately — GitHub **emails**
+  the rendered issue, so each step lands in the inbox exactly once per week.
+  It skips silently while the secret is missing.
+
+## 9. Citizen verification — email sign-in (v1.3)
+
+Voting requires a signed-in citizen (anonymous device voting was removed):
+the citizen verifies in Ρυθμίσεις ▸ Προσωπικά στοιχεία ▸ Επαλήθευση
+ψηφοφόρου, and their voter key derives from the **account** — one account,
+one vote per poll, from any device, enforced **in the database** (the
+«citizens vote» RLS policy recomputes the hash for the calling user; any
+mismatch dies with 42501). The choice stays a hash; who participated is
+stored separately in `poll_participants` **without timestamps**, so
+participation can never be paired with a ballot row.
+
+One-time setup in the Supabase dashboard:
+
+1. **Authentication → Sign In / Providers → Allow new users to sign up → ON.**
+   (It was deliberately OFF until v1.3.) `/admin`, `/reporters` and
+   `/pharmacies` stay locked exactly as before — access there is granted by
+   the `app_roles` table, not by the mere existence of an account, so citizen
+   accounts have no role and see «Δεν έχετε πρόσβαση».
+2. **You can test with your own email right away — but only your own.** The
+   built-in mailer is test-only: it sends **~2 emails/hour** and **delivers
+   only to addresses of the project's team** (Organization ▸ Team) — any
+   other citizen sees «ελέγξτε το email σας» and *receives nothing*. That is
+   also why the templates are locked («Set up custom SMTP to edit
+   templates») and the email carries a sign-in **LINK** — the app fully
+   supports the link: tapping it signs the citizen in and the verification
+   card completes by itself (the code box is used when the email carries a
+   code).
+3. **Before real citizens can verify: connect custom SMTP — required, not
+   optional.** (Free alternatives, July 2026: Brevo 300 emails/day — no own
+   domain needed; Mailjet 200/day; Resend 100/day but needs a domain;
+   SMTP2GO 1.000/μήνα.) The exact **Brevo** walkthrough, ~15 minutes:
+   1. **brevo.com → Sign up free** with the mailbox that should appear as
+      the sender (it becomes a verified sender automatically). Confirm the
+      registration email, complete the short profile — no credit card.
+   2. Brevo, top-right menu → **SMTP & API → tab "SMTP" → Generate a new
+      SMTP key** (name it `supabase`) and **copy the key immediately** — it
+      is shown only once. On the same page note the **Login** value: on new
+      accounts it is a dedicated id like `9xxxxxx001@smtp-brevo.com` — that,
+      **not** your account email, is the SMTP username (using the email
+      fails with «535 authentication failed» → Supabase shows «Error
+      sending confirmation email»). Also make sure the page shows no «SMTP
+      account not yet activated» banner (brand-new accounts occasionally
+      need to request activation there).
+   3. Supabase → **Authentication → Emails → Set up custom SMTP** and fill:
+      Sender email = the Brevo-verified address · Sender name =
+      `Δήμος Λευκάδας` · Host = `smtp-relay.brevo.com` · Port = `587` ·
+      Username = the **Login** from step 2 · Password = the SMTP key. Save.
+   4. Supabase → **Authentication → Rate Limits → rate limit for sending
+      emails → 100/hour** (Supabase self-caps at 30/ώρα after SMTP; Brevo's
+      own 300/day is the real ceiling).
+   5. Back on the Emails page the templates are now editable. Put the
+      **code-only** body below into **Magic link or OTP** *and* **Confirm
+      signup** (subject e.g. «Κωδικός σύνδεσης — Δήμος Λευκάδας»). No
+      `{{ .ConfirmationURL }}` link on purpose: in the installed app a link
+      opens the browser instead, while a numeric code works everywhere —
+      and the app copy now leads with the code.
+
+      ```html
+      <h2>Δήμος Λευκάδας</h2>
+      <p>Ο 8-ψήφιος κωδικός σας / Your sign-in code:</p>
+      <p style="font-size:40px;font-weight:900;letter-spacing:8px;margin:16px 0">{{ .Token }}</p>
+      <p>Γράψτε τον στην εφαρμογή για να συνδεθείτε. Ισχύει για 1 ώρα.<br>
+      Type it in the app to sign in. Valid for 1 hour.</p>
+      <p style="color:#888;font-size:12px">Αν δεν τον ζητήσατε εσείς, αγνοήστε αυτό το email.<br>
+      If you didn't request this, you can ignore this email.</p>
+      ```
+   **Code length:** Supabase's `{{ .Token }}` is **8 digits** here (the
+   length lives in Authentication → Sign In/Providers → Email → *Email OTP
+   Length*); the app's input and copy expect 8. Change one and change the
+   other, or verification will refuse a correct code.
+
+   6. **Test with an address OUTSIDE the Supabase team** (e.g. a family
+      member's): app → Ρυθμίσεις → Προσωπικά στοιχεία → Επαλήθευση →
+      Αποστολή. A «Δήμος Λευκάδας» email with a large code must arrive
+      (first one may land in spam — mark «not spam» once); the send also
+      appears in Brevo → Statistics → Email. That proves citizens at large
+      now receive mail — the team-only wall is gone.
+4. **Volume for 20.000 δημότες:** each citizen costs about **one email,
+   once** — the session persists on the device until they sign out (the
+   weekly veto reset signs nobody out), re-verification is per *new device*,
+   the 10%-step veto alerts arrive as GitHub issues (no SMTP involved) and
+   push notifications are not emails. So 20.000 accounts ≈ 20.000 emails
+   spread over the whole adoption curve — Brevo's free 300/day ≈ 9.000/μήνα
+   normally covers it; for a launch-day spike, Amazon SES costs ~$0.10 ανά
+   1.000 emails (όλες οι 20.000 ≈ $2) or upgrade Brevo for one month.
+   Supabase's free plan itself allows 50.000 monthly active users — not a
+   limit here.
+
+**The citizen registry (μητρώο):** every verified account appears in
+`/admin ▸ Δημοψηφίσματα ▸ Ψηφοφόροι` with the name/ΑΦΜ the citizen typed in
+their profile (optional — zero friction) and their email. Check each one
+against the official municipal roll and flip the **Δημότης** toggle:
+
+- the flag is stamped onto their verified votes (enforced by RLS — a vote can
+  never claim a different designation than the registry);
+- **«ψήφοι δημοτών» become the main statistic** in the admin graphs and on
+  any published front-page results — everyone still votes, only the
+  statistics differ;
+- the citizen sees the 🏛 designation on their profile and gets a one-time
+  notice when you change it; if they had already voted, their vote re-stamps
+  itself on their next visit to the still-open poll.
+
+Citizens cannot set the flag themselves — a database **trigger** rejects it —
+and your own direct SQL in the dashboard is exempt from the guard, so bulk
+imports from the roll remain possible.
+
+gov.gr OAuth (when the municipality's ΚΕΔ approval lands) plugs into the same
+pipeline as a second sign-in method — same tables, same keys, same admin
+views; only `poll_participants.verified_via` will say `govgr` instead of
+`email`.

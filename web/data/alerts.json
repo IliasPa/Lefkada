@@ -73,15 +73,15 @@
           "el": "f",
           "en": "f"
         },
-        "message": {
-          "el": "g",
-          "en": "g"
-        },
         "time": {
           "el": "g",
           "en": "g"
         },
-        "type": "road"
+        "type": "road",
+        "message": {
+          "el": "g",
+          "en": "g"
+        }
       },
       "id": "d2a59ece-474b-4d6a-b9f6-c8311287b019",
       "kind": "alert"
@@ -93,15 +93,15 @@
           "el": "esf",
           "en": "esf"
         },
-        "message": {
-          "el": "s",
-          "en": "s"
-        },
         "time": {
           "el": "sd",
           "en": "sd"
         },
-        "type": "water"
+        "type": "water",
+        "message": {
+          "el": "s",
+          "en": "s"
+        }
       },
       "id": "263d4a71-9941-4258-9287-8b1e03882fbd",
       "kind": "alert"

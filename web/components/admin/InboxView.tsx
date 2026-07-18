@@ -305,7 +305,6 @@ function MessageCard({ m, folders, expanded, onToggle, onMove, onTags, onDelete 
                   <User size={11} /> {m.sender_name || '—'}{m.sender_email ? ` · ${m.sender_email}` : ''}
                 </span>
               )}
-              <span className="text-[11px] text-gray-400">{fmtDate(m.created_at)}</span>
               {folder && (
                 <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
                   style={{ backgroundColor: folder.color + '1c', color: folder.color }}>
@@ -320,6 +319,7 @@ function MessageCard({ m, folders, expanded, onToggle, onMove, onTags, onDelete 
               {m.body}
             </p>
           </div>
+          <span className="text-[11px] text-gray-400 flex-shrink-0 whitespace-nowrap">{fmtDate(m.created_at)}</span>
         </div>
       </div>
 

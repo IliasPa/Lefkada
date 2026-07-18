@@ -6,6 +6,7 @@ import { useApp } from '@/context/AppContext';
 import { newsData, reporters, type NewsCategory, type Reporter } from '@/data/news';
 import NewsBackground from '@/components/NewsBackground';
 import NewsAlerts from '@/components/NewsAlerts';
+import PublishedResults from '@/components/PublishedResults';
 import { fetchLiveNews, mergeById, useLive } from '@/lib/backend';
 
 const CATEGORIES: Array<{ key: NewsCategory; tKey: string }> = [
@@ -118,6 +119,9 @@ export default function HomeTab() {
       <div className="px-4 pt-3 pb-6 max-w-2xl mx-auto space-y-4">
         {/* Active city alerts (water/power/fire/weather/road) — below the filters */}
         <NewsAlerts />
+
+        {/* Voting results the mayor published from /admin (hidden when none) */}
+        <PublishedResults />
 
         {filtered.length === 0 && (
           <p className="text-center text-gray-400 dark:text-gray-500 py-10 text-sm">

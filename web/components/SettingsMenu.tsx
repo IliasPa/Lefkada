@@ -89,6 +89,14 @@ export default function SettingsMenu() {
     }
   };
 
+  // Deep link used by the "verify your vote" hints in the polls: opens this
+  // menu with the Personal-info section expanded (where verification lives).
+  useEffect(() => {
+    const openProfile = () => { setOpen(true); setProfileOpen(true); };
+    window.addEventListener("lefkada:open-profile", openProfile);
+    return () => window.removeEventListener("lefkada:open-profile", openProfile);
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {

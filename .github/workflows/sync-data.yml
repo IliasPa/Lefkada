@@ -19,6 +19,7 @@ on:
 
 permissions:
   contents: write # the job commits the refreshed data files
+  issues: write # the failure alarm (an issue GitHub emails to the owner)
 
 jobs:
   sync:
@@ -53,3 +54,14 @@ jobs:
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: node scripts/sync-data.mjs --prune
+
+      - name: Open a can't-miss issue (GitHub emails it) on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          BODY=$'# 🔴 Ο εβδομαδιαίος συγχρονισμός δεδομένων απέτυχε\n\n## Τίποτα δεν χάθηκε — η Supabase απλώς συνεχίζει να κρατά τα δεδομένα μέχρι να διορθωθεί.\n\n**Τι να κάνετε:** δείτε το [αποτυχημένο run]('"$RUN_URL"$') — συνηθέστερη αιτία: το secret `SUPABASE_DB_URL` λείπει ή άλλαξε ο κωδικός της βάσης.\n\n*Αυτό το issue ανοίχτηκε αυτόματα από το workflow «Weekly data sync».*'
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "🔴 DATA SYNC FAILED — $(date -u +%Y-%m-%d)" \
+            --body "$BODY"

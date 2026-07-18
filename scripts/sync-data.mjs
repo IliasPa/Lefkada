@@ -259,11 +259,14 @@ function prune() {
     (list) => `delete from public.news where id::text in (${list})`,
   );
   // referendums: only once they have been CLOSED for PRUNE_DAYS (an open
-  // referendum must stay editable in /admin, however old).
+  // referendum must stay editable in /admin, however old) — and NEVER one
+  // that has recorded votes: the admin results view reads the definition
+  // from this table, and vote rows must always have their referendum.
   del(
     'referendums',
     `select id::text as id from public.referendums
-     where published and ends_at < now() - interval '${PRUNE_DAYS} days'`,
+     where published and ends_at < now() - interval '${PRUNE_DAYS} days'
+       and ('ref_' || id::text) not in (select distinct poll_id from public.votes)`,
     (list) => `delete from public.referendums where id::text in (${list})`,
   );
   del(

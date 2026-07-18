@@ -14,6 +14,7 @@ import {
   GraduationCap, Inbox, Landmark, Newspaper, Phone, Trash2, Users, Vote,
 } from 'lucide-react';
 import AdminShell, { Card, GhostBtn } from '@/components/admin/AdminShell';
+import { KEYS, storageGet, storageSet } from '@/lib/storage';
 import AnimatedSegmented from '@/components/AnimatedSegmented';
 import KindManager, {
   BUDGET_KIND, COMPETITION_KIND, CONTACT_KIND, EBOOK_KIND, EVENT_KIND, GOVERNANCE_KINDS, JOB_KIND, LESSON_KIND, WATER_KIND,
@@ -46,8 +47,29 @@ const VIEWS: { key: View; label: string; icon: React.ReactNode }[] = [
   { key: 'contacts', label: 'Επικοινωνία', icon: <Phone size={18} /> },
 ];
 
+const VIEW_KEYS = VIEWS.map((v) => v.key);
+
 export default function AdminPage() {
-  const [view, setView] = useState<View>('inbox');
+  const [view, setViewState] = useState<View>('inbox');
+
+  // Restore the last-open tab after a refresh — a ?view= deep link wins, then
+  // the remembered tab. Done in an effect (not the state initializer) so the
+  // statically-prerendered HTML and the first client render stay identical.
+  useEffect(() => {
+    const param = new URLSearchParams(window.location.search).get('view') as View | null;
+    const saved = storageGet<View>(KEYS.adminView, 'inbox');
+    const initial = param && VIEW_KEYS.includes(param) ? param : saved;
+    if (VIEW_KEYS.includes(initial)) setViewState(initial);
+  }, []);
+
+  const setView = (v: View) => {
+    setViewState(v);
+    storageSet(KEYS.adminView, v);
+    // keep the URL shareable/refresh-proof too
+    const url = new URL(window.location.href);
+    url.searchParams.set('view', v);
+    window.history.replaceState(null, '', url);
+  };
 
   return (
     <AdminShell

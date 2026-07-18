@@ -1,0 +1,48 @@
+name: Daily Supabase keepalive
+
+# Pings the Supabase Data API once a day so the free-tier project always shows
+# API activity and is never paused (pausing needs ~7 idle days; this makes the
+# longest possible gap 1 day, independent of the weekly sync workflow).
+#
+# On failure it opens a GitHub ISSUE with a big, unmissable heading — GitHub
+# emails the rendered issue to you, so no SMTP service or extra secrets are
+# needed. Runs need no secrets at all: the URL and the publishable (anon) key
+# below are public by design — they ship inside the app bundle anyway, and row
+# access is protected by Row-Level Security, not by hiding this key.
+
+on:
+  schedule:
+    - cron: '17 3 * * *' # every day at 03:17 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write # the failure alarm
+
+env:
+  SUPABASE_URL: https://cdsoekdoxjuswxdgamlr.supabase.co
+  SUPABASE_ANON_KEY: sb_publishable_gwnBlS3jR6JOb3-3LjR3rA__s50A1Ys
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping the Data API (counts as project activity)
+        run: |
+          code=$(curl -sS -o /tmp/body -w '%{http_code}' \
+            "$SUPABASE_URL/rest/v1/content?select=id&limit=1" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY")
+          echo "HTTP $code — $(cat /tmp/body)"
+          test "$code" = "200"
+
+      - name: Open a can't-miss issue (GitHub emails it) on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          BODY=$'# 🔴 Η Supabase δεν απαντά\n\n## Το καθημερινό ping απέτυχε — το project κινδυνεύει να παγώσει (pause) ή είναι ήδη παγωμένο.\n\n**Τι να κάνετε:**\n\n1. Ανοίξτε το [Supabase dashboard](https://supabase.com/dashboard/project/cdsoekdoxjuswxdgamlr) — αν το project είναι *Paused*, πατήστε **Restore**.\n2. Δείτε το [αποτυχημένο run]('"$RUN_URL"$') για το ακριβές σφάλμα.\n3. Όταν διορθωθεί, κλείστε αυτό το issue.\n\n*Αυτό το issue ανοίχτηκε αυτόματα από το workflow «Daily Supabase keepalive».*'
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "🔴 SUPABASE KEEPALIVE FAILED — $(date -u +%Y-%m-%d)" \
+            --body "$BODY"

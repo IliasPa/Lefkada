@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Send,
   CheckCircle2,
   User,
   EyeOff,
   ShieldAlert,
-  ShieldOff,
   Megaphone,
   Vote,
   History,
@@ -18,8 +17,14 @@ import VetoOverlay from "@/components/VetoOverlay";
 import AnimatedSegmented from "@/components/AnimatedSegmented";
 import PollBlock, { isPollClosed } from "@/components/PollBlock";
 import { pollsData } from "@/data/voting";
-import { fetchLiveReferendums, mergeById, submitMayorMessage, useLive } from "@/lib/backend";
+import {
+  fetchLiveReferendums, fetchOwnCitizenStatus, getVerifiedUser, mergeById,
+  submitMayorMessage, submitVeto, vetoWeek, useLive,
+} from "@/lib/backend";
 import { backendConfigured } from "@/lib/supabase";
+
+/** Holding the veto button this long is the deliberate-intent safeguard. */
+const VETO_HOLD_MS = 4000;
 
 export default function SettingsPanel() {
   const { t, lang, setActiveTab, setGovIntent } = useApp();
@@ -31,17 +36,33 @@ export default function SettingsPanel() {
   const [sendError, setSendError] = useState(false);
   const [countdown, setCountdown] = useState(5);
   const [vetoActive, setVetoActive] = useState(false);
+  const [vetoSendError, setVetoSendError] = useState(false);
   const [vetoOverlay, setVetoOverlay] = useState(false);
   const [identity, setIdentity] = useState<{ fullName: string; email: string }>({ fullName: "", email: "" });
   // Referendums created in /admin come first, then the bundled ones.
   const liveReferendums = useLive(fetchLiveReferendums);
   const activePolls = mergeById(liveReferendums, pollsData).filter((p) => !isPollClosed(p, Date.now()));
 
+  // Veto eligibility: signed-in AND mayor-confirmed Δημότης (matches the RLS
+  // wall server-side). null = still loading / backend off.
+  const [signedIn, setSignedIn] = useState(false);
+  const [confirmedCitizen, setConfirmedCitizen] = useState<boolean | null>(null);
+
   useEffect(() => {
     setAnonymous(storageGet<boolean>(KEYS.mayorAnonymous, true));
-    setVetoActive(storageGet<boolean>(KEYS.veto, false));
+    // Active only while the stored week IS the current week — every Monday
+    // 03:00 (Athens) the comparison fails and the veto resets by itself.
+    // (Legacy `true` from the old on/off model also fails the comparison.)
+    setVetoActive(storageGet<string | boolean>(KEYS.veto, "") === vetoWeek());
     const p = storageGet<{ fullName?: string; email?: string }>(KEYS.profile, {});
     setIdentity({ fullName: p.fullName ?? "", email: p.email ?? "" });
+    if (backendConfigured) {
+      getVerifiedUser().then((u) => {
+        setSignedIn(Boolean(u));
+        if (u) fetchOwnCitizenStatus().then((s) => setConfirmedCitizen(Boolean(s?.resident)));
+        else setConfirmedCitizen(false);
+      });
+    }
   }, []);
 
   useEffect(() => {
@@ -56,13 +77,44 @@ export default function SettingsPanel() {
     return () => clearInterval(interval);
   }, [sent]);
 
-  const handleVetoPress = () => {
-    if (vetoActive) { setVetoActive(false); storageSet(KEYS.veto, false); }
-    else setVetoOverlay(true);
-  };
-  const handleVetoDismiss = useCallback(() => {
-    setVetoOverlay(false); setVetoActive(true); storageSet(KEYS.veto, true);
+  // ── Long-press veto: hold 4s to exercise; no recall — resets every Monday
+  // 03:00 (Athens) on its own, so there is no revoke button.
+  const [holdPct, setHoldPct] = useState(0);
+  const holdRaf = useRef(0);
+
+  const confirmVeto = useCallback(() => {
+    setVetoActive(true);
+    storageSet(KEYS.veto, vetoWeek());
+    setVetoSendError(false);
+    submitVeto().then((ok) => setVetoSendError(!ok));
+    setVetoOverlay(true); // the red-stamp ceremony, now purely confirmation
   }, []);
+
+  const endHold = useCallback(() => {
+    cancelAnimationFrame(holdRaf.current);
+    holdRaf.current = 0;
+    setHoldPct(0);
+  }, []);
+
+  const beginHold = useCallback(() => {
+    if (vetoActive || holdRaf.current) return;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const p = Math.min(1, (now - start) / VETO_HOLD_MS);
+      setHoldPct(p);
+      if (p >= 1) {
+        endHold();
+        confirmVeto();
+      } else {
+        holdRaf.current = requestAnimationFrame(tick);
+      }
+    };
+    holdRaf.current = requestAnimationFrame(tick);
+  }, [vetoActive, confirmVeto, endHold]);
+
+  useEffect(() => () => cancelAnimationFrame(holdRaf.current), []);
+
+  const handleVetoDismiss = useCallback(() => setVetoOverlay(false), []);
 
   const handleAnon = (a: boolean) => { setAnonymous(a); storageSet(KEYS.mayorAnonymous, a); };
 
@@ -127,22 +179,55 @@ export default function SettingsPanel() {
             <PSect icon={<ShieldAlert size={14} />} label={t("acc_official")}>
               <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed mb-4">{t("acc_veto_desc")}</p>
               {vetoActive ? (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 p-3.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40 rounded-xl veto-pulse">
-                    <ShieldAlert size={20} className="text-red-500 flex-shrink-0" />
-                    <div>
-                      <p className="font-bold text-sm text-red-600 dark:text-red-400">{t("acc_veto_active_label")}</p>
-                      <p className="text-xs text-red-400 mt-0.5">{lang === "el" ? "Η διαμαρτυρία σας είναι ενεργή" : "Your protest is active"}</p>
-                    </div>
+                <div className="flex items-center gap-3 p-3.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40 rounded-xl veto-pulse">
+                  <ShieldAlert size={20} className="text-red-500 flex-shrink-0" />
+                  <div>
+                    <p className="font-bold text-sm text-red-600 dark:text-red-400">{t("acc_veto_active_week")}</p>
+                    <p className="text-xs text-red-400 mt-0.5">{t("acc_veto_resets")}</p>
                   </div>
-                  <button onClick={handleVetoPress} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-red-200 dark:border-red-800/40 text-red-500 dark:text-red-400 text-sm font-bold hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors active:scale-[0.98]">
-                    <ShieldOff size={16} />{t("acc_veto_revoke")}
-                  </button>
+                </div>
+              ) : backendConfigured && !signedIn ? (
+                /* Only confirmed Δημότες can veto — first step: sign in. */
+                <button onClick={() => window.dispatchEvent(new Event("lefkada:open-profile"))}
+                  className="w-full py-3.5 rounded-xl border-2 border-red-200 dark:border-red-800/40 text-red-500 dark:text-red-400 text-sm font-bold hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors active:scale-[0.98]">
+                  {t("acc_veto_need_signin")}
+                </button>
+              ) : backendConfigured && confirmedCitizen === false ? (
+                /* Signed in but not (yet) on the mayor's municipal roll. */
+                <div className="p-3.5 rounded-xl bg-gray-50 dark:bg-[#0F1219] border border-gray-200 dark:border-[#252A3A] text-[12.5px] leading-relaxed text-gray-500 dark:text-gray-400">
+                  {t("acc_veto_need_citizen")}
                 </div>
               ) : (
-                <button onClick={handleVetoPress} className="w-full flex items-center justify-center gap-2.5 py-4 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-lg tracking-wider shadow-lg shadow-red-600/30 transition-all active:scale-[0.97]">
-                  <ShieldAlert size={22} />{t("acc_veto_exercise")}
-                </button>
+                <>
+                  {/* Hold-to-confirm: the ring around the shield fills over the
+                      4 seconds; releasing early cancels without any action. */}
+                  <button
+                    onPointerDown={beginHold}
+                    onPointerUp={endHold}
+                    onPointerLeave={endHold}
+                    onPointerCancel={endHold}
+                    onContextMenu={(e) => e.preventDefault()}
+                    style={{ WebkitTouchCallout: "none", touchAction: "manipulation" } as React.CSSProperties}
+                    className="w-full flex items-center justify-center gap-3 py-3.5 rounded-xl bg-red-600 text-white font-black text-lg tracking-wider shadow-lg shadow-red-600/30 select-none"
+                  >
+                    <span className="relative flex items-center justify-center w-9 h-9 flex-shrink-0">
+                      <svg viewBox="0 0 36 36" className="absolute inset-0 -rotate-90" aria-hidden>
+                        <circle cx="18" cy="18" r="15.5" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="3.5" />
+                        <circle cx="18" cy="18" r="15.5" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round"
+                          strokeDasharray={2 * Math.PI * 15.5}
+                          strokeDashoffset={(1 - holdPct) * 2 * Math.PI * 15.5} />
+                      </svg>
+                      <ShieldAlert size={17} />
+                    </span>
+                    {t("acc_veto_exercise")}
+                  </button>
+                  <p className="text-center text-[11.5px] font-semibold text-gray-400 dark:text-gray-500 mt-2">
+                    {t("acc_veto_hold_hint")} · {t("acc_veto_resets")}
+                  </p>
+                </>
+              )}
+              {vetoSendError && (
+                <p className="text-[12.5px] font-semibold text-red-500 mt-2">{t("veto_send_error")}</p>
               )}
             </PSect>
 

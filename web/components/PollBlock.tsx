@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { ChevronDown, ChevronUp, CheckCircle2, Info, Download } from "lucide-react";
+import { ChevronDown, ChevronUp, CheckCircle2, Info, Download, BadgeCheck } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import AnimatedSegmented from "@/components/AnimatedSegmented";
 import { type Poll } from "@/data/voting";
 import { KEYS, storageGet, storageSet } from "@/lib/storage";
+import { submitVote, getVerifiedUser, restampVoteIfNeeded, type VerifiedUser } from "@/lib/backend";
+import { backendConfigured } from "@/lib/supabase";
 
 type VoteCounts = Record<string, number>;
 type MyVotes = Record<string, string>;
@@ -31,7 +33,18 @@ export default function PollBlock({
   const [selected, setSelected] = useState<string | null>(null);
   const [showAbout, setShowAbout] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [sendError, setSendError] = useState(false);
   const [explainLength, setExplainLength] = useState<"short" | "medium" | "full">("short");
+  const [vUser, setVUser] = useState<VerifiedUser | null>(null);
+
+  useEffect(() => {
+    if (!backendConfigured) return;
+    getVerifiedUser().then(setVUser);
+    // If the mayor's municipal-roll designation changed since this account's
+    // vote here, silently re-submit the unchanged choice with the new stamp
+    // (open polls only) — the Δημότες statistic self-heals.
+    if (!closed) restampVoteIfNeeded(poll.id);
+  }, [closed, poll.id]);
 
   const keyOf = (id: string) => `${poll.id}:${id}`;
 
@@ -71,6 +84,10 @@ export default function PollBlock({
     setVoteCounts(merged);
     setMyVotes(updatedMyVotes);
     setSubmitted(true);
+    // Record server-side too (anonymous hashed voter key). If the insert
+    // fails we must SAY so — the local tally alone is not "counted".
+    setSendError(false);
+    submitVote(poll.id, selected).then((ok) => setSendError(!ok));
   }, [selected, myVotes, poll, closed]);
 
   const explanation = poll.explanations[explainLength][lang];
@@ -145,10 +162,34 @@ export default function PollBlock({
             </div>
           )}
 
+          {/* Verified-vote status: green when signed in, otherwise a deep link
+              into Settings ▸ Personal info where email verification lives. */}
+          {backendConfigured && !closed && (
+            vUser ? (
+              <p className="flex items-center gap-1.5 text-[12px] font-semibold text-green-600 dark:text-green-400 px-1">
+                <BadgeCheck size={14} className="flex-shrink-0" />
+                <span className="min-w-0 truncate">{t("vote_verified_line")} — {vUser.email}</span>
+              </p>
+            ) : (
+              <button onClick={() => window.dispatchEvent(new Event("lefkada:open-profile"))}
+                className="flex items-center gap-1.5 text-[12px] font-semibold text-primary dark:text-primary-300 px-1 active:scale-[0.98] transition-transform">
+                <BadgeCheck size={14} className="flex-shrink-0" />
+                <span className="text-left">{t("vote_verify_cta")} →</span>
+              </button>
+            )
+          )}
+
           {submitted ? (
-            <ResultsCard poll={poll} lang={lang} myVote={myVotes[poll.id]} voteCounts={voteCounts} totalVotes={totalVotes} closed={closed} t={t} onChangeVote={() => setSubmitted(false)} />
+            <>
+              {sendError && (
+                <p className="text-[12.5px] font-semibold text-red-500 px-1">{t("vote_send_error")}</p>
+              )}
+              <ResultsCard poll={poll} lang={lang} myVote={myVotes[poll.id]} voteCounts={voteCounts} totalVotes={totalVotes} closed={closed} t={t} onChangeVote={() => setSubmitted(false)} />
+            </>
           ) : (
-            <VotingCard poll={poll} lang={lang} selected={selected} onSelect={setSelected} onSubmit={handleVote} t={t} />
+            <VotingCard poll={poll} lang={lang} selected={selected} onSelect={setSelected} onSubmit={handleVote}
+              signInRequired={backendConfigured && !vUser}
+              onSignIn={() => window.dispatchEvent(new Event("lefkada:open-profile"))} t={t} />
           )}
         </div>
 
@@ -215,8 +256,9 @@ export function YouTubeEmbed({ id, title, fill = false }: { id: string; title: s
   return <div className="relative w-full overflow-hidden rounded-2xl bg-black shadow-md" style={{ aspectRatio: "16 / 9" }}>{iframe}</div>;
 }
 
-function VotingCard({ poll, lang, selected, onSelect, onSubmit, t }: {
-  poll: Poll; lang: "el" | "en"; selected: string | null; onSelect: (id: string) => void; onSubmit: () => void; t: (k: string) => string;
+function VotingCard({ poll, lang, selected, onSelect, onSubmit, signInRequired = false, onSignIn, t }: {
+  poll: Poll; lang: "el" | "en"; selected: string | null; onSelect: (id: string) => void; onSubmit: () => void;
+  signInRequired?: boolean; onSignIn?: () => void; t: (k: string) => string;
 }) {
   return (
     <div className="bg-white dark:bg-[#141929] rounded-2xl p-5 border border-gray-100 dark:border-[#1E2D4E] shadow-sm">
@@ -235,9 +277,11 @@ function VotingCard({ poll, lang, selected, onSelect, onSubmit, t }: {
           );
         })}
       </div>
-      <button onClick={onSubmit} disabled={!selected}
-        className={`mt-5 w-full py-3.5 rounded-xl font-bold text-[15px] transition-all active:scale-[0.98] ${selected ? "bg-primary text-white shadow-md shadow-primary/30" : "bg-gray-100 dark:bg-[#252A3A] text-gray-300 dark:text-gray-600 cursor-not-allowed"}`}>
-        {t("vote_submit")}
+      {/* With the backend on, voting needs a signed-in account — the button
+          routes to Settings ▸ Personal info until then. */}
+      <button onClick={signInRequired ? onSignIn : onSubmit} disabled={!signInRequired && !selected}
+        className={`mt-5 w-full py-3.5 rounded-xl font-bold text-[15px] transition-all active:scale-[0.98] ${signInRequired || selected ? "bg-primary text-white shadow-md shadow-primary/30" : "bg-gray-100 dark:bg-[#252A3A] text-gray-300 dark:text-gray-600 cursor-not-allowed"}`}>
+        {signInRequired ? t("vote_signin_to_vote") : t("vote_submit")}
       </button>
     </div>
   );

@@ -1,0 +1,67 @@
+name: Veto 10% step alert
+
+# Every hour: if the weekly veto ratio (active Δημότες vetos over confirmed
+# Δημότες in the registry) has crossed a 10% step that has not been announced
+# yet, open a GitHub issue for that step — GitHub EMAILS the rendered issue
+# (big red heading), then the issue closes itself so the tracker stays clean.
+# One issue per step per week: the week's Monday date is part of the title,
+# so every Monday starts fresh and duplicates are found by title search.
+# Exits silently when the SUPABASE_DB_URL secret is not configured.
+
+on:
+  schedule:
+    - cron: '23 * * * *' # hourly
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Email (via issue) every newly crossed 10% step
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "No SUPABASE_DB_URL secret — skipping quietly."
+            exit 0
+          fi
+          active=$(psql "$SUPABASE_DB_URL" -tAc "select count(distinct voter_key) from public.vetos where official_resident is not null;")
+          total=$(psql "$SUPABASE_DB_URL" -tAc "select count(*) from public.citizens where resident;")
+          echo "Active vetos: $active / $total confirmed citizens"
+          if [ "$total" -eq 0 ]; then echo "No confirmed citizens yet."; exit 0; fi
+          pct=$(( active * 100 / total ))
+          step=$(( pct / 10 ))
+          if [ "$step" -eq 0 ]; then echo "Below 10% ($pct%) — nothing to announce."; exit 0; fi
+
+          # The Athens Monday of the current veto week (before 03:00 a day
+          # still belongs to the previous one — same rule as the app).
+          now=$(date +%s)
+          if [ "$(TZ=Europe/Athens date -d "@$now" +%H)" -lt 3 ]; then now=$(( now - 86400 )); fi
+          dow=$(TZ=Europe/Athens date -d "@$now" +%u)
+          week=$(TZ=Europe/Athens date -d "@$(( now - (dow - 1) * 86400 ))" +%F)
+
+          for s in $(seq 1 "$step"); do
+            title="🔴 ΒΕΤΟ ≥ $(( s * 10 ))% — εβδομάδα $week"
+            found=$(gh issue list --repo "$GITHUB_REPOSITORY" --state all --search "\"$title\" in:title" --json number --jq 'length')
+            if [ "$found" -gt 0 ]; then echo "Already announced: $title"; continue; fi
+            BODY=$'# 🔴 Βέτο πολιτών: ξεπέρασε το '"$(( s * 10 ))"$'%\n\n## **'"$active"$' από '"$total"$'** επιβεβαιωμένους δημότες έχουν ασκήσει βέτο αυτή την εβδομάδα ('"$pct"$'%).\n\nΑναλυτικά: /admin ▸ Δημοψηφίσματα ▸ Βέτο πολιτών.\n\n*Αυτόματο email από το workflow «Veto 10% step alert» — το issue κλείνει μόνο του, δεν χρειάζεται καμία ενέργεια.*'
+            url=$(gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$BODY")
+            gh issue close "${url##*/}" --repo "$GITHUB_REPOSITORY"
+            echo "Emailed: $title ($url)"
+          done
+
+      - name: Open a can't-miss issue (GitHub emails it) on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          BODY=$'# 🔴 Ο έλεγχος βημάτων του βέτο απέτυχε\n\n**Τι να κάνετε:** δείτε το [αποτυχημένο run]('"$RUN_URL"$') — συνηθέστερη αιτία: άλλαξε ο κωδικός της βάσης στο secret `SUPABASE_DB_URL`.\n\n*Αυτόματο issue από το workflow «Veto 10% step alert».*'
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "🔴 VETO ALERT CHECK FAILED — $(date -u +%Y-%m-%d)" \
+            --body "$BODY"

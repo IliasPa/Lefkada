@@ -221,6 +221,244 @@ drop policy if exists "pharmacy deletes own duty" on public.pharmacy_duty;
 create policy "pharmacy deletes own duty" on public.pharmacy_duty
   for delete using (created_by = auth.uid() or public.has_role('mayor'));
 
+-- ── Votes (v1.3) ─────────────────────────────────────────────────────────────
+-- Hashed, insert-only event log — SIGNED-IN citizens only (no anonymous
+-- device votes): voter_key = SHA-256('lefkada-verified-v1' ‖ auth-user-id ‖
+-- poll-id), so one account is one voter per poll, on any device. The per-poll
+-- hash keeps one account's votes unlinkable across polls in the stored data.
+-- A voter may insert again to CHANGE their vote: the tally counts only the
+-- LATEST row per (poll_id, voter_key). The insert policy («citizens vote»)
+-- lives after the citizens table below, which it checks.
+-- official_resident — the verification ladder of the voter's designation:
+--   null  = account not confirmed by the municipality
+--   false = confirmed by the MAYOR against the municipal roll (Δημότης)
+--   true  = confirmed via gov.gr (future tier; never client-settable)
+create table if not exists public.votes (
+  id         uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  -- 'ref_<uuid>' for /admin referendums, the bundled poll id otherwise
+  poll_id    text not null check (char_length(poll_id) between 1 and 80),
+  option_id  text not null check (char_length(option_id) between 1 and 40),
+  voter_key  text not null check (voter_key ~ '^[0-9a-f]{64}$')
+);
+create index if not exists votes_poll_idx on public.votes (poll_id, voter_key, created_at desc);
+alter table public.votes enable row level security;
+drop policy if exists "anyone votes" on public.votes;
+drop policy if exists "mayor reads votes" on public.votes;
+create policy "mayor reads votes" on public.votes
+  for select using (public.has_role('mayor'));
+drop policy if exists "mayor deletes votes" on public.votes;
+create policy "mayor deletes votes" on public.votes
+  for delete using (public.has_role('mayor'));
+
+-- ── Vetos (weekly, day-only) ─────────────────────────────────────────────────
+-- CONFIRMED Δημότες only (the «citizens veto» policy below the citizens
+-- table enforces it). One row per veto, no recall. Privacy: no timestamp is
+-- stored at all — only `day` (1 = Monday … 7 = Sunday, Athens time; Monday
+-- before 03:00 counts as Sunday). The weekly counter resets by an actions
+-- workflow that WIPES the table every Monday 03:00 Europe/Athens — so the
+-- table always holds exactly the current week. Weekly aggregates will be
+-- archived to the private git repo in a future version.
+drop table if exists public.veto_events;
+do $$ begin
+  if exists (select 1 from information_schema.columns
+             where table_schema = 'public' and table_name = 'vetos'
+               and column_name = 'created_at') then
+    drop table public.vetos;
+  end if;
+end $$;
+create table if not exists public.vetos (
+  id                uuid primary key default gen_random_uuid(),
+  day               smallint not null check (day between 1 and 7),
+  voter_key         text not null check (voter_key ~ '^[0-9a-f]{64}$'),
+  official_resident boolean
+);
+alter table public.vetos enable row level security;
+drop policy if exists "anyone vetos" on public.vetos;
+drop policy if exists "mayor reads vetos" on public.vetos;
+create policy "mayor reads vetos" on public.vetos
+  for select using (public.has_role('mayor'));
+drop policy if exists "mayor deletes vetos" on public.vetos;
+create policy "mayor deletes vetos" on public.vetos
+  for delete using (public.has_role('mayor'));
+
+-- ── Verified voting (v1.3) ───────────────────────────────────────────────────
+-- Free identity tier: Supabase email OTP — citizens sign in from the app's
+-- profile, and their voter_key becomes SHA-256('lefkada-verified-v1' ‖ auth
+-- user id ‖ poll-id) instead of the device hash. The key is computed client-
+-- side but ENFORCED here (see «citizen votes prove identity» below): a row
+-- may carry a non-null resident stamp only when its key equals that hash for
+-- the CALLING user — so anonymous callers can never impersonate a signed-in
+-- citizen, and one account is exactly one verified voter per poll.
+-- gov.gr OAuth later reuses all of this unchanged — it also lands as an auth
+-- user; only poll_participants.verified_via differs.
+create extension if not exists pgcrypto with schema extensions;
+
+-- votes.official_resident (see the votes section above for the meaning) —
+-- the block below upgrades every older database shape in place: it drops the
+-- legacy verified/self-declared columns and maps the old encoding (true =
+-- Δημότης) onto the new ladder (false = mayor-confirmed).
+do $$ begin
+  if exists (select 1 from information_schema.columns
+             where table_schema = 'public' and table_name = 'votes'
+               and column_name = 'verified') then
+    drop policy if exists "verified votes prove identity" on public.votes;
+    drop policy if exists "official residency comes from the registry" on public.votes;
+    alter table public.votes drop column if exists verified;
+    alter table public.votes drop column if exists resident;
+  end if;
+  if exists (select 1 from information_schema.columns
+             where table_schema = 'public' and table_name = 'votes'
+               and column_name = 'resident')
+     and not exists (select 1 from information_schema.columns
+             where table_schema = 'public' and table_name = 'votes'
+               and column_name = 'official_resident') then
+    drop policy if exists "citizen votes prove identity" on public.votes;
+    alter table public.votes rename column resident to official_resident;
+    update public.votes set official_resident = false where official_resident = true;
+  end if;
+end $$;
+alter table public.votes add column if not exists official_resident boolean;
+
+-- WHO took part (verified accounts only) — deliberately stored WITHOUT any
+-- timestamp and in a separate table, so a participant row can never be paired
+-- with a hashed ballot row by time or by insert order. This is the electoral-
+-- roll model: participation is visible to the mayor, the choice never is.
+create table if not exists public.poll_participants (
+  id           uuid primary key default gen_random_uuid(),
+  poll_id      text not null check (char_length(poll_id) between 1 and 80),
+  user_id      uuid not null,
+  email        text not null default '',
+  verified_via text not null default 'email' check (verified_via in ('email', 'govgr')),
+  unique (poll_id, user_id)
+);
+alter table public.poll_participants drop column if exists resident;
+alter table public.poll_participants enable row level security;
+-- Plain INSERT only (same reason as push_subscriptions): an upsert would need
+-- SELECT for the ON CONFLICT arbiter check, which citizens don't have — the
+-- app inserts and treats a 23505 duplicate as "already registered".
+drop policy if exists "verified users record own participation" on public.poll_participants;
+create policy "verified users record own participation" on public.poll_participants
+  for insert to authenticated
+  with check (user_id = auth.uid() and email = coalesce(auth.email(), ''));
+drop policy if exists "mayor reads participants" on public.poll_participants;
+create policy "mayor reads participants" on public.poll_participants
+  for select using (public.has_role('mayor'));
+drop policy if exists "mayor deletes participants" on public.poll_participants;
+create policy "mayor deletes participants" on public.poll_participants
+  for delete using (public.has_role('mayor'));
+
+-- Aggregated results the mayor chooses to publish on the app's front page.
+-- Only COUNTS ever leave the votes table — never rows, keys or timestamps.
+create table if not exists public.poll_results (
+  poll_id    text primary key check (char_length(poll_id) between 1 and 80),
+  updated_at timestamptz not null default now(),
+  published  boolean not null default true,
+  -- snapshot: { title_el, title_en, total, verified_total,
+  --             options: [{ id, label_el, label_en, all, verified }] }
+  data       jsonb not null
+);
+alter table public.poll_results enable row level security;
+drop policy if exists "public reads published results" on public.poll_results;
+create policy "public reads published results" on public.poll_results
+  for select using (published or public.has_role('mayor'));
+drop policy if exists "mayor writes results" on public.poll_results;
+create policy "mayor writes results" on public.poll_results
+  for all using (public.has_role('mayor')) with check (public.has_role('mayor'));
+
+-- The citizen registry (μητρώο): one row per verified account that has
+-- connected to the app. Identity fields are written by the citizen themselves
+-- (synced from their profile — name/ΑΦΜ optional, zero friction). The
+-- resident flag is the MUNICIPALITY's: the mayor checks the official roll and
+-- toggles it in /admin ▸ Δημοψηφίσματα ▸ Ψηφοφόροι. A trigger (not just RLS)
+-- guards the flag, so citizens can never designate themselves.
+create table if not exists public.citizens (
+  user_id         uuid primary key,
+  email           text not null default '',
+  full_name       text not null default '',
+  tax_number      text not null default '',
+  resident        boolean not null default false,
+  resident_set_at timestamptz,
+  updated_at      timestamptz not null default now()
+);
+alter table public.citizens enable row level security;
+
+create or replace function public.citizens_guard()
+returns trigger language plpgsql as $$
+begin
+  -- Guard only API requests (they carry JWT claims). Direct SQL — the
+  -- dashboard editor or psql as postgres — stays free for maintenance.
+  if coalesce(current_setting('request.jwt.claims', true), '') <> ''
+     and not public.has_role('mayor') then
+    if tg_op = 'INSERT' and (new.resident or new.resident_set_at is not null) then
+      raise exception 'resident flag is set by the municipality';
+    end if;
+    if tg_op = 'UPDATE' and (new.resident is distinct from old.resident
+                             or new.resident_set_at is distinct from old.resident_set_at) then
+      raise exception 'resident flag is set by the municipality';
+    end if;
+  end if;
+  if tg_op = 'UPDATE' and new.resident is distinct from old.resident then
+    new.resident_set_at = now();
+  end if;
+  new.updated_at = now();
+  return new;
+end $$;
+drop trigger if exists citizens_guard on public.citizens;
+create trigger citizens_guard before insert or update on public.citizens
+  for each row execute function public.citizens_guard();
+
+drop policy if exists "own or mayor reads citizens" on public.citizens;
+create policy "own or mayor reads citizens" on public.citizens
+  for select using (user_id = auth.uid() or public.has_role('mayor'));
+drop policy if exists "citizen inserts own row" on public.citizens;
+create policy "citizen inserts own row" on public.citizens
+  for insert to authenticated
+  with check (user_id = auth.uid() and email = coalesce(auth.email(), ''));
+drop policy if exists "citizen updates own row" on public.citizens;
+create policy "citizen updates own row" on public.citizens
+  for update to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid() and email = coalesce(auth.email(), ''));
+drop policy if exists "mayor updates citizens" on public.citizens;
+create policy "mayor updates citizens" on public.citizens
+  for update using (public.has_role('mayor')) with check (public.has_role('mayor'));
+drop policy if exists "mayor deletes citizens" on public.citizens;
+create policy "mayor deletes citizens" on public.citizens
+  for delete using (public.has_role('mayor'));
+
+-- Who may INSERT votes/vetos — defined down here because both policies check
+-- the citizens registry above. Signed-in accounts only; the voter_key must
+-- be the CALLING user's own account hash; official_resident must mirror the
+-- registry (confirmed Δημότης → false, otherwise null — «is not distinct
+-- from» makes the null comparison exact). true (the gov.gr tier) is reserved
+-- for the future server-side flow and can never come from a client. Vetos
+-- additionally REQUIRE confirmation: non-citizens cannot veto at all.
+drop policy if exists "citizen votes prove identity" on public.votes;
+drop policy if exists "citizens vote" on public.votes;
+create policy "citizens vote" on public.votes
+  for insert to authenticated
+  with check (
+    voter_key = encode(extensions.digest(
+      'lefkada-verified-v1:' || auth.uid()::text || ':' || poll_id, 'sha256'), 'hex')
+    and official_resident is not distinct from
+      (case when coalesce((select c.resident from public.citizens c where c.user_id = auth.uid()), false)
+            then false else null end)
+  );
+
+drop policy if exists "citizen vetos prove identity" on public.vetos;
+drop policy if exists "citizens veto" on public.vetos;
+create policy "citizens veto" on public.vetos
+  for insert to authenticated
+  with check (
+    voter_key = encode(extensions.digest(
+      'lefkada-verified-v1:' || auth.uid()::text || ':veto', 'sha256'), 'hex')
+    and official_resident is not distinct from
+      (case when coalesce((select c.resident from public.citizens c where c.user_id = auth.uid()), false)
+            then false else null end)
+    and official_resident is not null
+  );
+
 -- ── Web-push subscriptions ───────────────────────────────────────────────────
 create table if not exists public.push_subscriptions (
   id           uuid primary key default gen_random_uuid(),
