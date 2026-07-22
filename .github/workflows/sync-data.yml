@@ -25,7 +25,7 @@ jobs:
   sync:
     runs-on: ubuntu-latest # psql + node are preinstalled
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Bake published Supabase rows into the data files
         env:

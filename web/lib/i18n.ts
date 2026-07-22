@@ -166,12 +166,16 @@ const el: Record<string, string> = {
   vote_results_title: "Αποτελέσματα",
   vote_total_votes: "ψήφοι",
   vote_your_vote: "Η ψήφος σας:",
+  vote_results_hidden: "Τα αποτελέσματα δεν είναι διαθέσιμα ακόμη — θα εμφανιστούν όταν τα δημοσιεύσει ο δήμος.",
   vote_change: "Αλλαγή Ψήφου",
-  vote_send_error: "Η ψήφος καταγράφηκε στη συσκευή, αλλά δεν στάλθηκε στον διακομιστή — ελέγξτε τη σύνδεση και ψηφίστε ξανά.",
-  veto_send_error: "Το βέτο καταγράφηκε στη συσκευή, αλλά δεν στάλθηκε στον διακομιστή.",
+  vote_send_error:
+    "Η ψήφος καταγράφηκε στη συσκευή, αλλά δεν στάλθηκε στον διακομιστή — ελέγξτε τη σύνδεση και ψηφίστε ξανά.",
+  veto_send_error:
+    "Το βέτο καταγράφηκε στη συσκευή, αλλά δεν στάλθηκε στον διακομιστή.",
   // v1.3 — verified voting & published results
   acc_verify_section: "Επαλήθευση ψηφοφόρου",
-  acc_verify_intro: "Συνδεθείτε με το email σας για να μετρά η ψήφος σας ως επαληθευμένη — ένας λογαριασμός, μία ψήφος, από όποια συσκευή κι αν ψηφίσετε. Η επιλογή σας παραμένει ανώνυμη.",
+  acc_verify_intro:
+    "Συνδεθείτε με το email σας για να μετρά η ψήφος σας ως επαληθευμένη — ένας λογαριασμός, μία ψήφος, από όποια συσκευή κι αν ψηφίσετε. Η επιλογή σας παραμένει ανώνυμη.",
   acc_verify_send: "Αποστολή κωδικού",
   acc_verify_sent_to: "Στείλαμε 8-ψήφιο κωδικό στο",
   acc_verify_code_ph: "8-ψήφιος κωδικός",
@@ -179,29 +183,40 @@ const el: Record<string, string> = {
   acc_verify_back: "Αλλαγή email",
   acc_verified_badge: "Επαληθευμένος λογαριασμός",
   acc_sign_out: "Αποσύνδεση",
-  acc_sign_out_hint: "Αποσυνδεθείτε για να ψηφίσει άλλο άτομο (με δικό του λογαριασμό) από την ίδια συσκευή.",
+  acc_sign_out_hint:
+    "Αποσυνδεθείτε για να ψηφίσει άλλο άτομο (με δικό του λογαριασμό) από την ίδια συσκευή.",
   acc_verify_error: "Δεν ολοκληρώθηκε",
-  acc_verify_govgr_note: "Η σύνδεση μέσω gov.gr θα προστεθεί όταν ολοκληρωθεί η έγκριση του δήμου.",
+  acc_verify_govgr_note:
+    "Η σύνδεση μέσω gov.gr θα προστεθεί όταν ολοκληρωθεί η έγκριση του δήμου.",
   vote_verified_line: "Η ψήφος σας θα καταγραφεί ως επαληθευμένη",
   vote_verify_cta: "Κάντε την ψήφο σας επαληθευμένη — σύνδεση με email",
   acc_tax_number: "ΑΦΜ",
-  acc_tax_note: "Προς το παρόν το συμπληρώνετε εσείς — με τη μελλοντική σύνδεση gov.gr θα συμπληρώνεται αυτόματα.",
+  acc_tax_note:
+    "Προς το παρόν το συμπληρώνετε εσείς — με τη μελλοντική σύνδεση gov.gr θα συμπληρώνεται αυτόματα.",
   acc_health: "Υγεία",
   acc_amka: "ΑΜΚΑ",
-  acc_health_note: "Τα στοιχεία υγείας απλώς αποθηκεύονται στη συσκευή σας — θα αξιοποιηθούν από την καρτέλα Υγεία σε μελλοντική ενημέρωση.",
-  acc_verify_code_or_link: "Γράψτε εδώ τον 8-ψήφιο κωδικό από το email — δείτε και τα ανεπιθύμητα. Αν το email περιέχει σύνδεσμο, απλώς πατήστε τον.",
-  acc_signup_disabled: "Οι εγγραφές πολιτών δεν έχουν ενεργοποιηθεί ακόμη από τον δήμο — δοκιμάστε ξανά σύντομα.",
-  acc_email_send_fail: "Το email δεν στάλθηκε — προσωρινό πρόβλημα του διακομιστή αλληλογραφίας. Δοκιμάστε ξανά σε λίγο.",
+  acc_health_note:
+    "Τα στοιχεία υγείας απλώς αποθηκεύονται στη συσκευή σας — θα αξιοποιηθούν από την καρτέλα Υγεία σε μελλοντική ενημέρωση.",
+  acc_verify_code_or_link:
+    "Γράψτε εδώ τον 8-ψήφιο κωδικό από το email — δείτε και τα ανεπιθύμητα.",
+  acc_signup_disabled:
+    "Οι εγγραφές πολιτών δεν έχουν ενεργοποιηθεί ακόμη από τον δήμο — δοκιμάστε ξανά σύντομα.",
+  acc_email_send_fail:
+    "Το email δεν στάλθηκε — προσωρινό πρόβλημα του διακομιστή αλληλογραφίας. Δοκιμάστε ξανά σε λίγο.",
   acc_veto_hold_hint: "Κρατήστε πατημένο για 4 δευτερόλεπτα",
-  acc_veto_active_week: "Το βέτο σας είναι ενεργό αυτή την εβδομάδα",
-  acc_veto_resets: "Μηδενίζεται κάθε Δευτέρα στις 03:00",
+  acc_veto_active_week: "Το βέτο σας είναι ενεργό",
+  acc_veto_resets: "Παραμένει ενεργό για 7 ημέρες",
   acc_veto_need_signin: "Για να ασκήσετε βέτο, συνδεθείτε με το email σας →",
-  acc_veto_need_citizen: "Το βέτο είναι διαθέσιμο μόνο σε επιβεβαιωμένους δημότες Λευκάδας. Είστε συνδεδεμένοι — μένει η επιβεβαίωση από τον δήμο (γίνεται με βάση το δημοτολόγιο, χωρίς καμία δική σας ενέργεια).",
+  acc_veto_need_citizen:
+    "Το βέτο είναι διαθέσιμο μόνο σε επιβεβαιωμένους δημότες Λευκάδας. Είστε συνδεδεμένοι — μένει η επιβεβαίωση από τον δήμο (γίνεται με βάση το δημοτολόγιο, χωρίς καμία δική σας ενέργεια).",
   vote_signin_to_vote: "Συνδεθείτε για να ψηφίσετε",
-  acc_sync_note: "Όσο είστε επαληθευμένοι, το ονοματεπώνυμο και το ΑΦΜ από τα στοιχεία σας αποστέλλονται στον δήμο μόνο για την αντιστοίχιση με το δημοτολόγιο.",
+  acc_sync_note:
+    "Όσο είστε επαληθευμένοι, το ονοματεπώνυμο και το ΑΦΜ από τα στοιχεία σας αποστέλλονται στον δήμο μόνο για την αντιστοίχιση με το δημοτολόγιο.",
   acc_citizen_badge: "Δημότης/-ισσα Λευκάδας — καταχώρηση δήμου",
-  acc_citizen_changed_on: "Ο δήμος σάς καταχώρησε ως δημότη/-ισσα Λευκάδας — η ψήφος σας μετρά πλέον στη βασική στατιστική.",
-  acc_citizen_changed_off: "Ο δήμος ενημέρωσε την ιδιότητά σας: εκτός δημοτολογίου Λευκάδας. Η ψήφος σας συνεχίζει κανονικά να μετρά στα συνολικά αποτελέσματα.",
+  acc_citizen_changed_on:
+    "Ο δήμος σάς καταχώρησε ως δημότη/-ισσα Λευκάδας — η ψήφος σας μετρά πλέον στη βασική στατιστική.",
+  acc_citizen_changed_off:
+    "Ο δήμος ενημέρωσε την ιδιότητά σας: εκτός δημοτολογίου Λευκάδας. Η ψήφος σας συνεχίζει κανονικά να μετρά στα συνολικά αποτελέσματα.",
   home_results_title: "Αποτελέσματα ψηφοφοριών",
   home_results_official: "Επίσημη δημοσίευση από τον Δήμο",
   home_results_verified: "επαληθευμένες",
@@ -242,7 +257,8 @@ const el: Record<string, string> = {
   health_call: "Κλήση",
   health_emergency: "Έκτακτη Ανάγκη",
   health_pharmacies: "Φαρμακεία",
-  health_future_note: "Η παρακολούθηση εξετάσεων είναι προεπισκόπηση — η λειτουργία θα ενεργοποιηθεί σε μελλοντική έκδοση.",
+  health_future_note:
+    "Η παρακολούθηση εξετάσεων είναι προεπισκόπηση — η λειτουργία θα ενεργοποιηθεί σε μελλοντική έκδοση.",
   health_pharmacy_aria: "Εφημερεύοντα φαρμακεία",
   health_onduty: "Εφημερεύον",
   health_directions: "Οδηγίες",
@@ -423,7 +439,8 @@ const el: Record<string, string> = {
   settings_profile: "Το προφίλ μου",
   acc_active_votings: "Ενεργές ψηφοφορίες",
   acc_see_old_votings: "Δείτε παλαιότερες ψηφοφορίες",
-  settings_profile_moved: "Το προφίλ, το βιογραφικό και οι γιατροί μετακινήθηκαν στις Ρυθμίσεις ⚙️.",
+  settings_profile_moved:
+    "Το προφίλ, το βιογραφικό και οι γιατροί μετακινήθηκαν στις Ρυθμίσεις ⚙️.",
   settings_mayor_anonymous: "Ανώνυμα",
   settings_mayor_with_profile: "Με στοιχεία",
   settings_mayor_placeholder: "Γράψτε το μήνυμά σας προς τον Δήμαρχο...",
@@ -527,16 +544,19 @@ const el: Record<string, string> = {
   services_title: "Υπηρεσίες προς τον Πολίτη",
   services_engage: "Εξυπηρέτηση Πολίτη",
   services_report: "Αναφορά Προβλήματος",
-  services_report_desc: "Αναφέρετε ένα πρόβλημα της πόλης (λακκούβα, φωτισμός, καθαριότητα) και παρακολουθήστε το αίτημά σας.",
+  services_report_desc:
+    "Αναφέρετε ένα πρόβλημα της πόλης (λακκούβα, φωτισμός, καθαριότητα) και παρακολουθήστε το αίτημά σας.",
   services_eservices: "Ηλεκτρονικές Υπηρεσίες (gov.gr)",
-  services_eservices_desc: "Πιστοποιητικά και ληξιαρχικές πράξεις μέσω της Ενιαίας Ψηφιακής Πύλης gov.gr.",
+  services_eservices_desc:
+    "Πιστοποιητικά και ληξιαρχικές πράξεις μέσω της Ενιαίας Ψηφιακής Πύλης gov.gr.",
   services_epayments: "Ηλεκτρονικές Πληρωμές",
   services_social: "Κοινωνικές Υπηρεσίες",
   services_environment: "Καθαριότητα & Νερό",
   services_safety: "Ασφάλεια & Διαφάνεια",
   services_waste: "Αποκομιδή & Ανακύκλωση",
   services_waste_areas: "Ενδεικτικό πρόγραμμα ανά περιοχή",
-  services_waste_note: "Ενδεικτικά. Το ακριβές πρόγραμμα ανά περιοχή ορίζεται εποχικά από την Υπηρεσία Καθαριότητας.",
+  services_waste_note:
+    "Ενδεικτικά. Το ακριβές πρόγραμμα ανά περιοχή ορίζεται εποχικά από την Υπηρεσία Καθαριότητας.",
   services_emergency: "Τηλέφωνα Έκτακτης Ανάγκης",
   services_projects_cta: "Άνοιγμα έργων ΕΣΠΑ",
   services_bulky_call: "Ογκώδη/κλαδέματα",
@@ -734,11 +754,14 @@ const en: Record<string, string> = {
   vote_results_title: "Results",
   vote_total_votes: "votes",
   vote_your_vote: "Your vote:",
+  vote_results_hidden: "Results aren't available yet — they'll appear once the municipality publishes them.",
   vote_change: "Change Vote",
-  vote_send_error: "Your vote was saved on this device but did not reach the server — check your connection and vote again.",
+  vote_send_error:
+    "Your vote was saved on this device but did not reach the server — check your connection and vote again.",
   // v1.3 — verified voting & published results
   acc_verify_section: "Voter verification",
-  acc_verify_intro: "Sign in with your email so your vote counts as verified — one account, one vote, from any device. Your choice stays anonymous.",
+  acc_verify_intro:
+    "Sign in with your email so your vote counts as verified — one account, one vote, from any device. Your choice stays anonymous.",
   acc_verify_send: "Send code",
   acc_verify_sent_to: "We sent an 8-digit code to",
   acc_verify_code_ph: "8-digit code",
@@ -746,36 +769,48 @@ const en: Record<string, string> = {
   acc_verify_back: "Change email",
   acc_verified_badge: "Verified account",
   acc_sign_out: "Sign out",
-  acc_sign_out_hint: "Sign out so another person can vote (with their own account) from this device.",
+  acc_sign_out_hint:
+    "Sign out so another person can vote (with their own account) from this device.",
   acc_verify_error: "That didn't work",
-  acc_verify_govgr_note: "gov.gr sign-in will be added once the municipality's approval is complete.",
+  acc_verify_govgr_note:
+    "gov.gr sign-in will be added once the municipality's approval is complete.",
   vote_verified_line: "Your vote will be recorded as verified",
   vote_verify_cta: "Make your vote verified — sign in with email",
   acc_tax_number: "Tax number (ΑΦΜ)",
-  acc_tax_note: "For now you fill it in yourself — with the future gov.gr sign-in it will be filled automatically.",
+  acc_tax_note:
+    "For now you fill it in yourself — with the future gov.gr sign-in it will be filled automatically.",
   acc_health: "Health",
   acc_amka: "AMKA (social security no.)",
-  acc_health_note: "Health details are only stored on your device — the Health tab will use them in a future update.",
-  acc_verify_code_or_link: "Enter the 8-digit code from the email here — check spam too. If the email contains a link instead, simply tap it.",
-  acc_signup_disabled: "Citizen sign-ups have not been enabled by the municipality yet — please try again soon.",
-  acc_email_send_fail: "The email could not be sent — temporary mail-server problem. Please try again shortly.",
+  acc_health_note:
+    "Health details are only stored on your device — the Health tab will use them in a future update.",
+  acc_verify_code_or_link:
+    "Enter the 8-digit code from the email here — check spam too.",
+  acc_signup_disabled:
+    "Citizen sign-ups have not been enabled by the municipality yet — please try again soon.",
+  acc_email_send_fail:
+    "The email could not be sent — temporary mail-server problem. Please try again shortly.",
   acc_veto_hold_hint: "Press and hold for 4 seconds",
-  acc_veto_active_week: "Your veto is active this week",
-  acc_veto_resets: "Resets every Monday at 03:00",
+  acc_veto_active_week: "Your veto is active",
+  acc_veto_resets: "Stays active for 7 days",
   acc_veto_need_signin: "To exercise the veto, sign in with your email →",
-  acc_veto_need_citizen: "The veto is available only to confirmed citizens of Lefkada. You are signed in — what remains is the municipality's confirmation (done against the municipal roll, no action needed from you).",
+  acc_veto_need_citizen:
+    "The veto is available only to confirmed citizens of Lefkada. You are signed in — what remains is the municipality's confirmation (done against the municipal roll, no action needed from you).",
   vote_signin_to_vote: "Sign in to vote",
-  acc_sync_note: "While you are verified, the name and tax number from your details are sent to the municipality solely for matching against the municipal roll.",
+  acc_sync_note:
+    "While you are verified, the name and tax number from your details are sent to the municipality solely for matching against the municipal roll.",
   acc_citizen_badge: "Citizen of Lefkada — set by the municipality",
-  acc_citizen_changed_on: "The municipality registered you as a citizen of Lefkada — your vote now counts in the main statistic.",
-  acc_citizen_changed_off: "The municipality updated your status: not on the Lefkada municipal roll. Your vote still counts normally in the overall results.",
+  acc_citizen_changed_on:
+    "The municipality registered you as a citizen of Lefkada — your vote now counts in the main statistic.",
+  acc_citizen_changed_off:
+    "The municipality updated your status: not on the Lefkada municipal roll. Your vote still counts normally in the overall results.",
   home_results_title: "Voting results",
   home_results_official: "Official publication by the Municipality",
   home_results_verified: "verified",
   home_results_residents: "residents' votes",
   home_results_total: "in total",
   home_results_updated: "Updated",
-  veto_send_error: "Your veto was saved on this device but did not reach the server.",
+  veto_send_error:
+    "Your veto was saved on this device but did not reach the server.",
   vote_about_btn: "About This Poll",
   vote_about_hide: "Hide",
   vote_no_polls: "No active polls at this time.",
@@ -808,7 +843,8 @@ const en: Record<string, string> = {
   health_call: "Call",
   health_emergency: "Emergency",
   health_pharmacies: "Pharmacies",
-  health_future_note: "The exam tracker is a preview — this feature will be enabled in a future update.",
+  health_future_note:
+    "The exam tracker is a preview — this feature will be enabled in a future update.",
   health_pharmacy_aria: "Pharmacies on duty",
   health_onduty: "On duty",
   health_directions: "Directions",
@@ -1083,16 +1119,19 @@ const en: Record<string, string> = {
   services_title: "Citizen Services",
   services_engage: "Citizen Engagement",
   services_report: "Report a Problem",
-  services_report_desc: "Report a city issue (pothole, lighting, cleanliness) and track your request.",
+  services_report_desc:
+    "Report a city issue (pothole, lighting, cleanliness) and track your request.",
   services_eservices: "E-Services (gov.gr)",
-  services_eservices_desc: "Certificates and civil-registry acts through the gov.gr national portal.",
+  services_eservices_desc:
+    "Certificates and civil-registry acts through the gov.gr national portal.",
   services_epayments: "E-Payments",
   services_social: "Social Services",
   services_environment: "Cleanliness & Water",
   services_safety: "Safety & Integrity",
   services_waste: "Collection & Recycling",
   services_waste_areas: "Indicative schedule by area",
-  services_waste_note: "Indicative. The exact per-area schedule is set seasonally by the Cleanliness Service.",
+  services_waste_note:
+    "Indicative. The exact per-area schedule is set seasonally by the Cleanliness Service.",
   services_emergency: "Emergency Numbers",
   services_projects_cta: "Open NSRF projects",
   services_bulky_call: "Bulky/branches",

@@ -19,7 +19,7 @@ import PollBlock, { isPollClosed } from "@/components/PollBlock";
 import { pollsData } from "@/data/voting";
 import {
   fetchLiveReferendums, fetchOwnCitizenStatus, getVerifiedUser, mergeById,
-  submitMayorMessage, submitVeto, vetoWeek, useLive,
+  submitMayorMessage, submitVeto, athensToday, isVetoActive, useLive,
 } from "@/lib/backend";
 import { backendConfigured } from "@/lib/supabase";
 
@@ -50,10 +50,10 @@ export default function SettingsPanel() {
 
   useEffect(() => {
     setAnonymous(storageGet<boolean>(KEYS.mayorAnonymous, true));
-    // Active only while the stored week IS the current week — every Monday
-    // 03:00 (Athens) the comparison fails and the veto resets by itself.
-    // (Legacy `true` from the old on/off model also fails the comparison.)
-    setVetoActive(storageGet<string | boolean>(KEYS.veto, "") === vetoWeek());
+    // Active for 7 days from the day it was cast; after that the stored date
+    // falls outside the window and the veto button comes back (renewal).
+    // (Legacy `true`/week-string values just read as inactive.)
+    setVetoActive(isVetoActive(storageGet<string>(KEYS.veto, "")));
     const p = storageGet<{ fullName?: string; email?: string }>(KEYS.profile, {});
     setIdentity({ fullName: p.fullName ?? "", email: p.email ?? "" });
     if (backendConfigured) {
@@ -84,7 +84,7 @@ export default function SettingsPanel() {
 
   const confirmVeto = useCallback(() => {
     setVetoActive(true);
-    storageSet(KEYS.veto, vetoWeek());
+    storageSet(KEYS.veto, athensToday());
     setVetoSendError(false);
     submitVeto().then((ok) => setVetoSendError(!ok));
     setVetoOverlay(true); // the red-stamp ceremony, now purely confirmation

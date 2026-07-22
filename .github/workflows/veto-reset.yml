@@ -1,44 +1,36 @@
-name: Weekly veto reset
+name: Veto 7-day expiry cleanup
 
-# The veto counter lives for exactly one week: this job WIPES public.vetos
-# every Monday at 03:00 Europe/Athens — the app and /admin treat the table as
-# "the current week" by construction (rows store only the weekday 1–7, no
-# timestamps). Two UTC crons cover summer/winter time; the job exits without
-# touching anything unless it is actually 03:xx in Athens. Per-day totals are
-# printed to the run log before deleting; weekly archival into the private
-# git repository arrives in a future version.
+# A veto stays ACTIVE for 7 days from the day it was cast — there is no weekly
+# Monday reset. This job runs daily and DELETES rows older than 7 days so the
+# table stays small and a citizen can veto again once theirs lapses. The counts
+# in the app and /admin already filter by date, so timing here is not critical.
+# Per-day totals are printed to the run log before deleting.
 
 on:
   schedule:
-    - cron: '5 0 * * 1' # 03:05 Athens during summer time (EEST, UTC+3)
-    - cron: '5 1 * * 1' # 03:05 Athens during winter time (EET, UTC+2)
-  workflow_dispatch: {} # manual runs outside 03:xx Athens skip harmlessly
+    - cron: '20 2 * * *' # ~04:20/05:20 Athens; any daily run is fine
+  workflow_dispatch: {}
 
 permissions:
   contents: read
   issues: write # the failure alarm
 
 jobs:
-  reset:
+  cleanup:
     runs-on: ubuntu-latest
     steps:
-      - name: Wipe the weekly veto table (only at 03:xx Athens)
+      - name: Delete vetos older than 7 days
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
-          hour=$(TZ=Europe/Athens date +%H)
-          if [ "$hour" != "03" ]; then
-            echo "Athens hour is $hour — not the reset hour; skipping (DST guard)."
-            exit 0
-          fi
           if [ -z "$SUPABASE_DB_URL" ]; then
             echo "SUPABASE_DB_URL secret is missing" >&2
             exit 1
           fi
-          echo "Per-day veto totals about to be cleared:"
-          psql "$SUPABASE_DB_URL" -c "select day, count(distinct voter_key) as vetos from public.vetos group by day order by day;"
-          psql "$SUPABASE_DB_URL" -c "delete from public.vetos;"
-          echo "Veto table cleared for the new week."
+          echo "Per-day veto totals (current 7-day window):"
+          psql "$SUPABASE_DB_URL" -c "select veto_date, count(*) as vetos from public.vetos group by veto_date order by veto_date;"
+          psql "$SUPABASE_DB_URL" -c "delete from public.vetos where veto_date < (public.athens_today() - 6);"
+          echo "Expired vetos (older than 7 days) cleared."
 
       - name: Open a can't-miss issue (GitHub emails it) on failure
         if: failure()
@@ -46,7 +38,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          BODY=$'# 🔴 Ο εβδομαδιαίος μηδενισμός του βέτο απέτυχε\n\n## Ο μετρητής βέτο ΔΕΝ μηδενίστηκε — δείχνει ακόμη την προηγούμενη εβδομάδα.\n\n**Τι να κάνετε:** δείτε το [αποτυχημένο run]('"$RUN_URL"$') — συνηθέστερη αιτία: το secret `SUPABASE_DB_URL` λείπει ή άλλαξε ο κωδικός της βάσης. Μετά τη διόρθωση τρέξτε το workflow χειροκίνητα (Δευτέρα 03:00–03:59 ώρα Ελλάδας) ή διαγράψτε τις γραμμές του πίνακα `vetos` από το SQL Editor.\n\n*Αυτόματο issue από το workflow «Weekly veto reset».*'
+          BODY=$'# 🔴 Ο καθαρισμός των ληγμένων βέτο απέτυχε\n\n## Ο πίνακας `vetos` ενδέχεται να κρατά ληγμένες εγγραφές (πάνω από 7 ημέρες).\n\n**Τι να κάνετε:** δείτε το [αποτυχημένο run]('"$RUN_URL"$') — συνηθέστερη αιτία: το secret `SUPABASE_DB_URL` λείπει ή άλλαξε ο κωδικός της βάσης. Μετά τη διόρθωση τρέξτε το workflow χειροκίνητα ή διαγράψτε τις παλιές γραμμές του πίνακα `vetos` από το SQL Editor.\n\n*Αυτόματο issue από το workflow «Veto 7-day expiry cleanup».*'
           gh issue create --repo "$GITHUB_REPOSITORY" \
-            --title "🔴 VETO RESET FAILED — $(date -u +%Y-%m-%d)" \
+            --title "🔴 VETO CLEANUP FAILED — $(date -u +%Y-%m-%d)" \
             --body "$BODY"

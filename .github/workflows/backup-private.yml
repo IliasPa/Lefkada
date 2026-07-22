@@ -1,0 +1,71 @@
+name: Private data backup (Supabase → Lefkada_private)
+
+# Archives the PRIVATE tables (roles, inbox, applications, citizen registry,
+# participation, results-visibility, and the veto per-day counts) into a
+# SEPARATE private repo — the same idea as the weekly public data sync, but the
+# data never touches the public repo. Runs DAILY on purpose: vetos are kept
+# only 7 days in Supabase, so the per-day counts must be captured before they
+# are cleaned up.
+#
+# Needs two secrets on THIS (public) repo:
+#   · SUPABASE_DB_URL      — the Postgres connection string (already used by the
+#                            other workflows).
+#   · PRIVATE_BACKUP_TOKEN — a GitHub Personal Access Token with write access to
+#                            the private repo `<owner>/Lefkada_private`
+#                            (fine-grained: that repo, Contents: read/write).
+# The private repo must already exist with at least one commit (create it with
+# an initial README).
+
+on:
+  schedule:
+    - cron: '30 2 * * *' # daily, ~04:30/05:30 Athens
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write # the failure alarm
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest # psql + node preinstalled
+    steps:
+      - uses: actions/checkout@v5 # this repo → the backup script
+
+      - name: Clone the private backup repo
+        env:
+          TOKEN: ${{ secrets.PRIVATE_BACKUP_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then echo "PRIVATE_BACKUP_TOKEN secret is missing" >&2; exit 1; fi
+          git clone --depth 1 \
+            "https://x-access-token:${TOKEN}@github.com/${{ github.repository_owner }}/Lefkada_private.git" \
+            private
+
+      - name: Dump the private tables into the backup repo
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PRIVATE_DIR: ${{ github.workspace }}/private/data
+        run: node scripts/backup-private.mjs
+
+      - name: Commit and push to the private repo (only if something changed)
+        run: |
+          cd private
+          git config user.name  'backup-bot'
+          git config user.email 'actions@github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No changes to back up today.'
+          else
+            git commit -m "private backup $(date -u +%Y-%m-%d)"
+            git push
+          fi
+
+      - name: Open a can't-miss issue (GitHub emails it) on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          BODY=$'# 🔴 Το ιδιωτικό backup απέτυχε\n\n## Τα δεδομένα μένουν στη Supabase — απλώς δεν αρχειοθετήθηκαν σήμερα.\n\n**Τι να κάνετε:** δείτε το [αποτυχημένο run]('"$RUN_URL"$') — συνηθέστερες αιτίες: λείπει/έληξε το secret `PRIVATE_BACKUP_TOKEN`, δεν υπάρχει το repo `Lefkada_private`, ή άλλαξε ο κωδικός της βάσης στο `SUPABASE_DB_URL`.\n\n*Αυτόματο issue από το workflow «Private data backup».*'
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "🔴 PRIVATE BACKUP FAILED — $(date -u +%Y-%m-%d)" \
+            --body "$BODY"

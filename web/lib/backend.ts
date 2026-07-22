@@ -245,30 +245,20 @@ export async function fetchPharmacyDuty(): Promise<DutyRow[] | null> {
   return data as DutyRow[];
 }
 
-// ── Voting & veto (v1.3) ─────────────────────────────────────────────────────
-// Hashed, insert-only, SIGNED-IN citizens only: every ballot row carries
-// voter_key = SHA-256(seed ‖ auth-user-id ‖ poll-id) — one account is one
-// voter per poll, on any device — and the «citizens vote» RLS policy accepts
-// a row only when its key equals that hash for the CALLING user, so nobody
-// can vote as anyone else. Vote changes are new inserts; the tally counts
-// each voter_key's LATEST row. Anonymous device voting was removed on
-// purpose — without the backend configured, the on-device demo tally is all
-// there is.
-//
-// The seed is a CONSTANT on purpose: it must equal the literal inside the
-// policies in supabase/schema.sql (secrecy adds nothing — the user id is the
-// unguessable part). gov.gr OAuth (when the municipality's ΚΕΔ approval
-// lands) plugs in as a second sign-in method producing the same auth user —
-// keys, tables and tallies all stay unchanged.
+// ── Voting & veto (v1.4) ─────────────────────────────────────────────────────
+// SIGNED-IN citizens only, one shot (no changing a cast vote). A vote is split
+// so nobody can find who voted what: public.cast_vote(poll_id, option_index)
+// records WHO in `referendums_participants` (its unique(poll_id, user_id) is the
+// one-vote gate) and the choice in `referendums_results` (counts only, no
+// voter). The function stamps residency from the citizens registry server-side,
+// so it is always correct. There is no per-voter ballot anywhere.
+// For the veto, voter_key = SHA-256(seed ‖ auth-user-id ‖ 'veto' ‖ week-Monday),
+// so it differs every week. The seed is a CONSTANT on purpose: it must equal
+// the literal inside supabase/schema.sql (secrecy adds nothing — the user id is
+// the unguessable part). gov.gr OAuth later plugs in as a second sign-in method
+// producing the same auth user — everything stays unchanged.
 
-import { KEYS, storageGet, storageSet } from './storage';
-
-const VERIFIED_SEED = 'lefkada-verified-v1';
-
-async function sha256Hex(s: string): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
-  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
-}
+import { KEYS, storageGet } from './storage';
 
 export interface VerifiedUser {
   id: string;
@@ -348,137 +338,87 @@ export async function fetchOwnCitizenStatus(): Promise<CitizenStatus | null> {
   return (data as CitizenStatus) ?? null;
 }
 
-/** Push the profile's identity fields (name/ΑΦΜ) into the registry so the
- *  mayor can match the account against the municipal roll. Only runs while
- *  verified; the resident flag itself is untouchable from the client. */
+/** Push the profile's NAME into the registry so the mayor can match the account
+ *  against the municipal roll. Only runs while verified. The ΑΦΜ is NOT synced —
+ *  a self-declared tax number can't prove identity, so it stays empty until the
+ *  future gov.gr flow sets it (a database trigger also rejects it from clients);
+ *  the resident flag is likewise untouchable from the client. */
 export async function syncCitizenProfile(): Promise<void> {
   const sb = getSupabase();
   if (!sb) return;
   const user = await getVerifiedUser();
   if (!user) return;
-  const p = storageGet<{ fullName?: string; taxNumber?: string }>(KEYS.profile, {});
+  const p = storageGet<{ fullName?: string }>(KEYS.profile, {});
   await sb.from('citizens').upsert({
     user_id: user.id,
     email: user.email,
     full_name: (p.fullName ?? '').trim(),
-    tax_number: (p.taxNumber ?? '').trim(),
   });
 }
 
-/** Silently refresh the official-residency stamp of this account's vote on a
- *  still-open poll: when the mayor designates a citizen AFTER they voted, the
- *  next visit to the poll re-submits their unchanged choice with the fresh
- *  stamp, so the Δημότες statistic self-heals without any citizen action. */
-export async function restampVoteIfNeeded(pollId: string): Promise<void> {
-  const sb = getSupabase();
-  if (!sb) return;
-  const user = await getVerifiedUser();
-  if (!user) return;
-  const choice = storageGet<Record<string, string>>(KEYS.myVotes, {})[pollId];
-  if (!choice) return;
-  const official = (await fetchOwnCitizenStatus())?.resident ?? false;
-  const stamps = storageGet<Record<string, boolean>>(KEYS.voteStamps, {});
-  if (stamps[pollId] === official) return;
-  await submitVote(pollId, choice); // records the fresh stamp itself
-}
-
-/** The `official_resident` stamp for the current account, mirroring exactly
- *  what the «citizens vote/veto» policies will accept: false = confirmed by
- *  the mayor against the municipal roll, null = not confirmed. (true is the
- *  gov.gr tier — server-side only, in a future version.) */
-async function officialStamp(): Promise<boolean | null> {
-  return (await fetchOwnCitizenStatus())?.resident ? false : null;
-}
-
-/** Record (or change) a vote — signed-in citizens only (anonymous device
- *  voting was removed). The row carries the account-bound key plus the
- *  3-state `official_resident` stamp, both re-checked by RLS. Voters also
- *  land in the participation registry. Resolves false when the backend is
- *  configured but the insert failed — the caller must SAY so, never
- *  pretend. */
-export async function submitVote(pollId: string, optionId: string): Promise<boolean> {
+/** Record a vote — signed-in citizens only, ONE shot (there is no changing a
+ *  cast vote). Everything happens inside public.cast_vote(): it enforces one
+ *  ballot per account per poll, stamps residency from the registry, and writes
+ *  the choice only as an anonymous tally, so who-voted and what-was-chosen are
+ *  never linkable. `optionIndex` is the 0-based position of the option on the
+ *  ballot. Resolves true when the vote landed OR the account had already voted
+ *  (23505); false only when a configured backend genuinely failed — the caller
+ *  must SAY so, never pretend. */
+export async function submitVote(pollId: string, optionIndex: number): Promise<boolean> {
   const sb = getSupabase();
   if (!sb) return true; // no backend — the on-device demo tally is the whole story
   try {
     const user = await getVerifiedUser();
     if (!user) return false; // the UI asks for sign-in before ever calling this
-    const stamp = await officialStamp();
-    const { error } = await sb.from('votes').insert({
-      poll_id: pollId,
-      option_id: optionId,
-      voter_key: await sha256Hex(`${VERIFIED_SEED}:${user.id}:${pollId}`),
-      official_resident: stamp,
-    });
-    if (error) return false;
-    const stamps = storageGet<Record<string, boolean>>(KEYS.voteStamps, {});
-    storageSet(KEYS.voteStamps, { ...stamps, [pollId]: stamp === false });
-    // Participation registry: WHO took part — never what they chose. Stored
-    // without any timestamp so it can't be paired with the ballot row.
-    // Plain insert (not upsert — citizens can't SELECT for the ON CONFLICT
-    // arbiter); a 23505 duplicate just means "already registered". Best-
-    // effort: the vote above already landed.
-    await sb.from('poll_participants').insert({
-      poll_id: pollId,
-      user_id: user.id,
-      email: user.email,
-      verified_via: 'email',
-    });
+    const { error } = await sb.rpc('cast_vote', { p_poll_id: pollId, p_option: optionIndex });
+    // 23505 = already voted (one ballot per account) — treat as success.
+    if (error && (error as { code?: string }).code !== '23505') return false;
     return true;
   } catch {
     return false;
   }
 }
 
-// ── Veto (weekly, day-only) ──────────────────────────────────────────────────
-// Confirmed Δημότες only, one shot, no recall. Privacy: rows store ONLY the
-// weekday (1 = Monday … 7 = Sunday, Athens; Monday before 03:00 counts as
-// Sunday) — no timestamps at all. The weekly counter resets because a GitHub
-// workflow wipes the table every Monday 03:00 Europe/Athens, so the table
-// always holds exactly the current week.
+// ── Veto (rolling 7-day, date-only) ──────────────────────────────────────────
+// Confirmed Δημότες only. A veto stays ACTIVE for 7 days from the day it was
+// cast, then stops counting — there is no weekly Monday reset. Everything runs
+// inside public.cast_veto() (SECURITY DEFINER): it refuses non-Δημότες, is
+// idempotent while a veto is active, and lets a citizen renew once their 7 days
+// lapse. Rows store only the Athens date + a hashed key.
 
-/** The Monday of the current veto week ('YYYY-MM-DD', Athens, weeks turn at
- *  Monday 03:00). Used for the device's own weekly button reset and the
- *  admin's week label — and mirrored in the alert workflow. */
+/** Today's Athens calendar date ('YYYY-MM-DD'). Mirrors athens_today(). */
+export function athensToday(at: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Athens', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(at);
+}
+
+/** Whether a veto cast on `storedDate` ('YYYY-MM-DD') is still within its
+ *  7-day active window (today and the 6 days before). */
+export function isVetoActive(storedDate: string, at: Date = new Date()): boolean {
+  if (!storedDate) return false;
+  const cutoff = new Date(Date.parse(athensToday(at) + 'T00:00:00Z') - 6 * 86400000);
+  return Date.parse(storedDate + 'T00:00:00Z') >= cutoff.getTime();
+}
+
+/** The Monday of the current calendar week ('YYYY-MM-DD', Athens) — used only
+ *  as the cadence key for the mayor's 10%-step veto notifications, not for the
+ *  veto window itself. */
 export function vetoWeek(at: Date = new Date()): string {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Europe/Athens',
-    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23',
-  }).formatToParts(at);
-  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? '0');
-  // Weekday arithmetic on the Athens calendar date, done in UTC space.
-  let d = Date.UTC(get('year'), get('month') - 1, get('day'));
-  if (get('hour') < 3) d -= 86400000; // 00:00–02:59 still belongs to the day before
+  let d = Date.parse(athensToday(at) + 'T00:00:00Z');
   d -= ((new Date(d).getUTCDay() + 6) % 7) * 86400000; // back to Monday
   return new Date(d).toISOString().slice(0, 10);
 }
 
-/** The 1–7 weekday (Athens) a veto cast right now belongs to. */
-export function athensVetoDay(at: Date = new Date()): number {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Europe/Athens',
-    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23',
-  }).formatToParts(at);
-  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? '0');
-  let d = Date.UTC(get('year'), get('month') - 1, get('day'));
-  if (get('hour') < 3) d -= 86400000;
-  return ((new Date(d).getUTCDay() + 6) % 7) + 1;
-}
-
-/** Exercise the veto for the current week — only works for signed-in,
- *  mayor-confirmed Δημότες (the UI gates on the same condition; RLS is the
- *  real wall). */
+/** Exercise (or renew) the veto — only works for signed-in, mayor-confirmed
+ *  Δημότες (cast_veto() is the real wall). Idempotent while active. */
 export async function submitVeto(): Promise<boolean> {
   const sb = getSupabase();
   if (!sb) return true;
   try {
     const user = await getVerifiedUser();
     if (!user) return false;
-    const stamp = await officialStamp();
-    const { error } = await sb.from('vetos').insert({
-      day: athensVetoDay(),
-      voter_key: await sha256Hex(`${VERIFIED_SEED}:${user.id}:veto`),
-      official_resident: stamp,
-    });
+    const { error } = await sb.rpc('cast_veto');
     return !error;
   } catch {
     return false;
@@ -512,19 +452,46 @@ export interface PublishedResult {
   };
 }
 
-/** Result snapshots the mayor has published to the app's front page — counts
- *  only, aggregated in /admin; vote rows never leave the mayor-only table. */
-export async function fetchPublishedResults(): Promise<PublishedResult[] | null> {
+interface RefResultRow { option_id: number; residency: boolean; votes: number }
+
+/** A single referendum's LIVE results, but ONLY when the mayor has revealed
+ *  them (referendums.results_published) — otherwise null, so the voting section
+ *  hides the aggregate and shows just the citizen's own choice. Labels come
+ *  from the referendum row, counts live from referendums_results; call it from
+ *  a polling hook so the mayor's toggle and fresh votes appear on their own. */
+export async function fetchPollLiveResult(pollId: string): Promise<PublishedResult | null> {
   const sb = getSupabase();
-  if (!sb) return null;
-  const { data, error } = await sb
-    .from('poll_results')
-    .select('poll_id, updated_at, data')
-    .eq('published', true)
-    .order('updated_at', { ascending: false })
-    .limit(12);
-  if (error || !data || data.length === 0) return null;
-  return data as PublishedResult[];
+  if (!sb || !pollId.startsWith('ref_')) return null; // only referendums have results
+  const { data: ref, error } = await sb
+    .from('referendums')
+    .select('updated_at, title_el, title_en, options, results_published')
+    .eq('id', pollId.slice(4))
+    .eq('results_published', true)
+    .maybeSingle();
+  if (error || !ref) return null;
+  const opts = ((ref.options as { id: string; el: string; en: string }[]) ?? []);
+  const { data: t } = await sb
+    .from('referendums_results')
+    .select('option_id, residency, votes')
+    .eq('poll_id', pollId);
+  const rows = (t as RefResultRow[]) ?? [];
+  const options = opts.map((o, i) => {
+    const forOpt = rows.filter((r) => r.option_id === i);
+    const all = forOpt.reduce((a, r) => a + r.votes, 0);
+    const resident = forOpt.filter((r) => r.residency).reduce((a, r) => a + r.votes, 0);
+    return { id: o.id, label_el: o.el, label_en: o.en || o.el, all, resident };
+  });
+  return {
+    poll_id: pollId,
+    updated_at: (ref.updated_at as string) ?? '',
+    data: {
+      title_el: ref.title_el as string,
+      title_en: (ref.title_en as string) || (ref.title_el as string),
+      total: options.reduce((a, o) => a + o.all, 0),
+      resident_total: options.reduce((a, o) => a + o.resident, 0),
+      options,
+    },
+  };
 }
 
 // ── Web push ─────────────────────────────────────────────────────────────────
@@ -611,6 +578,31 @@ export function useLive<T>(fetcher: () => Promise<T | null>): T | null {
     });
     return () => {
       alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return value;
+}
+
+/** Like useLive but re-fetches on an interval (default 15s) AND when the tab
+ *  regains focus — so published results reflect new votes and the mayor's
+ *  publish/hide toggle without any refresh button. `null` stays only until the
+ *  first successful fetch; a later fetch that returns null (e.g. results
+ *  hidden) clears it. */
+export function useLivePoll<T>(fetcher: () => Promise<T | null>, intervalMs = 15000): T | null {
+  const [value, setValue] = useState<T | null>(null);
+  useEffect(() => {
+    if (!backendConfigured) return;
+    let alive = true;
+    const run = () => fetcher().then((v) => { if (alive) setValue(v); });
+    run();
+    const id = setInterval(run, intervalMs);
+    const onFocus = () => run();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      alive = false;
+      clearInterval(id);
+      window.removeEventListener('focus', onFocus);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

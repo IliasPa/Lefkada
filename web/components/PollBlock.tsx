@@ -1,13 +1,17 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { ChevronDown, ChevronUp, CheckCircle2, Info, Download, BadgeCheck } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import AnimatedSegmented from "@/components/AnimatedSegmented";
 import { type Poll } from "@/data/voting";
 import { KEYS, storageGet, storageSet } from "@/lib/storage";
-import { submitVote, getVerifiedUser, restampVoteIfNeeded, type VerifiedUser } from "@/lib/backend";
+import { submitVote, getVerifiedUser, fetchPollLiveResult, useLivePoll, type VerifiedUser } from "@/lib/backend";
 import { backendConfigured } from "@/lib/supabase";
+
+/** Holding the vote button this long is the deliberate-intent safeguard —
+ *  matching the veto button, and standing in for the removed "change vote". */
+const VOTE_HOLD_MS = 4000;
 
 type VoteCounts = Record<string, number>;
 type MyVotes = Record<string, string>;
@@ -37,13 +41,13 @@ export default function PollBlock({
   const [explainLength, setExplainLength] = useState<"short" | "medium" | "full">("short");
   const [vUser, setVUser] = useState<VerifiedUser | null>(null);
 
+  // Live results, but ONLY when the mayor has toggled them visible for this
+  // poll (else null → the voting section shows just the citizen's own choice).
+  const liveResult = useLivePoll(useCallback(() => fetchPollLiveResult(poll.id), [poll.id]));
+
   useEffect(() => {
     if (!backendConfigured) return;
     getVerifiedUser().then(setVUser);
-    // If the mayor's municipal-roll designation changed since this account's
-    // vote here, silently re-submit the unchanged choice with the new stamp
-    // (open polls only) — the Δημότες statistic self-heals.
-    if (!closed) restampVoteIfNeeded(poll.id);
   }, [closed, poll.id]);
 
   const keyOf = (id: string) => `${poll.id}:${id}`;
@@ -63,17 +67,11 @@ export default function PollBlock({
 
   const totalVotes = Object.values(voteCounts).reduce((a, b) => a + b, 0);
 
+  // One shot — a vote cannot be changed once cast (there is no "change vote").
   const handleVote = useCallback(() => {
-    if (!selected || closed) return;
+    if (!selected || closed || myVotes[poll.id]) return;
     const savedCounts = storageGet<VoteCounts>(KEYS.votes, {});
-    const prevVote = myVotes[poll.id];
-    const updated = { ...savedCounts };
-    if (prevVote && prevVote !== selected) {
-      updated[keyOf(prevVote)] = Math.max(0, (updated[keyOf(prevVote)] ?? 0) - 1);
-    }
-    if (!prevVote || prevVote !== selected) {
-      updated[keyOf(selected)] = (updated[keyOf(selected)] ?? 0) + 1;
-    }
+    const updated = { ...savedCounts, [keyOf(selected)]: (savedCounts[keyOf(selected)] ?? 0) + 1 };
     const updatedMyVotes = { ...myVotes, [poll.id]: selected };
     storageSet(KEYS.votes, updated);
     storageSet(KEYS.myVotes, updatedMyVotes);
@@ -84,10 +82,11 @@ export default function PollBlock({
     setVoteCounts(merged);
     setMyVotes(updatedMyVotes);
     setSubmitted(true);
-    // Record server-side too (anonymous hashed voter key). If the insert
-    // fails we must SAY so — the local tally alone is not "counted".
+    // Record server-side too via cast_vote() (the option is sent as its ballot
+    // index). If it fails we must SAY so — the local tally alone is not
+    // "counted".
     setSendError(false);
-    submitVote(poll.id, selected).then((ok) => setSendError(!ok));
+    submitVote(poll.id, poll.options.findIndex((o) => o.id === selected)).then((ok) => setSendError(!ok));
   }, [selected, myVotes, poll, closed]);
 
   const explanation = poll.explanations[explainLength][lang];
@@ -162,21 +161,14 @@ export default function PollBlock({
             </div>
           )}
 
-          {/* Verified-vote status: green when signed in, otherwise a deep link
-              into Settings ▸ Personal info where email verification lives. */}
-          {backendConfigured && !closed && (
-            vUser ? (
-              <p className="flex items-center gap-1.5 text-[12px] font-semibold text-green-600 dark:text-green-400 px-1">
-                <BadgeCheck size={14} className="flex-shrink-0" />
-                <span className="min-w-0 truncate">{t("vote_verified_line")} — {vUser.email}</span>
-              </p>
-            ) : (
-              <button onClick={() => window.dispatchEvent(new Event("lefkada:open-profile"))}
-                className="flex items-center gap-1.5 text-[12px] font-semibold text-primary dark:text-primary-300 px-1 active:scale-[0.98] transition-transform">
-                <BadgeCheck size={14} className="flex-shrink-0" />
-                <span className="text-left">{t("vote_verify_cta")} →</span>
-              </button>
-            )
+          {/* When signed out, a deep link into Settings ▸ Personal info where
+              email sign-in lives (voting needs an account). */}
+          {backendConfigured && !closed && !vUser && (
+            <button onClick={() => window.dispatchEvent(new Event("lefkada:open-profile"))}
+              className="flex items-center gap-1.5 text-[12px] font-semibold text-primary dark:text-primary-300 px-1 active:scale-[0.98] transition-transform">
+              <BadgeCheck size={14} className="flex-shrink-0" />
+              <span className="text-left">{t("vote_verify_cta")} →</span>
+            </button>
           )}
 
           {submitted ? (
@@ -184,7 +176,19 @@ export default function PollBlock({
               {sendError && (
                 <p className="text-[12.5px] font-semibold text-red-500 px-1">{t("vote_send_error")}</p>
               )}
-              <ResultsCard poll={poll} lang={lang} myVote={myVotes[poll.id]} voteCounts={voteCounts} totalVotes={totalVotes} closed={closed} t={t} onChangeVote={() => setSubmitted(false)} />
+              {backendConfigured ? (
+                liveResult ? (
+                  // Results made visible by the mayor — live aggregate counts.
+                  <ResultsCard poll={poll} lang={lang} myVote={myVotes[poll.id]}
+                    voteCounts={Object.fromEntries(liveResult.data.options.map((o) => [o.id, o.all]))}
+                    totalVotes={liveResult.data.total} closed={closed} t={t} />
+                ) : (
+                  // Results hidden — show only what this person voted.
+                  <YourVoteCard poll={poll} lang={lang} myVote={myVotes[poll.id]} t={t} />
+                )
+              ) : (
+                <ResultsCard poll={poll} lang={lang} myVote={myVotes[poll.id]} voteCounts={voteCounts} totalVotes={totalVotes} closed={closed} t={t} />
+              )}
             </>
           ) : (
             <VotingCard poll={poll} lang={lang} selected={selected} onSelect={setSelected} onSubmit={handleVote}
@@ -260,6 +264,29 @@ function VotingCard({ poll, lang, selected, onSelect, onSubmit, signInRequired =
   poll: Poll; lang: "el" | "en"; selected: string | null; onSelect: (id: string) => void; onSubmit: () => void;
   signInRequired?: boolean; onSignIn?: () => void; t: (k: string) => string;
 }) {
+  // Hold-to-submit: the ring fills over 4s (like the veto). Releasing early
+  // cancels — a vote is one shot, so this stands in for the removed "change
+  // vote" as a deliberate-intent gate.
+  const [holdPct, setHoldPct] = useState(0);
+  const holdRaf = useRef(0);
+  const endHold = useCallback(() => {
+    cancelAnimationFrame(holdRaf.current);
+    holdRaf.current = 0;
+    setHoldPct(0);
+  }, []);
+  const beginHold = useCallback(() => {
+    if (!selected || holdRaf.current) return;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const p = Math.min(1, (now - start) / VOTE_HOLD_MS);
+      setHoldPct(p);
+      if (p >= 1) { endHold(); onSubmit(); }
+      else holdRaf.current = requestAnimationFrame(tick);
+    };
+    holdRaf.current = requestAnimationFrame(tick);
+  }, [selected, onSubmit, endHold]);
+  useEffect(() => () => cancelAnimationFrame(holdRaf.current), []);
+
   return (
     <div className="bg-white dark:bg-[#141929] rounded-2xl p-5 border border-gray-100 dark:border-[#1E2D4E] shadow-sm">
       <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 mb-4">{t("vote_choose")}</p>
@@ -279,16 +306,45 @@ function VotingCard({ poll, lang, selected, onSelect, onSubmit, signInRequired =
       </div>
       {/* With the backend on, voting needs a signed-in account — the button
           routes to Settings ▸ Personal info until then. */}
-      <button onClick={signInRequired ? onSignIn : onSubmit} disabled={!signInRequired && !selected}
-        className={`mt-5 w-full py-3.5 rounded-xl font-bold text-[15px] transition-all active:scale-[0.98] ${signInRequired || selected ? "bg-primary text-white shadow-md shadow-primary/30" : "bg-gray-100 dark:bg-[#252A3A] text-gray-300 dark:text-gray-600 cursor-not-allowed"}`}>
-        {signInRequired ? t("vote_signin_to_vote") : t("vote_submit")}
-      </button>
+      {signInRequired ? (
+        <button onClick={onSignIn}
+          className="mt-5 w-full py-3.5 rounded-xl font-bold text-[15px] bg-primary text-white shadow-md shadow-primary/30 transition-all active:scale-[0.98]">
+          {t("vote_signin_to_vote")}
+        </button>
+      ) : (
+        <>
+          <button
+            onPointerDown={beginHold}
+            onPointerUp={endHold}
+            onPointerLeave={endHold}
+            onPointerCancel={endHold}
+            onContextMenu={(e) => e.preventDefault()}
+            disabled={!selected}
+            style={{ WebkitTouchCallout: "none", touchAction: "manipulation" } as React.CSSProperties}
+            className={`mt-5 w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl font-bold text-[15px] select-none transition-colors ${selected ? "bg-primary text-white shadow-md shadow-primary/30" : "bg-gray-100 dark:bg-[#252A3A] text-gray-300 dark:text-gray-600 cursor-not-allowed"}`}>
+            <span className="relative flex items-center justify-center w-6 h-6 flex-shrink-0">
+              <svg viewBox="0 0 36 36" className="absolute inset-0 -rotate-90" aria-hidden>
+                <circle cx="18" cy="18" r="15.5" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="4" />
+                <circle cx="18" cy="18" r="15.5" fill="none" stroke="#fff" strokeWidth="4" strokeLinecap="round"
+                  strokeDasharray={2 * Math.PI * 15.5} strokeDashoffset={(1 - holdPct) * 2 * Math.PI * 15.5} />
+              </svg>
+              <CheckCircle2 size={13} />
+            </span>
+            {t("vote_submit")}
+          </button>
+          {selected && (
+            <p className="text-center text-[11.5px] font-semibold text-gray-400 dark:text-gray-500 mt-2">
+              {t("acc_veto_hold_hint")}
+            </p>
+          )}
+        </>
+      )}
     </div>
   );
 }
 
-export function ResultsCard({ poll, lang, myVote, voteCounts, totalVotes, closed, t, onChangeVote }: {
-  poll: Poll; lang: "el" | "en"; myVote?: string; voteCounts: Record<string, number>; totalVotes: number; closed: boolean; t: (k: string) => string; onChangeVote?: () => void;
+export function ResultsCard({ poll, lang, myVote, voteCounts, totalVotes, closed, t }: {
+  poll: Poll; lang: "el" | "en"; myVote?: string; voteCounts: Record<string, number>; totalVotes: number; closed: boolean; t: (k: string) => string;
 }) {
   return (
     <div className="bg-white dark:bg-[#141929] rounded-2xl p-5 border border-gray-100 dark:border-[#1E2D4E] shadow-sm space-y-4">
@@ -327,10 +383,33 @@ export function ResultsCard({ poll, lang, myVote, voteCounts, totalVotes, closed
           })}
         </div>
       </div>
-      {!closed && onChangeVote && (
-        <button onClick={onChangeVote} className="w-full py-2.5 text-sm font-semibold text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-[#252A3A] rounded-xl hover:bg-gray-50 dark:hover:bg-[#252A3A] transition-colors">
-          {t("vote_change")}
-        </button>
+    </div>
+  );
+}
+
+/** Shown after voting when the mayor has NOT made the poll's results visible:
+ *  the citizen sees only their own recorded choice, never the aggregate. */
+function YourVoteCard({ poll, lang, myVote, t }: {
+  poll: Poll; lang: "el" | "en"; myVote?: string; t: (k: string) => string;
+}) {
+  const chosen = poll.options.find((o) => o.id === myVote);
+  return (
+    <div className="bg-white dark:bg-[#141929] rounded-2xl p-5 border border-gray-100 dark:border-[#1E2D4E] shadow-sm space-y-3">
+      {chosen ? (
+        <>
+          <div className="flex items-start gap-3 bg-green-50 dark:bg-green-900/20 p-3.5 rounded-xl">
+            <CheckCircle2 size={20} className="text-green-500 flex-shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <p className="font-semibold text-sm text-green-700 dark:text-green-400">{t("vote_submitted_title")}</p>
+              <p className="text-[13px] text-green-700 dark:text-green-300 mt-1">
+                {t("vote_your_vote")} <span className="font-bold">{chosen.text[lang]}</span>
+              </p>
+            </div>
+          </div>
+          <p className="text-[11.5px] text-gray-400 dark:text-gray-500 text-center">{t("vote_results_hidden")}</p>
+        </>
+      ) : (
+        <p className="text-[13px] text-gray-500 dark:text-gray-400 text-center py-2">{t("vote_results_hidden")}</p>
       )}
     </div>
   );

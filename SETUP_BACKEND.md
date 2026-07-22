@@ -146,10 +146,10 @@ automatically; the count shows up in `/admin ▸ Ειδοποιήσεις`.
 | News | `news` table | reporters (own) + mayor | everyone (published) |
 | Pharmacy duty | `pharmacy_duty` table | pharmacies (own) + mayor | everyone |
 | Push subscriptions | `push_subscriptions` table | anyone (subscribe only) | mayor |
-| Votes | `votes` table (hashed voter keys, insert-only; one `resident` flag: null = anonymous, true/false = signed-in citizen per the municipal roll — RLS re-checks both the key and the value) | anyone (vote/change vote) | mayor |
-| Vetos | `vetos` table (hashed voter keys, insert-only, same resident stamp; the weekly counter buckets rows into Monday-03:00 Athens weeks — no on/off, no recall, nothing deleted) | anyone (one shot per week) | mayor |
-| Participation registry | `poll_participants` table (WHO of the verified voters took part — no timestamps stored, never linkable to a ballot row) | verified citizens (own row only) | mayor |
-| Published results | `poll_results` table (counts-only snapshots for the front page) | mayor | everyone (published) |
+| Votes (what) | `referendums_results` table — `(poll_id, option_id INT, residency, votes)`, counts only, never tied to a voter | `cast_vote()` only (security definer) | mayor + public for **shown** polls |
+| Votes (who) | `referendums_participants` table — `(poll_id, user_id, email, tax_number)`; its `unique(poll_id, user_id)` is the one-vote-per-account gate; a filled ΑΦΜ means gov.gr-verified | `cast_vote()` only | mayor |
+| Vetos | `vetos` table — `(veto_date, voter_key)` only, no PK/timestamp; confirmed Δημότες only; each veto stays active 7 days (rolling); voter_key hashed with the week's Monday so it's one veto per week | `cast_veto()` only | mayor |
+| Results visibility | merged into `referendums.results_published` (the 🏠 toggle) — no separate table; counts read live from `referendums_results` | mayor | everyone (shown) |
 | Citizen registry | `citizens` table (name/ΑΦΜ/email self-provided; the Δημότης flag is mayor-only — a trigger blocks everyone else) | citizens (own identity) + mayor (the flag) | each their own row + mayor |
 
 Free-tier headroom: the 500 MB database fits millions of rows; the 1 GB `cvs`
@@ -211,27 +211,57 @@ Two gotchas, learned the hard way:
 Two more scheduled workflows joined in v1.3 (both need the same
 `SUPABASE_DB_URL` secret):
 
-- **`veto-reset.yml`** — every Monday 03:00 Europe/Athens (two UTC crons +
-  an Athens-hour guard, so summer/winter time both land right) it WIPES the
-  day-only `vetos` table: the weekly counter starts fresh. Per-day totals are
-  printed to the run log; weekly archival to the private git repo is planned
-  for a future version.
-- **`veto-alert.yml`** — hourly; whenever the veto ratio (active Δημότες /
-  confirmed Δημότες) crosses a new 10% step it opens a GitHub issue titled
-  «🔴 ΒΕΤΟ ≥ X% — εβδομάδα …» and closes it immediately — GitHub **emails**
-  the rendered issue, so each step lands in the inbox exactly once per week.
-  It skips silently while the secret is missing.
+- **`veto-reset.yml`** — daily; a veto stays active for 7 days from the day it
+  was cast (rolling, no weekly Monday reset), so this job just DELETES rows in
+  the `vetos` table older than 7 days to keep it tidy and let a citizen veto
+  again once theirs lapses. Per-day totals are printed to the run log; archival
+  to the private git repo is planned for a future version.
+- **`veto-alert.yml`** — hourly; whenever the veto ratio (active Δημότες of the
+  last 7 days / confirmed Δημότες) crosses a new 10% step it opens a GitHub
+  issue titled «🔴 ΒΕΤΟ ≥ X% — εβδομάδα …» and closes it immediately — GitHub
+  **emails** the rendered issue. The veto window is rolling 7-day; the calendar
+  week in the title is only the reminder cadence (≈ once a week per step). It
+  skips silently while the secret is missing.
+
+## 7b. Private data backup → a separate private repo (v1.4)
+
+The weekly sync above archives only **published** content. The **private**
+tables — `app_roles`, `applications`, `citizens`, `folders`, `messages`,
+`referendums_participants`, `referendums`, and the veto **per-day counts** — are
+archived by **`backup-private.yml`** into a **separate private repo** so they
+are never lost even after Supabase deletes a row (a cleared message, an expired
+veto). It runs **daily** (vetos live only 7 days, so their counts must be
+captured before cleanup) and, like the public sync, writes the same files every
+run and **merges** — the current DB state wins, and rows the DB has since
+deleted keep their last backed copy. `vetos.json` is stored as
+`{ perDay: { "YYYY-MM-DD": count } }` — exactly the truth behind the admin veto
+bar chart, kept forever.
+
+One-time setup:
+
+1. Create a **private** repo named **`Lefkada_private`** under the same account,
+   with an initial commit (tick "Add a README" when creating it).
+2. Create a **Personal Access Token** with write access to it — fine-grained:
+   *Only select repositories → Lefkada_private*, *Repository permissions →
+   Contents: Read and write*.
+3. In **this** repo → Settings → Secrets and variables → Actions, add it as
+   **`PRIVATE_BACKUP_TOKEN`** (the workflow also reuses `SUPABASE_DB_URL`).
+4. Actions → «Private data backup» → **Run workflow** once to confirm it goes
+   green and the files appear in `Lefkada_private/data/`.
+
+⚠️ These files hold personal data (ΑΦΜ, emails, messages, applications). The
+target repo **must stay private**; a private GitHub repo keeps full history
+forever, so treat it as the system of record and control who has access.
 
 ## 9. Citizen verification — email sign-in (v1.3)
 
 Voting requires a signed-in citizen (anonymous device voting was removed):
 the citizen verifies in Ρυθμίσεις ▸ Προσωπικά στοιχεία ▸ Επαλήθευση
-ψηφοφόρου, and their voter key derives from the **account** — one account,
-one vote per poll, from any device, enforced **in the database** (the
-«citizens vote» RLS policy recomputes the hash for the calling user; any
-mismatch dies with 42501). The choice stays a hash; who participated is
-stored separately in `poll_participants` **without timestamps**, so
-participation can never be paired with a ballot row.
+ψηφοφόρου. Voting goes through `cast_vote()` (security definer): one account,
+one vote per poll, from any device, enforced **in the database** by
+`referendums_participants`' `unique(poll_id, user_id)`. The choice is written
+**only** as an aggregate count in `referendums_results` — never next to a
+voter — so nobody can ever pair a person with their option.
 
 One-time setup in the Supabase dashboard:
 
@@ -315,20 +345,24 @@ One-time setup in the Supabase dashboard:
 their profile (optional — zero friction) and their email. Check each one
 against the official municipal roll and flip the **Δημότης** toggle:
 
-- the flag is stamped onto their verified votes (enforced by RLS — a vote can
-  never claim a different designation than the registry);
+- the flag is read by `cast_vote()` **server-side** and stored as each vote's
+  `residency`, so it is always correct and can never be spoofed from a client;
 - **«ψήφοι δημοτών» become the main statistic** in the admin graphs and on
   any published front-page results — everyone still votes, only the
   statistics differ;
 - the citizen sees the 🏛 designation on their profile and gets a one-time
-  notice when you change it; if they had already voted, their vote re-stamps
-  itself on their next visit to the still-open poll.
+  notice when you change it. Because a vote is one-shot and its choice is never
+  linked to the voter, designate Δημότες **before** a poll opens where you can
+  — a confirmation made after someone has already voted can't retro-stamp their
+  earlier ballot.
 
-Citizens cannot set the flag themselves — a database **trigger** rejects it —
-and your own direct SQL in the dashboard is exempt from the guard, so bulk
-imports from the roll remain possible.
+Citizens cannot set the `resident` flag — or their `tax_number` — themselves: a
+database **trigger** rejects both (an unverified ΑΦΜ can't prove identity). Your
+own direct SQL in the dashboard is exempt, so bulk imports from the roll remain
+possible.
 
 gov.gr OAuth (when the municipality's ΚΕΔ approval lands) plugs into the same
-pipeline as a second sign-in method — same tables, same keys, same admin
-views; only `poll_participants.verified_via` will say `govgr` instead of
-`email`.
+pipeline as a second sign-in method — same tables, same admin views. It will be
+the only thing that sets `citizens.tax_number` (server-side), and a filled ΑΦΜ
+on a `referendums_participants` row is exactly the "verified via gov.gr" signal
+(there is no `verified_via` column).

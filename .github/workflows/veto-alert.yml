@@ -1,12 +1,12 @@
 name: Veto 10% step alert
 
-# Every hour: if the weekly veto ratio (active Δημότες vetos over confirmed
-# Δημότες in the registry) has crossed a 10% step that has not been announced
-# yet, open a GitHub issue for that step — GitHub EMAILS the rendered issue
-# (big red heading), then the issue closes itself so the tracker stays clean.
-# One issue per step per week: the week's Monday date is part of the title,
-# so every Monday starts fresh and duplicates are found by title search.
-# Exits silently when the SUPABASE_DB_URL secret is not configured.
+# Every hour: if the veto ratio (active Δημότες vetos in the last 7 days over
+# confirmed Δημότες in the registry) has crossed a 10% step that has not been
+# announced yet, open a GitHub issue for that step — GitHub EMAILS the rendered
+# issue (big red heading), then the issue closes itself so the tracker stays
+# clean. The veto WINDOW is rolling 7-day (no Monday reset); the calendar week
+# in the title is used only as the reminder CADENCE, so each step re-announces
+# at most once a week. Exits silently when SUPABASE_DB_URL is not configured.
 
 on:
   schedule:
@@ -30,7 +30,7 @@ jobs:
             echo "No SUPABASE_DB_URL secret — skipping quietly."
             exit 0
           fi
-          active=$(psql "$SUPABASE_DB_URL" -tAc "select count(distinct voter_key) from public.vetos where official_resident is not null;")
+          active=$(psql "$SUPABASE_DB_URL" -tAc "select count(*) from public.vetos where veto_date >= (public.athens_today() - 6);")
           total=$(psql "$SUPABASE_DB_URL" -tAc "select count(*) from public.citizens where resident;")
           echo "Active vetos: $active / $total confirmed citizens"
           if [ "$total" -eq 0 ]; then echo "No confirmed citizens yet."; exit 0; fi
