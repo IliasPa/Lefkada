@@ -66,7 +66,7 @@ export const CAT_ORDER: SearchCat[] = [
 ];
 
 /** lowercase + strip diacritics + fold final sigma, so "λευκαδα" finds "Λευκάδα". */
-export function norm(s: string): string {
+function norm(s: string): string {
   return s
     .toLowerCase()
     .normalize('NFD')

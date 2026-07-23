@@ -2,7 +2,6 @@ export type Lang = "el" | "en";
 
 const el: Record<string, string> = {
   appName: "Λευκάδα",
-  appSubtitle: "Δήμος Λευκάδος",
 
   // Tab labels
   tab_home: "Αρχική",
@@ -19,7 +18,6 @@ const el: Record<string, string> = {
 
   // Common
   save: "Αποθήκευση",
-  cancel: "Ακύρωση",
   close: "Κλείσιμο",
   scroll_top: "Επιστροφή στην κορυφή",
 
@@ -88,7 +86,6 @@ const el: Record<string, string> = {
   culture_view_calendar: "Ημερολόγιο",
   culture_view_map: "Χάρτης",
   culture_view_spaces: "Χώροι Πολιτισμού",
-  explore_title: "Εξερεύνηση Λευκάδας",
   map_all: "Όλα",
   map_events: "Εκδηλώσεις",
   map_places: "Σημεία",
@@ -596,7 +593,6 @@ const el: Record<string, string> = {
 
 const en: Record<string, string> = {
   appName: "Lefkada",
-  appSubtitle: "Municipality of Lefkada",
 
   tab_home: "News",
   tab_culture: "Culture",
@@ -611,7 +607,6 @@ const en: Record<string, string> = {
   tab_account: "Profile",
 
   save: "Save",
-  cancel: "Cancel",
   close: "Close",
   scroll_top: "Back to top",
 
@@ -678,7 +673,6 @@ const en: Record<string, string> = {
   culture_view_calendar: "Calendar",
   culture_view_map: "Map",
   culture_view_spaces: "Cultural spaces",
-  explore_title: "Explore Lefkada",
   map_all: "All",
   map_events: "Events",
   map_places: "Places",
@@ -1170,4 +1164,3 @@ const en: Record<string, string> = {
 };
 
 export const translations = { el, en } as const;
-export type TKey = string;

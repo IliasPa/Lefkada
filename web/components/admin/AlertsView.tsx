@@ -13,7 +13,7 @@ import { getSupabase } from '@/lib/supabase';
 import KindManager, { ALERT_KIND } from './ContentView';
 import { Card, Field, PrimaryBtn, inputCls } from './AdminShell';
 
-export async function sendPush(title: string, body: string): Promise<string> {
+async function sendPush(title: string, body: string): Promise<string> {
   const sb = getSupabase();
   if (!sb) return 'Το backend δεν είναι ρυθμισμένο.';
   const { data, error } = await sb.functions.invoke('send-push', { body: { title, body, url: '/' } });

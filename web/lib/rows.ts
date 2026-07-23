@@ -93,7 +93,7 @@ export function relativeTime(iso: string): BilingualText {
   return { el: s, en: d.toLocaleDateString('en-GB') };
 }
 
-export const bt = (el?: string, en?: string): BilingualText => ({ el: el ?? '', en: en || el || '' });
+const bt = (el?: string, en?: string): BilingualText => ({ el: el ?? '', en: en || el || '' });
 
 /** Live entries first, then the rest minus anything the live set already has —
  *  the item may exist twice (fetched now AND baked by a previous sync). */

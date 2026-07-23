@@ -1,5 +1,9 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+// Leaflet styles for the Explore/Culture map — imported globally (from the npm
+// package, not a vendored copy) so the stylesheet is always in <head> before
+// the lazily-loaded map mounts. The map JS itself stays lazy-loaded.
+import 'leaflet/dist/leaflet.css';
 
 export const metadata: Metadata = {
   title: 'Λευκάδα',
@@ -42,8 +46,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="apple-touch-icon" href="/PegasusFlag.png" />
         <link rel="icon" type="image/png" href="/PegasusFlag.png" />
-        {/* Leaflet styles for the Explore/Culture map (the JS is lazy-loaded) */}
-        <link rel="stylesheet" href="/leaflet.css" />
         {/* Preload only the first slideshow image (LCP); the rest load lazily */}
         <link rel="preload" as="image" href={FIRST_BG} />
         <link rel="preconnect" href="https://upload.wikimedia.org" crossOrigin="anonymous" />

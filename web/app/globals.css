@@ -124,6 +124,10 @@ html.dark.flow main .subtab-bar {
 /* Full-height panes without a scroll area (the Culture map) get an explicit
    height in flow mode — their h-full chain resolves to auto there. */
 html.flow main .map-pane {
+  /* flex-none so the explicit height wins over the flex-1 (flex-basis:0%) the
+     pane also carries — otherwise the pane collapses to min-height with an
+     indefinite height, and the map's h-full chain resolves to 0. */
+  flex: none;
   height: calc(100dvh - var(--header-h) - 140px);
   min-height: 320px;
 }

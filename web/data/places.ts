@@ -31,15 +31,15 @@ export const CULTURAL_PLACE_CATEGORIES: PlaceCategory[] = [
 ];
 
 export const PLACE_IMAGES: Record<PlaceCategory, string> = {
-  Beach: '/backgrounds/lefkada-3-cove.png',
-  Village: '/backgrounds/lefkada-1-ionian.png',
+  Beach: '/events/sports.png',
+  Village: '/events/music.png',
   Trail: '/events/sports.png',
   Museum: '/events/art.png',
   CulturalSpace: '/events/theatre.png',
   Library: '/events/art.png',
   Church: '/events/religious.png',
   Castle: '/events/festival.png',
-  Landmark: '/backgrounds/lefkada-2-sunset.png',
+  Landmark: '/events/food.png',
 };
 
 export const PLACE_ACCENT: Record<PlaceCategory, string> = {

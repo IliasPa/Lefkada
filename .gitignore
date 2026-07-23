@@ -3,25 +3,7 @@
 # dependencies
 node_modules/
 
-# Expo
-.expo/
-dist/
-web-build/
-expo-env.d.ts
-
-# Native
-.kotlin/
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
-
-# Metro
-.metro-health-check*
-
-# debug
+# debug logs
 npm-debug.*
 yarn-debug.*
 yarn-error.*
@@ -30,7 +12,7 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local launcher
+# local launcher (runs the web dev server)
 start.command
 
 # local changelog
@@ -44,18 +26,11 @@ web/public/PegasusFlag.original.png
 out/
 web/.next/
 web/out/
-*.tsbuildinfo
 next-env.d.ts
+*.tsbuildinfo
 
 # local env files
 .env*.local
-
-# typescript
-*.tsbuildinfo
-
-# generated native folders
-/ios
-/android
 
 # Supabase CLI local state
 supabase/.temp/

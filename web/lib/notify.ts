@@ -5,10 +5,6 @@ import { backendConfigured } from "@/lib/supabase";
 import { fetchLiveAlerts } from "@/lib/backend";
 import { KEYS, storageGet, storageSet } from "@/lib/storage";
 
-export function hasActiveAlerts() {
-  return alertsData.length > 0;
-}
-
 /** Current alerts: /admin-managed when the backend is configured, else bundled. */
 async function currentAlerts(): Promise<CityAlert[]> {
   if (!backendConfigured) return alertsData;

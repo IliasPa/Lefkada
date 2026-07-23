@@ -66,7 +66,7 @@ export const annualBudgetDocs: { year: number; side: 'revenue' | 'expenses'; url
 ];
 
 // ── Chart-of-accounts (ΚΑΕ) — bilingual labels for the standard codes ────────
-export const KAE_LABEL: Record<string, BilingualText> = {
+const KAE_LABEL: Record<string, BilingualText> = {
   // Revenue groups
   '0':  { el: 'Τακτικά έσοδα', en: 'Regular revenue' },
   '01': { el: 'Πρόσοδοι από ακίνητη περιουσία', en: 'Income from real estate' },
@@ -146,13 +146,6 @@ export function monthShort(m: number, lang: Lang): string {
   return MONTHS_SHORT[m - 1]?.[lang] ?? `${m}`;
 }
 
-/** Compact chip label for a period (no year — the year is shown separately). */
-export function periodChip(r: BudgetReport, lang: Lang): string {
-  if (r.kind === 'quarterly' && r.quarter) return `${lang === 'el' ? 'Τ' : 'Q'}${r.quarter}`;
-  if (r.month) return monthShort(r.month, lang);
-  return `${r.year}`;
-}
-
 export function kaeLabel(code: string, greekFallback: string, lang: Lang): string {
   return KAE_LABEL[code]?.[lang] ?? greekFallback;
 }
@@ -162,11 +155,6 @@ export function reportLabel(r: BudgetReport, lang: Lang): string {
   if (r.kind === 'quarterly' && r.quarter) return `${lang === 'el' ? 'Τρίμηνο' : 'Q'}${r.quarter} ${r.year}`;
   if (r.month) return `${monthName(r.month, lang)} ${r.year}`;
   return `${r.year}`;
-}
-
-/** Top-level category rows (single-digit codes) of a side. */
-export function topCategories(side: BudgetSide): BudgetLine[] {
-  return side.lines.filter((l) => l.code.length === 1);
 }
 
 /** Compact euro formatting for big municipal figures. */
