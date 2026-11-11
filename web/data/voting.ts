@@ -15,6 +15,8 @@ export interface PollProtections {
   hideUntilClose: boolean;
   /** Results stay hidden below this many ballots (0 = no minimum). */
   minVotes: number;
+  /** The ballot reaches the server without the voter's account (v1.8). */
+  anonymous: boolean;
 }
 
 export interface Poll {
@@ -31,6 +33,8 @@ export interface Poll {
   pdfUrl?: string;
   /** Absent on the bundled demo polls — they use no protection at all. */
   protections?: PollProtections;
+  /** The referendum's two public ticket keys (anonymous ballots only). */
+  ticketKeys?: { resident: string; other: string };
 }
 
 // voting.json = { bundled: [...], baked: [raw referendum rows] } — referendums

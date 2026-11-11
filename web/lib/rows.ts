@@ -68,6 +68,9 @@ export interface ReferendumRow {
   // v1.7 protections — absent on rows baked before the columns existed.
   hide_until_close?: boolean;
   min_votes?: number;
+  // v1.8 anonymous ballots
+  anonymous_ballots?: boolean;
+  ticket_keys?: { resident: string; other: string } | null;
 }
 
 /** Competitions added from /admin ▸ Παιδεία (any lesson category). */
@@ -227,7 +230,9 @@ export const mapReferendumRows = (rows: ReferendumRow[]): Poll[] =>
     protections: {
       hideUntilClose: r.hide_until_close ?? false,
       minVotes: r.min_votes ?? 0,
+      anonymous: r.anonymous_ballots ?? false,
     },
+    ...(r.ticket_keys ? { ticketKeys: r.ticket_keys } : {}),
   }));
 
 // ── news table → NewsItem + Reporter ─────────────────────────────────────────

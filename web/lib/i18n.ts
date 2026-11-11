@@ -183,6 +183,19 @@ const el: Record<string, string> = {
   prot_min_label: "Ελάχιστο όριο ψήφων",
   prot_min_text:
     "Τα αποτελέσματα μπορούν να εμφανιστούν ακόμη και με ελάχιστες ψήφους — όταν ψηφίζουν λίγοι, η επιλογή τους μπορεί να γίνει φανερή.",
+  // v1.8 — anonymous ballots
+  prot_anon_label: "Ανώνυμα ψηφοδέλτια",
+  prot_anon_text:
+    "Η ψήφος σας φτάνει στον διακομιστή μαζί με τον λογαριασμό σας. Δεν αποθηκεύεται ποιος ψήφισε τι, όμως όποιος ελέγχει τον διακομιστή θα μπορούσε να το δει τη στιγμή που ψηφίζετε.",
+  vote_sending_anon: "Ανώνυμη αποστολή…",
+  vote_anon_note: "Το ψηφοδέλτιο στάλθηκε χωρίς τον λογαριασμό σας — τίποτα από όσα αποθηκεύονται δεν το συνδέει με εσάς.",
+  vote_pending_title: "Το ψηφοδέλτιό σας δεν έχει παραδοθεί ακόμη",
+  vote_pending_text:
+    "Το εισιτήριο ψήφου σας είναι αποθηκευμένο σε αυτή τη συσκευή και θα σταλεί αυτόματα. Μέχρι τότε μην διαγράψετε τα δεδομένα της εφαρμογής.",
+  vote_pending_retry: "Αποστολή τώρα",
+  vote_receipt: "Κωδικός παραλαβής",
+  vote_receipt_found: "βρέθηκε στη δημόσια λίστα ψηφοδελτίων",
+  vote_receipt_missing: "ΔΕΝ βρέθηκε στη δημόσια λίστα ψηφοδελτίων",
   veto_send_error:
     "Το βέτο καταγράφηκε στη συσκευή, αλλά δεν στάλθηκε στον διακομιστή.",
   // v1.3 — verified voting & published results
@@ -784,6 +797,19 @@ const en: Record<string, string> = {
   prot_min_label: "Minimum number of votes",
   prot_min_text:
     "Results can be shown even with very few votes — when only a few people vote, their choice can become obvious.",
+  // v1.8 — anonymous ballots
+  prot_anon_label: "Anonymous ballots",
+  prot_anon_text:
+    "Your vote reaches the server together with your account. Who voted what is not stored, but whoever controls the server could see it at the moment you vote.",
+  vote_sending_anon: "Sending anonymously…",
+  vote_anon_note: "The ballot was sent without your account — nothing that is stored connects it to you.",
+  vote_pending_title: "Your ballot has not been delivered yet",
+  vote_pending_text:
+    "Your voting ticket is saved on this device and will be sent automatically. Until then, do not clear the app's data.",
+  vote_pending_retry: "Send now",
+  vote_receipt: "Receipt code",
+  vote_receipt_found: "found in the public list of ballots",
+  vote_receipt_missing: "NOT found in the public list of ballots",
   // v1.3 — verified voting & published results
   acc_verify_section: "Voter verification",
   acc_verify_intro:

@@ -21,6 +21,12 @@
  * database once the poll is published. Results are read ONLY through
  * poll_state(), which applies them to the mayor too — while a poll is hidden
  * this page shows the turnout and nothing else.
+ *
+ * v1.8: «Ανώνυμα ψηφοδέλτια» — the ballot reaches the server without the
+ * voter's account (blind-signed tickets, see supabase/functions/_shared/
+ * ballot.ts). Switching it on asks the ballot-ticket Edge Function to create
+ * the referendum's ticket keys; the card then shows tickets issued vs ballots
+ * received.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -53,6 +59,9 @@ interface RefRow {
   // Protections (v1.7) — locked by the database once the poll is published.
   hide_until_close: boolean;
   min_votes: number;
+  anonymous_ballots: boolean;
+  /** Public ticket keys — written by the ballot-ticket function only. */
+  ticket_keys: { resident: string; other: string } | null;
 }
 
 /** The protections as the mayor sees them: every one, on or off. (Citizens see
@@ -60,12 +69,14 @@ interface RefRow {
 const ADMIN_PROTECTIONS: { label: string; on: (r: RefRow) => boolean; detail?: (r: RefRow) => string }[] = [
   { label: 'Απόκρυψη μέχρι τη λήξη', on: (r) => r.hide_until_close },
   { label: 'Ελάχιστο όριο ψήφων', on: (r) => r.min_votes > 0, detail: (r) => String(r.min_votes) },
+  { label: 'Ανώνυμα ψηφοδέλτια', on: (r) => r.anonymous_ballots },
 ];
 
 /** Database refusals the form can explain (see supabase/schema.sql). */
 const DB_ERRORS: Record<string, string> = {
   LF010: 'Οι προστασίες κλειδώνουν μόλις το δημοψήφισμα δημοσιευθεί — δεν αλλάζουν πλέον.',
   LF011: 'Οι επιλογές ψήφου κλειδώνουν μόλις υπάρξει η πρώτη ψήφος.',
+  LF012: 'Τα ανώνυμα ψηφοδέλτια χρειάζονται πρώτα τα κλειδιά εισιτηρίων (λειτουργία ballot-ticket).',
 };
 const dbError = (e: { code?: string; message: string }) => DB_ERRORS[e.code ?? ''] ?? e.message;
 
@@ -101,7 +112,7 @@ function countsFor(tallies: TallyRow[], index: number) {
   return { all, resident };
 }
 
-const EMPTY: Omit<RefRow, 'id' | 'created_at' | 'updated_at' | 'results_published'> = {
+const EMPTY: Omit<RefRow, 'id' | 'created_at' | 'updated_at' | 'results_published' | 'ticket_keys'> = {
   title_el: '', title_en: '',
   small_el: '', small_en: '',
   medium_el: '', medium_en: '',
@@ -115,6 +126,7 @@ const EMPTY: Omit<RefRow, 'id' | 'created_at' | 'updated_at' | 'results_publishe
   published: false,
   hide_until_close: false,
   min_votes: 0,
+  anonymous_ballots: false,
 };
 
 function toLocalInput(iso: string): string {
@@ -136,6 +148,8 @@ export default function ReferendumsView() {
   const [busy, setBusy] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [states, setStates] = useState<Record<string, PollState>>({});
+  /** Ballots received per anonymous-ballot poll (the public ticket list). */
+  const [ballots, setBallots] = useState<Record<string, number>>({});
   const [vetoEvents, setVetoEvents] = useState<VetoRow[]>([]);
   const [participants, setParticipants] = useState<ParticipantRow[]>([]);
   const [citizens, setCitizens] = useState<CitizenRow[]>([]);
@@ -157,6 +171,13 @@ export default function ReferendumsView() {
       return [pid, st as PollState | null] as const;
     }));
     setStates(Object.fromEntries(fetched.filter((f): f is readonly [string, PollState] => f[1] !== null)));
+    // Anonymous-ballot polls: how many ballots have arrived (one row per used ticket).
+    const counted = await Promise.all(refs.filter((r) => r.anonymous_ballots).map(async (r) => {
+      const { count } = await sb.from('referendums_tickets')
+        .select('serial_hash', { count: 'exact', head: true }).eq('poll_id', `ref_${r.id}`);
+      return [`ref_${r.id}`, count ?? 0] as const;
+    }));
+    setBallots(Object.fromEntries(counted));
     const { data: ve } = await sb.from('vetos').select('veto_date, voter_key').order('veto_date').limit(10000);
     setVetoEvents((ve as VetoRow[]) ?? []);
     // Alphabetical on purpose — NOT insertion order.
@@ -212,6 +233,12 @@ export default function ReferendumsView() {
       pdf_url = sb.storage.from('docs').getPublicUrl(path).data.publicUrl;
     }
 
+    const anonymous = editing.anonymous_ballots ?? false;
+    const wantsPublished = editing.published ?? false;
+    // An anonymous-ballot referendum cannot be published before its ticket
+    // keys exist (the database refuses) — so it is saved unpublished first,
+    // the keys are created, and only then is it published.
+    const needsKeys = anonymous && !editing.ticket_keys;
     const payload = {
       title_el: editing.title_el ?? '', title_en: editing.title_en ?? '',
       small_el: editing.small_el ?? '', small_en: editing.small_en ?? '',
@@ -219,15 +246,36 @@ export default function ReferendumsView() {
       large_el: editing.large_el ?? '', large_en: editing.large_en ?? '',
       pdf_url, youtube_id: editing.youtube_id ?? '',
       options, ends_at: new Date(editing.ends_at).toISOString(),
-      published: editing.published ?? false,
-      hide_until_close: editing.hide_until_close ?? false,
+      published: needsKeys ? false : wantsPublished,
+      hide_until_close: anonymous || (editing.hide_until_close ?? false),
       min_votes: Math.max(0, Math.floor(Number(editing.min_votes) || 0)),
+      anonymous_ballots: anonymous,
     };
-    const { error } = editing.id
-      ? await sb.from('referendums').update(payload).eq('id', editing.id)
-      : await sb.from('referendums').insert(payload);
+    const { data: saved, error } = editing.id
+      ? await sb.from('referendums').update(payload).eq('id', editing.id).select('id').single()
+      : await sb.from('referendums').insert(payload).select('id').single();
+    if (error || !saved) { setBusy(false); alert('Σφάλμα: ' + dbError(error ?? { message: 'η αποθήκευση απέτυχε' })); return; }
+
+    if (needsKeys) {
+      const refId = (saved as { id: string }).id;
+      const { data: made, error: fnErr } = await sb.functions.invoke('ballot-ticket', {
+        body: { action: 'init', referendum_id: refId },
+      });
+      if (fnErr || !(made as { keys?: unknown } | null)?.keys) {
+        setBusy(false);
+        alert('Το δημοψήφισμα αποθηκεύτηκε ως ΠΡΟΧΕΙΡΟ, αλλά τα κλειδιά για τα ανώνυμα ψηφοδέλτια δεν δημιουργήθηκαν.\n\n'
+          + 'Ελέγξτε ότι οι λειτουργίες ballot-ticket / ballot-cast έχουν εγκατασταθεί και ότι έχει οριστεί το TICKET_MASTER_KEY '
+          + '(SETUP_BACKEND.md §11), και αποθηκεύστε ξανά.');
+        setEditing(null); setPdfFile(null);
+        load();
+        return;
+      }
+      if (wantsPublished) {
+        const { error: pubErr } = await sb.from('referendums').update({ published: true }).eq('id', refId);
+        if (pubErr) alert('Σφάλμα δημοσίευσης: ' + dbError(pubErr));
+      }
+    }
     setBusy(false);
-    if (error) { alert('Σφάλμα: ' + dbError(error)); return; }
     setEditing(null); setPdfFile(null);
     load();
   };
@@ -325,8 +373,9 @@ export default function ReferendumsView() {
                 </span>
               )}
             </div>
-            <label className={`flex items-start gap-2 text-sm font-semibold ${locked ? 'opacity-60' : ''}`}>
-              <input type="checkbox" className="mt-0.5" disabled={locked} checked={e.hide_until_close ?? false}
+            <label className={`flex items-start gap-2 text-sm font-semibold ${locked || e.anonymous_ballots ? 'opacity-60' : ''}`}>
+              <input type="checkbox" className="mt-0.5" disabled={locked || !!e.anonymous_ballots}
+                checked={(e.hide_until_close ?? false) || !!e.anonymous_ballots}
                 onChange={(ev) => set({ hide_until_close: ev.target.checked })} />
               <span>
                 Απόκρυψη αποτελεσμάτων μέχρι τη λήξη
@@ -344,6 +393,18 @@ export default function ReferendumsView() {
                 <span className="block text-[11.5px] font-medium text-gray-400">
                   Κάτω από το όριο δεν εμφανίζονται αποτελέσματα· ο διαχωρισμός δημοτών/λοιπών ενώνεται
                   όσο μία από τις δύο ομάδες είναι μικρότερη από αυτό.
+                </span>
+              </span>
+            </label>
+            <label className={`flex items-start gap-2 text-sm font-semibold ${locked ? 'opacity-60' : ''}`}>
+              <input type="checkbox" className="mt-0.5" disabled={locked} checked={e.anonymous_ballots ?? false}
+                onChange={(ev) => set({ anonymous_ballots: ev.target.checked })} />
+              <span>
+                Ανώνυμα ψηφοδέλτια
+                <span className="block text-[11.5px] font-medium text-gray-400">
+                  Το ψηφοδέλτιο φτάνει στον διακομιστή χωρίς τον λογαριασμό του ψηφοφόρου: ο δήμος βλέπει ΠΟΙΟΙ
+                  πήραν εισιτήριο ψήφου, ποτέ ποιο ψηφοδέλτιο είναι ποιανού. Ενεργοποιεί υποχρεωτικά και την
+                  απόκρυψη μέχρι τη λήξη.
                 </span>
               </span>
             </label>
@@ -404,7 +465,7 @@ export default function ReferendumsView() {
               {rows.map((r) => {
                 const pid = `ref_${r.id}`;
                 return (
-                  <RefCard key={r.id} r={r} state={states[pid]}
+                  <RefCard key={r.id} r={r} state={states[pid]} ballots={ballots[pid]}
                     tallies={talliesOf(pid, states[pid])}
                     participants={participants.filter((p) => p.poll_id === pid)}
                     residentByUser={residentByUser}
@@ -496,8 +557,10 @@ function VotersView({ rows, onToggle }: { rows: CitizenRow[]; onToggle: (c: Citi
 
 // ── Results: one referendum ──────────────────────────────────────────────────
 
-function RefCard({ r, state, tallies, participants, residentByUser, onPublishToggle, onToggle, onEdit, onRemove }: {
+function RefCard({ r, state, ballots, tallies, participants, residentByUser, onPublishToggle, onToggle, onEdit, onRemove }: {
   r: RefRow; state?: PollState; tallies: TallyRow[]; participants: ParticipantRow[];
+  /** Anonymous-ballot polls: ballots received (used tickets). */
+  ballots?: number;
   residentByUser: Map<string, boolean>;
   onPublishToggle: () => void; onToggle: () => void; onEdit: () => void; onRemove: () => void;
 }) {
@@ -535,6 +598,13 @@ function RefCard({ r, state, tallies, participants, residentByUser, onPublishTog
         <Vote size={13} className="text-primary dark:text-primary-300" />
         Συμμετοχή — {totalVoters} ψηφοφόροι ({residents} δημότες)
       </div>
+      {r.anonymous_ballots && ballots !== undefined && (
+        <p className={`mt-1.5 text-[11.5px] font-semibold ${ballots > totalVoters ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'}`}>
+          Εισιτήρια ψήφου: {totalVoters} · Ψηφοδέλτια που παραλήφθηκαν: {ballots}
+          {ballots > totalVoters && ' — ΠΕΡΙΣΣΟΤΕΡΑ ΨΗΦΟΔΕΛΤΙΑ ΑΠΟ ΕΙΣΙΤΗΡΙΑ: η ψηφοφορία πρέπει να ακυρωθεί.'}
+          {ballots < totalVoters && ` — ${totalVoters - ballots} ${ended ? 'δεν κατατέθηκαν' : 'δεν έχουν κατατεθεί ακόμη'}`}
+        </p>
+      )}
       {withheld ? (
         <div className="mt-3 flex items-start gap-2.5 rounded-xl bg-gray-50 dark:bg-[#0F1219] border border-gray-100 dark:border-[#1E2D4E] p-3.5">
           <Lock size={16} className="text-gray-400 flex-shrink-0 mt-0.5" />

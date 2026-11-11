@@ -37,6 +37,10 @@ export const KEYS = {
   profile: 'me_profile',
   votes: 'votes',
   myVotes: 'my_votes',
+  /** Anonymous ballots (v1.8): tickets this device holds whose ballot is not
+   *  delivered yet, and the receipt codes of the delivered ones. */
+  pendingBallots: 'pending_ballots',
+  ballotReceipts: 'ballot_receipts',
   /** The vetoWeek() string of the week this device vetoed — active only while
    *  it equals the current week (auto-reset every Monday 03:00 Athens). */
   veto: 'veto',

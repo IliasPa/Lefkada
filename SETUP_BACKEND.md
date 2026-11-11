@@ -148,6 +148,8 @@ automatically; the count shows up in `/admin ▸ Ειδοποιήσεις`.
 | Push subscriptions | `push_subscriptions` table | anyone (subscribe only) | mayor |
 | Votes (what) | `referendums_results` table — `(poll_id, option_id INT, residency, votes)`, counts only, never tied to a voter | `cast_vote()` only (security definer) | mayor + public for **shown** polls |
 | Results reader | `poll_state(poll_id)` — the only way results leave the database; applies each referendum's protections (v1.7) | everyone (mayor included) | function |
+| Ticket keys (private) | `referendum_ticket_keys` — wrapped with the `TICKET_MASTER_KEY` secret; no API access at all (v1.8) | Edge Functions only | function |
+| Used tickets / receipts | `referendums_tickets` — `(poll_id, serial_hash)`, no voter, no time, no option (v1.8) | everyone (public receipt list) | `ballot-cast` only |
 | Votes (who) | `referendums_participants` table — `(poll_id, user_id, email, tax_number)`; its `unique(poll_id, user_id)` is the one-vote-per-account gate; a filled ΑΦΜ means gov.gr-verified | `cast_vote()` only | mayor |
 | Vetos | `vetos` table — `(veto_date, voter_key)` only, no PK/timestamp; confirmed Δημότες only; each veto stays active 7 days (rolling); voter_key hashed with the week's Monday so it's one veto per week | `cast_veto()` only | mayor |
 | Results visibility | merged into `referendums.results_published` (the 🏠 toggle) — no separate table; counts read live from `referendums_results` | mayor | everyone (shown) |
@@ -277,6 +279,48 @@ What changes in the database:
 
 Nothing else to configure. Existing referendums keep working with both
 protections off — and say so to citizens on the poll.
+
+## 11. Anonymous ballots (v1.8)
+
+Needed only if you want to switch **«Ανώνυμα ψηφοδέλτια»** on for a
+referendum. Referendums without it keep working with no setup.
+
+1. **Re-run `supabase/schema.sql`** (adds the ticket tables and functions).
+2. **Set the master key — once, and never change it.** It unlocks the stored
+   ticket keys; if it is lost or replaced, referendums that are still open can
+   no longer issue tickets.
+
+   ```bash
+   supabase secrets set TICKET_MASTER_KEY="$(openssl rand -base64 32)"
+   ```
+
+   Do not write it anywhere else: it should exist only as the Supabase secret.
+3. **Deploy the two functions.** `ballot-cast` MUST be deployed with JWT
+   verification off — a ballot arrives without any account, by design:
+
+   ```bash
+   supabase functions deploy ballot-ticket
+   supabase functions deploy ballot-cast --no-verify-jwt
+   ```
+
+4. In /admin ▸ Δημοψηφίσματα, create a referendum with **Ανώνυμα
+   ψηφοδέλτια** ticked and save. The page asks `ballot-ticket` to create that
+   referendum's keys; if the functions are missing it says so and leaves the
+   referendum as a draft.
+
+How to read the admin card of an anonymous referendum:
+
+- **Εισιτήρια ψήφου** — accounts that received a ticket (the participation
+  roll, as before).
+- **Ψηφοδέλτια που παραλήφθηκαν** — ballots counted. A few fewer than tickets
+  is normal (someone's phone has not delivered yet, or never did). **More
+  ballots than tickets cannot happen** — the database refuses them; if the page
+  ever shows it, a ticket key has leaked and the referendum must be cancelled.
+
+What it does not hide: the function logs of your Supabase project record the
+time and IP address of every request. The app waits a few random seconds
+between the ticket and the ballot, but someone with access to those logs could
+still try to pair requests by time and address.
 
 ## 9. Citizen verification — email sign-in (v1.3)
 

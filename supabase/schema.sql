@@ -146,6 +146,21 @@ alter table public.referendums add column if not exists hide_until_close boolean
 alter table public.referendums add column if not exists min_votes integer not null default 0;
 alter table public.referendums drop constraint if exists referendums_min_votes_check;
 alter table public.referendums add constraint referendums_min_votes_check check (min_votes between 0 and 100000);
+-- v1.8 — ANONYMOUS BALLOTS (blind-signed tickets; see «Anonymous ballots» below)
+--   anonymous_ballots — the ballot travels WITHOUT the voter's account: the
+--                       server signs a ticket it cannot see, and later accepts
+--                       one ballot per valid ticket. It can check «one person,
+--                       one vote» but cannot link a ballot to a person.
+--                       Requires hide_until_close (watching live results would
+--                       undo it).
+--   ticket_keys       — the two PUBLIC ticket keys of this referendum
+--                       { "resident": <SPKI base64>, "other": <SPKI base64> },
+--                       written only by the ballot-ticket Edge Function.
+alter table public.referendums add column if not exists anonymous_ballots boolean not null default false;
+alter table public.referendums add column if not exists ticket_keys jsonb;
+alter table public.referendums drop constraint if exists referendums_anonymous_check;
+alter table public.referendums add constraint referendums_anonymous_check
+  check (not anonymous_ballots or hide_until_close);
 alter table public.referendums enable row level security;
 drop policy if exists "public reads published referendums" on public.referendums;
 create policy "public reads published referendums" on public.referendums
@@ -449,7 +464,8 @@ $$;
 -- links a voter to their option. p_option is the 0-based ballot index.
 -- v1.7: the server is the wall, not the app — a ballot is refused unless the
 -- referendum exists, is published, is still open and the option is on the
--- ballot (custom SQLSTATEs: LF001 = not open, LF002 = invalid option).
+-- ballot (custom SQLSTATEs: LF001 = not open, LF002 = invalid option,
+-- LF003 = the referendum takes anonymous ballots only).
 create or replace function public.cast_vote(p_poll_id text, p_option int)
 returns void
 language plpgsql security definer set search_path = public, extensions as $$
@@ -467,6 +483,10 @@ begin
   end if;
   if p_option is null or p_option < 0 or p_option >= jsonb_array_length(r.options) then
     raise exception 'that option is not on the ballot' using errcode = 'LF002';
+  end if;
+  if r.anonymous_ballots then
+    -- v1.8: this path would tie the ballot to the account — tickets only.
+    raise exception 'this referendum takes anonymous ballots only' using errcode = 'LF003';
   end if;
   select coalesce(c.resident, false), coalesce(c.tax_number, '')
     into v_res, v_tax
@@ -560,25 +580,232 @@ grant execute on function public.poll_state(text) to anon, authenticated;
 -- once its first ballot exists — otherwise a protection could be removed after
 -- people voted under it. The ballot options freeze with the first ballot too
 -- (results are stored by option index, so editing them would re-label votes).
+-- v1.8: the public ticket keys can be written only by the ballot-ticket Edge
+-- Function (service role) — a hijacked /admin session can't swap in its own
+-- keys to forge tickets — and an anonymous-ballot referendum can't be
+-- published before its keys exist.
 create or replace function public.referendums_guard()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare
-  v_voted boolean := exists (select 1 from public.referendums_participants p
-                             where p.poll_id = 'ref_' || old.id::text);
+  v_voted boolean := false;
+  v_role  text := coalesce(nullif(current_setting('request.jwt.claims', true), '')::json->>'role', '');
 begin
-  if (old.published or v_voted)
-     and (new.hide_until_close, new.min_votes)
-         is distinct from (old.hide_until_close, old.min_votes) then
-    raise exception 'protections are locked once a referendum is published' using errcode = 'LF010';
+  if tg_op = 'UPDATE' then
+    v_voted := exists (select 1 from public.referendums_participants p
+                       where p.poll_id = 'ref_' || old.id::text);
+    if (old.published or v_voted)
+       and (new.hide_until_close, new.min_votes, new.anonymous_ballots)
+           is distinct from (old.hide_until_close, old.min_votes, old.anonymous_ballots) then
+      raise exception 'protections are locked once a referendum is published' using errcode = 'LF010';
+    end if;
+    if v_voted and new.options is distinct from old.options then
+      raise exception 'the ballot options are locked once votes exist' using errcode = 'LF011';
+    end if;
   end if;
-  if v_voted and new.options is distinct from old.options then
-    raise exception 'the ballot options are locked once votes exist' using errcode = 'LF011';
+  -- API callers other than the service role may never set the ticket keys.
+  if v_role not in ('', 'service_role')
+     and new.ticket_keys is distinct from (case when tg_op = 'UPDATE' then old.ticket_keys end) then
+    raise exception 'ticket keys are written by the ballot-ticket function only' using errcode = 'LF013';
+  end if;
+  if new.published and new.anonymous_ballots and new.ticket_keys is null then
+    raise exception 'an anonymous-ballot referendum needs its ticket keys before it is published' using errcode = 'LF012';
   end if;
   return new;
 end $$;
 drop trigger if exists referendums_guard on public.referendums;
-create trigger referendums_guard before update on public.referendums
+create trigger referendums_guard before insert or update on public.referendums
   for each row execute function public.referendums_guard();
+
+-- ── Anonymous ballots (v1.8) ─────────────────────────────────────────────────
+-- For a referendum with anonymous_ballots on, voting is split into two steps
+-- that the server cannot connect:
+--   1. TICKET — the signed-in citizen's phone invents a random serial number,
+--      hides («blinds») it and asks the ballot-ticket Edge Function to sign it.
+--      The function checks the account is allowed and has not had a ticket for
+--      this referendum (referendums_participants — the same one-per-account
+--      gate as before), then signs WITHOUT being able to see the serial.
+--   2. BALLOT — a little later the phone sends the option together with the
+--      now-unblinded serial + signature to the ballot-cast Edge Function,
+--      with NO account attached. A valid signature proves «some eligible
+--      citizen», the serial can be used once, and that is all the server knows.
+-- The scheme is RSA Blind Signatures (RFC 9474, RSABSSA-SHA384-PSS). Each
+-- referendum has TWO key pairs — one for Δημότες, one for everyone else — so
+-- a ballot still counts in the right statistic without naming its voter.
+-- Everything below is callable by the Edge Functions' service role only.
+
+-- The PRIVATE ticket keys, each wrapped (AES-256-GCM) with the Edge Function
+-- secret TICKET_MASTER_KEY — a database dump alone cannot forge tickets. No
+-- policies: unreadable through the API.
+create table if not exists public.referendum_ticket_keys (
+  referendum_id uuid primary key references public.referendums (id) on delete cascade,
+  resident_key  text not null,
+  other_key     text not null
+);
+alter table public.referendum_ticket_keys enable row level security;
+revoke all on table public.referendum_ticket_keys from anon, authenticated;
+
+-- A re-request of the SAME blinded ticket is answered again (the reply may
+-- have been lost on the way) — so the roll remembers its hash. It reveals
+-- nothing: a blinded serial cannot be matched to the serial on a ballot.
+alter table public.referendums_participants add column if not exists ticket_blind text;
+
+-- The serials already used, hashed — the «one ballot per ticket» gate, and the
+-- public receipt list: a citizen can check their own receipt code is in it.
+-- Deliberately no timestamp and no option.
+create table if not exists public.referendums_tickets (
+  poll_id     text not null check (char_length(poll_id) between 1 and 80),
+  serial_hash text not null check (serial_hash ~ '^[0-9a-f]{64}$'),
+  unique (poll_id, serial_hash)
+);
+alter table public.referendums_tickets enable row level security;
+drop policy if exists "anyone checks a receipt" on public.referendums_tickets;
+create policy "anyone checks a receipt" on public.referendums_tickets
+  for select using (true);
+
+-- The open anonymous-ballot referendum behind a poll id, or a refusal.
+create or replace function public.anonymous_referendum(p_poll_id text)
+returns public.referendums
+language plpgsql stable security definer set search_path = public as $$
+declare r public.referendums%rowtype;
+begin
+  select * into r from public.referendums where 'ref_' || id::text = p_poll_id;
+  if not found or not r.published or now() >= r.ends_at then
+    raise exception 'this referendum is not open for voting' using errcode = 'LF001';
+  end if;
+  if not r.anonymous_ballots or r.ticket_keys is null then
+    raise exception 'this referendum does not take anonymous ballots' using errcode = 'LF004';
+  end if;
+  return r;
+end $$;
+
+-- Create a referendum's ticket keys (once). p_caller must be the mayor. The
+-- Edge Function generates the pairs and passes the wrapped private halves;
+-- if keys already exist they are kept and the existing public keys returned.
+create or replace function public.ticket_init(
+  p_caller uuid, p_referendum uuid, p_resident_key text, p_other_key text, p_public jsonb)
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare v_keys jsonb;
+begin
+  if not exists (select 1 from public.app_roles where user_id = p_caller and role = 'mayor') then
+    raise exception 'mayor only' using errcode = '42501';
+  end if;
+  insert into public.referendum_ticket_keys (referendum_id, resident_key, other_key)
+    values (p_referendum, p_resident_key, p_other_key)
+    on conflict (referendum_id) do nothing;
+  if found then
+    update public.referendums set ticket_keys = p_public where id = p_referendum;
+  end if;
+  select ticket_keys into v_keys from public.referendums where id = p_referendum;
+  return v_keys;
+end $$;
+
+-- The two PUBLIC ticket keys of an open anonymous-ballot referendum — what
+-- ballot-cast verifies a ticket against.
+create or replace function public.ticket_public_keys(p_poll_id text)
+returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare r public.referendums%rowtype := public.anonymous_referendum(p_poll_id);
+begin
+  return r.ticket_keys;
+end $$;
+
+-- Step 1a: what the function needs in order to sign — the citizen's residency
+-- per the registry and the two wrapped private keys. Writes nothing.
+create or replace function public.ticket_prepare(p_user uuid, p_poll_id text)
+returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare
+  r public.referendums%rowtype := public.anonymous_referendum(p_poll_id);
+  k public.referendum_ticket_keys%rowtype;
+begin
+  select * into k from public.referendum_ticket_keys where referendum_id = r.id;
+  if not found then
+    raise exception 'this referendum does not take anonymous ballots' using errcode = 'LF004';
+  end if;
+  return jsonb_build_object(
+    'resident', coalesce((select c.resident from public.citizens c where c.user_id = p_user), false),
+    'resident_key', k.resident_key, 'other_key', k.other_key);
+end $$;
+
+-- Step 1b: record that this account has had its ticket — the one-per-account
+-- gate. Raises 23505 when the account already had a DIFFERENT ticket; the same
+-- blinded ticket again is fine (a lost reply being re-requested). p_resident
+-- must still match the registry (LF005), so a ticket is never signed with the
+-- wrong key.
+create or replace function public.ticket_issue(
+  p_user uuid, p_poll_id text, p_resident boolean, p_blind_hash text)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  r public.referendums%rowtype := public.anonymous_referendum(p_poll_id);
+  v_res  boolean;
+  v_tax  text;
+  v_mail text;
+  v_old  text;
+begin
+  select coalesce(c.resident, false), coalesce(c.tax_number, ''), coalesce(c.email, '')
+    into v_res, v_tax, v_mail from public.citizens c where c.user_id = p_user;
+  if coalesce(v_res, false) is distinct from p_resident then
+    raise exception 'the registry designation changed — request the ticket again' using errcode = 'LF005';
+  end if;
+  select p.ticket_blind into v_old from public.referendums_participants p
+    where p.poll_id = p_poll_id and p.user_id = p_user;
+  if found then
+    if v_old is not distinct from p_blind_hash then return; end if;
+    raise exception 'this account already had its ticket' using errcode = '23505';
+  end if;
+  insert into public.referendums_participants (poll_id, user_id, email, tax_number, ticket_blind)
+    values (p_poll_id, p_user,
+            coalesce(nullif(v_mail, ''), (select u.email from auth.users u where u.id = p_user), ''),
+            coalesce(v_tax, ''), p_blind_hash);
+end $$;
+
+-- Step 2: count one anonymous ballot. The Edge Function has already verified
+-- the ticket's signature; here the serial is burned (23505 if it was used) and
+-- the tally incremented, atomically. Ballots can never outnumber tickets
+-- (LF006) — if that ever trips, a ticket key has leaked.
+create or replace function public.ballot_record(
+  p_poll_id text, p_option int, p_resident boolean, p_serial_hash text)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  r public.referendums%rowtype := public.anonymous_referendum(p_poll_id);
+begin
+  if p_option is null or p_option < 0 or p_option >= jsonb_array_length(r.options) then
+    raise exception 'that option is not on the ballot' using errcode = 'LF002';
+  end if;
+  perform pg_advisory_xact_lock(hashtext(p_poll_id));
+  if exists (select 1 from public.referendums_tickets
+             where poll_id = p_poll_id and serial_hash = p_serial_hash) then
+    raise exception 'this ticket was already used' using errcode = '23505';
+  end if;
+  if (select count(*) from public.referendums_tickets where poll_id = p_poll_id)
+     >= (select count(*) from public.referendums_participants where poll_id = p_poll_id) then
+    raise exception 'more ballots than tickets — refused' using errcode = 'LF006';
+  end if;
+  insert into public.referendums_tickets (poll_id, serial_hash) values (p_poll_id, p_serial_hash);
+  insert into public.referendums_results (poll_id, option_id, residency, votes)
+    values (p_poll_id, p_option, p_resident, 1)
+    on conflict (poll_id, option_id, residency)
+      do update set votes = public.referendums_results.votes + 1;
+end $$;
+
+do $$
+declare f text;
+begin
+  foreach f in array array[
+    'public.anonymous_referendum(text)',
+    'public.ticket_init(uuid, uuid, text, text, jsonb)',
+    'public.ticket_public_keys(text)',
+    'public.ticket_prepare(uuid, text)',
+    'public.ticket_issue(uuid, text, boolean, text)',
+    'public.ballot_record(text, int, boolean, text)'
+  ] loop
+    execute format('revoke all on function %s from public, anon, authenticated', f);
+    execute format('grant execute on function %s to service_role', f);
+  end loop;
+end $$;
 
 -- ── cast_veto(): the ONLY writer of vetos ────────────────────────────────────
 -- SECURITY DEFINER, mirroring cast_vote(). Confirmed Δημότες only. The

@@ -284,6 +284,21 @@ _/admin ▸ Δημοψηφίσματα with **dummy data** (no real citizens or 
 | --- | --- | --- | --- |
 | **Results hidden until closing** | v1.7 | Nobody, the mayor included, reads results while the poll is open — only the turnout | `poll_state()` — the only reader of `referendums_results` (no table `SELECT` policy exists) |
 | **Minimum number of votes** | v1.7 | No results below N ballots; the Δημότες / non-Δημότες split is merged while either group is smaller than N | `poll_state()` |
+| **Anonymous ballots** | v1.8 | The ballot reaches the server **without the voter's account**. The municipality sees _who received a voting ticket_ and a separate count of ballots — never which ballot is whose | RSA blind signatures (RFC 9474) — Edge Functions `ballot-ticket` + `ballot-cast` |
+
+### Anonymous ballots (v1.8)
+
+One tap for the citizen; underneath, two requests the server cannot connect:
+
+1. **Ticket** — the phone invents a random serial number, _blinds_ it and asks `ballot-ticket` (with the account) to sign it. The function checks the account has not had a ticket for this referendum and signs **without being able to see the serial**.
+2. **Ballot** — a few seconds later the phone sends the chosen option with the unblinded serial + signature to `ballot-cast`, **with no account attached**. A valid signature proves "an eligible citizen"; each serial is accepted once.
+
+- **One person, one vote** still holds: one ticket per account per referendum, from any device.
+- **Δημότες statistic without names:** each referendum has two ticket keys (Δημότες / everyone else), so a ballot counts in the right group without identifying its voter.
+- **Receipt code:** after voting the citizen sees a code and whether it is in the public list of counted tickets (`referendums_tickets`) — proof the ballot arrived, without revealing its option to anyone.
+- **Nothing is lost on a bad connection:** the ticket is saved on the device before each request; reopening the app delivers a ballot that was interrupted.
+- **Ballots can never outnumber tickets:** the database refuses a ballot beyond the number of tickets issued, and /admin shows both numbers.
+- Requires **results hidden until closing** (watching live results would undo it), so the switch turns that on too.
 
 Always on, for every referendum (v1.7): `cast_vote()` refuses a ballot unless the referendum exists, is published, is still open and the option is on the ballot; the ballot options freeze with the first vote; and the app records a choice on the device only after the server confirmed it.
 

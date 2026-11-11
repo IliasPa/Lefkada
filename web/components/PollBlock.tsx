@@ -9,6 +9,7 @@ import { KEYS, storageGet, storageSet } from "@/lib/storage";
 import { submitVote, getVerifiedUser, usePollState, countsFromState, type PollState, type VerifiedUser } from "@/lib/backend";
 import { backendConfigured, getSupabase } from "@/lib/supabase";
 import ProtectionNotice from "@/components/ProtectionNotice";
+import { castAnonymousBallot, resumePendingBallot, hasPendingBallot, getReceipt, checkReceipt } from "@/lib/ballot";
 
 /** Holding the vote button this long is the deliberate-intent safeguard —
  *  matching the veto button, and standing in for the removed "change vote". */
@@ -39,6 +40,10 @@ export default function PollBlock({
   const [showAbout, setShowAbout] = useState(false);
   const [sending, setSending] = useState(false);
   const [voteError, setVoteError] = useState<"" | "failed" | "closed">("");
+  // Anonymous ballots (v1.8): a ticket this device holds whose ballot is not
+  // delivered yet.
+  const anonymous = backendConfigured && !!poll.protections?.anonymous;
+  const [pending, setPending] = useState(false);
   const [explainLength, setExplainLength] = useState<"short" | "medium" | "full">("short");
   const [vUser, setVUser] = useState<VerifiedUser | null>(null);
 
@@ -79,6 +84,21 @@ export default function PollBlock({
   const myVote = voteKey ? myVotes[voteKey] : undefined;
   const serverVoted = backendConfigured && !!vUser && !!pollState?.voted;
   const submitted = closed || !!myVote || serverVoted;
+  const receipt = anonymous && vUser ? getReceipt(vUser.id, poll.id) : undefined;
+
+  /** Deliver a ballot this device still owes (app closed / offline mid-vote). */
+  const resume = useCallback(async () => {
+    if (!anonymous || !vUser || !hasPendingBallot(vUser.id, poll.id)) { setPending(false); return; }
+    setPending(true);
+    setSending(true);
+    const outcome = await resumePendingBallot(poll);
+    setSending(false);
+    setMyVotes(storageGet<MyVotes>(KEYS.myVotes, {}));
+    setPending(hasPendingBallot(vUser.id, poll.id));
+    if (outcome === "closed") setVoteError("closed");
+    reload();
+  }, [anonymous, vUser, poll, reload]);
+  useEffect(() => { resume(); }, [resume]);
 
   const totalVotes = Object.values(voteCounts).reduce((a, b) => a + b, 0);
 
@@ -106,18 +126,21 @@ export default function PollBlock({
     // the account had already voted elsewhere.
     setSending(true);
     setVoteError("");
-    const outcome = await submitVote(poll.id, poll.options.findIndex((o) => o.id === selected));
+    const index = poll.options.findIndex((o) => o.id === selected);
+    // Anonymous referendums go through the two-step ticket flow, which also
+    // records the choice on this device itself once the ballot is delivered.
+    const outcome = anonymous ? await castAnonymousBallot(poll, index) : await submitVote(poll.id, index);
     setSending(false);
-    if (outcome === "ok") {
-      const updatedMyVotes = { ...storageGet<MyVotes>(KEYS.myVotes, {}), [voteKey]: selected };
-      storageSet(KEYS.myVotes, updatedMyVotes);
-      setMyVotes(updatedMyVotes);
-    } else if (outcome !== "already") {
+    if (outcome === "ok" && !anonymous) {
+      storageSet(KEYS.myVotes, { ...storageGet<MyVotes>(KEYS.myVotes, {}), [voteKey]: selected });
+    } else if (outcome === "failed" || outcome === "closed") {
       setVoteError(outcome);
     }
+    setMyVotes(storageGet<MyVotes>(KEYS.myVotes, {}));
+    setPending(anonymous && !!vUser && hasPendingBallot(vUser.id, poll.id));
     reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, myVotes, poll, closed, submitted, sending, voteKey, reload]);
+  }, [selected, myVotes, poll, closed, submitted, sending, voteKey, anonymous, vUser, reload]);
 
   const explanation = poll.explanations[explainLength][lang];
   const explainNodes = explanation.split("\n").map((line, i) => {
@@ -220,14 +243,15 @@ export default function PollBlock({
                 // Results withheld — show only what this person voted (if this
                 // is the device they voted from) and why the rest is hidden.
                 <YourVoteCard poll={poll} lang={lang} myVote={myVote} voted={serverVoted}
-                  resultsState={pollState?.state} t={t} />
+                  resultsState={pollState?.state} receipt={receipt}
+                  pending={pending} busy={sending} onRetry={resume} t={t} />
               )
             ) : (
               <ResultsCard poll={poll} lang={lang} myVote={myVote} voteCounts={voteCounts} totalVotes={totalVotes} closed={closed} t={t} />
             )
           ) : (
             <VotingCard poll={poll} lang={lang} selected={selected} onSelect={setSelected} onSubmit={handleVote}
-              busy={sending}
+              busy={sending} busyLabel={anonymous ? t("vote_sending_anon") : t("vote_sending")}
               signInRequired={backendConfigured && !vUser}
               onSignIn={() => window.dispatchEvent(new Event("lefkada:open-profile"))} t={t} />
           )}
@@ -296,9 +320,9 @@ export function YouTubeEmbed({ id, title, fill = false }: { id: string; title: s
   return <div className="relative w-full overflow-hidden rounded-2xl bg-black shadow-md" style={{ aspectRatio: "16 / 9" }}>{iframe}</div>;
 }
 
-function VotingCard({ poll, lang, selected, onSelect, onSubmit, busy = false, signInRequired = false, onSignIn, t }: {
+function VotingCard({ poll, lang, selected, onSelect, onSubmit, busy = false, busyLabel, signInRequired = false, onSignIn, t }: {
   poll: Poll; lang: "el" | "en"; selected: string | null; onSelect: (id: string) => void; onSubmit: () => void;
-  busy?: boolean; signInRequired?: boolean; onSignIn?: () => void; t: (k: string) => string;
+  busy?: boolean; busyLabel?: string; signInRequired?: boolean; onSignIn?: () => void; t: (k: string) => string;
 }) {
   // Hold-to-submit: the ring fills over 4s (like the veto). Releasing early
   // cancels — a vote is one shot, so this stands in for the removed "change
@@ -366,7 +390,7 @@ function VotingCard({ poll, lang, selected, onSelect, onSubmit, busy = false, si
               </svg>
               <CheckCircle2 size={13} />
             </span>
-            {busy ? t("vote_sending") : t("vote_submit")}
+            {busy ? busyLabel ?? t("vote_sending") : t("vote_submit")}
           </button>
           {selected && !busy && (
             <p className="text-center text-[11.5px] font-semibold text-gray-400 dark:text-gray-500 mt-2">
@@ -434,14 +458,25 @@ export function resultsNote(poll: Poll, state: PollState["state"] | undefined, t
  *  their own choice — and only on the device they voted from, because the
  *  server never stores who chose what. On any other device the account is
  *  simply told it has already voted. */
-function YourVoteCard({ poll, lang, myVote, voted, resultsState, t }: {
+function YourVoteCard({ poll, lang, myVote, voted, resultsState, receipt, pending = false, busy = false, onRetry, t }: {
   poll: Poll; lang: "el" | "en"; myVote?: string; voted: boolean;
-  resultsState?: PollState["state"]; t: (k: string) => string;
+  resultsState?: PollState["state"]; receipt?: string;
+  /** Anonymous ballots: the ticket is on this device but the ballot is not delivered yet. */
+  pending?: boolean; busy?: boolean; onRetry?: () => void; t: (k: string) => string;
 }) {
   const chosen = poll.options.find((o) => o.id === myVote);
   return (
     <div className="bg-white dark:bg-[#141929] rounded-2xl p-5 border border-gray-100 dark:border-[#1E2D4E] shadow-sm space-y-3">
-      {chosen ? (
+      {pending ? (
+        <div className="bg-amber-50 dark:bg-amber-900/20 p-3.5 rounded-xl">
+          <p className="font-semibold text-sm text-amber-800 dark:text-amber-300">{t("vote_pending_title")}</p>
+          <p className="text-[12.5px] text-amber-900 dark:text-amber-200 mt-1 leading-relaxed">{t("vote_pending_text")}</p>
+          <button type="button" onClick={onRetry} disabled={busy}
+            className="mt-2.5 px-3 py-1.5 rounded-lg bg-amber-600 text-white text-[12px] font-bold active:scale-95 disabled:opacity-50">
+            {busy ? t("vote_sending_anon") : t("vote_pending_retry")}
+          </button>
+        </div>
+      ) : chosen ? (
         <div className="flex items-start gap-3 bg-green-50 dark:bg-green-900/20 p-3.5 rounded-xl">
           <CheckCircle2 size={20} className="text-green-500 flex-shrink-0 mt-0.5" />
           <div className="min-w-0">
@@ -449,6 +484,7 @@ function YourVoteCard({ poll, lang, myVote, voted, resultsState, t }: {
             <p className="text-[13px] text-green-700 dark:text-green-300 mt-1">
               {t("vote_your_vote")} <span className="font-bold">{chosen.text[lang]}</span>
             </p>
+            {receipt && <p className="text-[11.5px] text-green-700/80 dark:text-green-300/80 mt-1.5 leading-relaxed">{t("vote_anon_note")}</p>}
           </div>
         </div>
       ) : voted ? (
@@ -460,9 +496,34 @@ function YourVoteCard({ poll, lang, myVote, voted, resultsState, t }: {
           </div>
         </div>
       ) : null}
-      <p className={`text-gray-400 dark:text-gray-500 text-center ${chosen || voted ? "text-[11.5px]" : "text-[13px] py-2"}`}>
+      {receipt && !pending && <ReceiptLine pollId={poll.id} receipt={receipt} t={t} />}
+      <p className={`text-gray-400 dark:text-gray-500 text-center ${chosen || voted || pending ? "text-[11.5px]" : "text-[13px] py-2"}`}>
         {resultsNote(poll, resultsState, t)}
       </p>
+    </div>
+  );
+}
+
+/** The receipt code of an anonymous ballot, checked against the public list of
+ *  counted tickets — proof that the ballot arrived (it does not show, to
+ *  anyone, which option it carried). */
+function ReceiptLine({ pollId, receipt, t }: { pollId: string; receipt: string; t: (k: string) => string }) {
+  const [found, setFound] = useState<boolean | null>(null);
+  useEffect(() => {
+    let alive = true;
+    checkReceipt(pollId, receipt).then((v) => { if (alive) setFound(v); });
+    return () => { alive = false; };
+  }, [pollId, receipt]);
+  const code = (receipt.slice(0, 16).toUpperCase().match(/.{4}/g) ?? []).join("-");
+  return (
+    <div className="rounded-xl border border-gray-100 dark:border-[#1E2D4E] px-3.5 py-2.5">
+      <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500">{t("vote_receipt")}</p>
+      <p className="font-mono text-[13px] font-bold text-gray-700 dark:text-gray-200 mt-0.5 select-all" title={receipt}>{code}</p>
+      {found !== null && (
+        <p className={`text-[11.5px] font-semibold mt-0.5 ${found ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
+          {found ? "✓ " : "✗ "}{t(found ? "vote_receipt_found" : "vote_receipt_missing")}
+        </p>
+      )}
     </div>
   );
 }
