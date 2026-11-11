@@ -209,6 +209,20 @@ const el: Record<string, string> = {
   verify_mismatch: "ΑΣΥΜΦΩΝΙΑ: η αποκρυπτογράφηση στη συσκευή σας ΔΕΝ δίνει το δημοσιευμένο αποτέλεσμα.",
   verify_unavailable: "Τα ανοιγμένα ψηφοδέλτια δεν είναι διαθέσιμα ακόμη.",
   verify_key: "Κλειδί δημοψηφίσματος",
+  // v2.1 — build stamp, scheduled delivery, ballot-box checks
+  settings_build: "Έκδοση κώδικα:",
+  settings_build_unpublished: "μη δημοσιευμένη",
+  box_ok: "Η κάλπη συμφωνεί: {n} ψηφοδέλτια παραλήφθηκαν και {n} μετρήθηκαν στο αποτέλεσμα.",
+  verify_box_mismatch: "ΑΣΥΜΦΩΝΙΑ ΣΤΗΝ ΚΑΛΠΗ: χρησιμοποιήθηκαν {t} εισιτήρια ψήφου, αλλά μετρήθηκαν {b} ψηφοδέλτια.",
+  part_voted: "Σύμφωνα με τα αρχεία, ο λογαριασμός σας ΨΗΦΙΣΕ σε αυτή την ψηφοφορία.",
+  part_not_voted: "Σύμφωνα με τα αρχεία, ο λογαριασμός σας ΔΕΝ ψήφισε σε αυτή την ψηφοφορία.",
+  part_report: "Δεν ισχύει; Αναφέρετέ το.",
+  part_report_confirm: "Θα σταλεί στον δήμο αναφορά, με το email σας, ότι η καταγραφή της συμμετοχής σας σε αυτή την ψηφοφορία είναι λάθος. Συνέχεια;",
+  part_report_sent: "Η αναφορά στάλθηκε.",
+  part_report_failed: "Η αναφορά δεν στάλθηκε — δοκιμάστε ξανά.",
+  vote_scheduled_title: "Η ψήφος σας είναι έτοιμη και θα σταλεί σε λίγα λεπτά",
+  vote_scheduled_text:
+    "Το ψηφοδέλτιο περιμένει λίγο, τυχαία, πριν φύγει — ώστε να μη φτάσει αμέσως μετά το εισιτήριό σας και να μην μπορεί να συνδεθεί μαζί του. Αν κλείσετε την εφαρμογή νωρίτερα, φεύγει εκείνη τη στιγμή.",
   // v2.0 — TAXISnet verification (gov.gr)
   prot_taxis_label: "Ταυτοποίηση με κωδικούς TAXISnet",
   prot_taxis_text:
@@ -849,6 +863,20 @@ const en: Record<string, string> = {
   verify_mismatch: "MISMATCH: decrypting on your device does NOT give the published result.",
   verify_unavailable: "The opened ballots are not available yet.",
   verify_key: "Referendum key",
+  // v2.1 — build stamp, scheduled delivery, ballot-box checks
+  settings_build: "Code version:",
+  settings_build_unpublished: "unpublished",
+  box_ok: "The ballot box adds up: {n} ballots were received and {n} were counted in the result.",
+  verify_box_mismatch: "BALLOT BOX MISMATCH: {t} voting tickets were used, but {b} ballots were counted.",
+  part_voted: "According to the records, your account VOTED in this poll.",
+  part_not_voted: "According to the records, your account did NOT vote in this poll.",
+  part_report: "Not true? Report it.",
+  part_report_confirm: "A report will be sent to the municipality, with your email, saying the record of your participation in this poll is wrong. Continue?",
+  part_report_sent: "Report sent.",
+  part_report_failed: "The report was not sent — try again.",
+  vote_scheduled_title: "Your vote is ready and will be sent in a few minutes",
+  vote_scheduled_text:
+    "The ballot waits a short, random time before it leaves — so it does not arrive right behind your ticket and cannot be paired with it. If you close the app sooner, it is sent at that moment.",
   // v2.0 — TAXISnet verification (gov.gr)
   prot_taxis_label: "Identity check with TAXISnet codes",
   prot_taxis_text:

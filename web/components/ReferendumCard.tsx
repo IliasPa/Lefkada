@@ -7,9 +7,9 @@ import { type Poll } from "@/data/voting";
 import { KEYS, storageGet } from "@/lib/storage";
 import { YouTubeEmbed, ResultsCard, resultsNote } from "@/components/PollBlock";
 import ProtectionNotice from "@/components/ProtectionNotice";
-import { usePollState, countsFromState, type PollState } from "@/lib/backend";
+import { usePollState, countsFromState, getVerifiedUser, submitMayorMessage, type PollState, type VerifiedUser } from "@/lib/backend";
 import { keyFingerprint } from "@/lib/ballotSeal";
-import { fetchBallots, recount } from "@/lib/tally";
+import { fetchBallots, recount, countUsedTickets } from "@/lib/tally";
 import { backendConfigured } from "@/lib/supabase";
 
 type Panel = "short" | "medium" | "full" | "results" | "youtube";
@@ -99,6 +99,8 @@ export default function ReferendumCard({ poll }: { poll: Poll }) {
           )}
         </div>
 
+        {serverPoll && <ParticipationLine poll={poll} voted={!!pollState?.voted} loaded={!!pollState} t={t} />}
+
         {/* Active panel */}
         {open && (
           <div className="mt-3 pt-3 border-t border-gray-100 dark:border-[#1E2D4E]">
@@ -113,7 +115,9 @@ export default function ReferendumCard({ poll }: { poll: Poll }) {
                   <ResultsCard poll={poll} lang={lang}
                     voteCounts={countsFromState(pollState, poll.options.map((o) => o.id))}
                     totalVotes={pollState.rows.reduce((a, r) => a + r.v, 0)} closed t={t} />
-                  {poll.protections?.encrypted && <VerifyCount poll={poll} state={pollState} t={t} />}
+                  {poll.protections?.encrypted
+                    ? <VerifyCount poll={poll} state={pollState} t={t} />
+                    : poll.protections?.anonymous && <BallotBoxLine poll={poll} state={pollState} t={t} />}
                 </>
               ) : (
                 <p className="text-[13px] text-gray-500 dark:text-gray-400 text-center py-3">
@@ -136,7 +140,7 @@ export default function ReferendumCard({ poll }: { poll: Poll }) {
  *  the published result — the count does not have to be taken on trust. */
 function VerifyCount({ poll, state, t }: { poll: Poll; state: PollState; t: (k: string) => string }) {
   const [phase, setPhase] = useState<"idle" | "running" | "ok" | "mismatch" | "unavailable">("idle");
-  const [info, setInfo] = useState({ total: 0, invalid: 0 });
+  const [info, setInfo] = useState<{ total: number; invalid: number; tickets: number | null }>({ total: 0, invalid: 0, tickets: null });
   const [fp, setFp] = useState("");
   useEffect(() => {
     if (poll.encryptionKey) keyFingerprint(poll.encryptionKey).then(setFp, () => setFp(""));
@@ -148,8 +152,12 @@ function VerifyCount({ poll, state, t }: { poll: Poll; state: PollState; t: (k: 
     if (!rows || rows.length === 0 || rows.some((b) => !b.opening)) { setPhase("unavailable"); return; }
     const rc = await recount(poll.id, rows, poll.options.length);
     const published = poll.options.map((_, i) => state.rows.filter((r) => r.o === i).reduce((a, r) => a + r.v, 0));
-    const same = rc.disagreements === 0 && rc.counts.every((c, i) => c === published[i]);
-    setInfo({ total: rc.total, invalid: rc.invalid });
+    // v2.1: the ballot box must also hold exactly as many ballots as tickets
+    // were used — a ballot removed from (or slipped into) the box shows here.
+    const tickets = await countUsedTickets(poll.id);
+    const same = rc.disagreements === 0 && rc.counts.every((c, i) => c === published[i])
+      && (tickets === null || tickets === rc.total);
+    setInfo({ total: rc.total, invalid: rc.invalid, tickets });
     setPhase(same ? "ok" : "mismatch");
   };
 
@@ -166,9 +174,69 @@ function VerifyCount({ poll, state, t }: { poll: Poll; state: PollState; t: (k: 
           {info.invalid > 0 && " " + t("verify_invalid").replace("{n}", String(info.invalid))}
         </p>
       )}
-      {phase === "mismatch" && <p className="text-[12.5px] font-bold text-red-500 leading-relaxed">✗ {t("verify_mismatch")}</p>}
+      {phase === "mismatch" && (
+        <p className="text-[12.5px] font-bold text-red-500 leading-relaxed">
+          ✗ {info.tickets !== null && info.tickets !== info.total
+            ? t("verify_box_mismatch").replace("{t}", String(info.tickets)).replace("{b}", String(info.total))
+            : t("verify_mismatch")}
+        </p>
+      )}
       {phase === "unavailable" && <p className="text-[12.5px] text-gray-500 dark:text-gray-400">{t("verify_unavailable")}</p>}
       {fp && <p className="text-[11px] text-gray-400">{t("verify_key")}: <span className="font-mono">{fp}</span></p>}
     </div>
+  );
+}
+
+/** Anonymous (not encrypted) referendums, v2.1: the number of ballots the
+ *  server accepted — the public list of used tickets — must equal the number
+ *  of votes in the published result. Checked on the citizen's own device. */
+function BallotBoxLine({ poll, state, t }: { poll: Poll; state: PollState; t: (k: string) => string }) {
+  const [tickets, setTickets] = useState<number | null>(null);
+  useEffect(() => {
+    let alive = true;
+    countUsedTickets(poll.id).then((n) => { if (alive) setTickets(n); });
+    return () => { alive = false; };
+  }, [poll.id]);
+  if (tickets === null) return null;
+  const counted = state.rows.reduce((a, r) => a + r.v, 0);
+  const same = tickets === counted;
+  return (
+    <p className={`mt-3 text-[12px] font-semibold leading-relaxed ${same ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>
+      {same
+        ? "✓ " + t("box_ok").replace(/\{n\}/g, String(tickets))
+        : "✗ " + t("verify_box_mismatch").replace("{t}", String(tickets)).replace("{b}", String(counted))}
+    </p>
+  );
+}
+
+/** v2.1 — what the roll says about THIS account, shown on every finished
+ *  referendum: «you voted» / «you did not vote». A ballot cast in someone's
+ *  name without them shows up here, and one tap reports it. (Only whether the
+ *  account took part is recorded — never what it chose.) */
+function ParticipationLine({ poll, voted, loaded, t }: { poll: Poll; voted: boolean; loaded: boolean; t: (k: string) => string }) {
+  const [user, setUser] = useState<VerifiedUser | null>(null);
+  const [sent, setSent] = useState<"" | "ok" | "fail">("");
+  useEffect(() => { getVerifiedUser().then(setUser); }, []);
+  if (!user || !loaded) return null;
+  const report = async () => {
+    if (!window.confirm(t("part_report_confirm"))) return;
+    const ok = await submitMayorMessage({
+      anonymous: false, email: user.email,
+      body: `[Αναφορά συμμετοχής] Δημοψήφισμα «${poll.title.el}» (${poll.id}). Τα αρχεία δείχνουν ότι ο λογαριασμός ${user.email} `
+        + `${voted ? "ΨΗΦΙΣΕ" : "ΔΕΝ ΨΗΦΙΣΕ"}, αλλά ο κάτοχός του δηλώνει ότι αυτό ΔΕΝ ισχύει.`,
+    });
+    setSent(ok ? "ok" : "fail");
+  };
+  return (
+    <p className="mt-3 text-[12px] text-gray-500 dark:text-gray-400 leading-relaxed">
+      {t(voted ? "part_voted" : "part_not_voted")}{" "}
+      {sent === "ok" ? (
+        <span className="font-semibold text-green-600 dark:text-green-400">{t("part_report_sent")}</span>
+      ) : (
+        <button type="button" onClick={report} className="font-bold underline" style={{ color: ACCENT }}>
+          {t(sent === "fail" ? "part_report_failed" : "part_report")}
+        </button>
+      )}
+    </p>
   );
 }

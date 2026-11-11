@@ -9,7 +9,7 @@ import { KEYS, storageGet, storageSet } from "@/lib/storage";
 import { submitVote, getVerifiedUser, usePollState, countsFromState, fetchOwnCitizenStatus, type PollState, type VerifiedUser } from "@/lib/backend";
 import { backendConfigured, getSupabase } from "@/lib/supabase";
 import ProtectionNotice from "@/components/ProtectionNotice";
-import { castAnonymousBallot, resumePendingBallot, hasPendingBallot, getReceipt, checkReceipt } from "@/lib/ballot";
+import { castAnonymousBallot, resumePendingBallot, pendingBallotInfo, installBallotFlush, getReceipt, checkReceipt } from "@/lib/ballot";
 
 /** Holding the vote button this long is the deliberate-intent safeguard —
  *  matching the veto button, and standing in for the removed "change vote". */
@@ -44,9 +44,10 @@ export default function PollBlock({
   const taxisOnly = backendConfigured && !!poll.protections?.taxisOnly;
   const [taxisVerified, setTaxisVerified] = useState<boolean | null>(null);
   // Anonymous ballots (v1.8): a ticket this device holds whose ballot is not
-  // delivered yet.
+  // delivered yet — v2.1: either waiting out its random delay ("scheduled") or
+  // due / failed once ("overdue").
   const anonymous = backendConfigured && !!poll.protections?.anonymous;
-  const [pending, setPending] = useState(false);
+  const [pending, setPending] = useState<{ optionId: string; dueIn: number } | null>(null);
   const [explainLength, setExplainLength] = useState<"short" | "medium" | "full">("short");
   const [vUser, setVUser] = useState<VerifiedUser | null>(null);
 
@@ -93,22 +94,33 @@ export default function PollBlock({
   const voteKey = backendConfigured ? (vUser ? `${vUser.id}:${poll.id}` : null) : poll.id;
   const myVote = voteKey ? myVotes[voteKey] : undefined;
   const serverVoted = backendConfigured && !!vUser && !!pollState?.voted;
-  const submitted = closed || !!myVote || serverVoted;
+  const submitted = closed || !!myVote || serverVoted || !!pending;
   const receipt = anonymous && vUser ? getReceipt(vUser.id, poll.id) : undefined;
 
-  /** Deliver a ballot this device still owes (app closed / offline mid-vote). */
-  const resume = useCallback(async () => {
-    if (!anonymous || !vUser || !hasPendingBallot(vUser.id, poll.id)) { setPending(false); return; }
-    setPending(true);
+  /** Deliver a ballot this device still owes, if it is due (its random delay
+   *  is over, or an earlier attempt failed) — or right away with `force`. */
+  const resume = useCallback(async (force = false) => {
+    const info = anonymous && vUser ? pendingBallotInfo(vUser.id, poll.id) : null;
+    setPending(info);
+    if (!info || !vUser) return;
+    if (!force && info.dueIn > 0) return; // still scheduled — the timer below comes back
     setSending(true);
-    const outcome = await resumePendingBallot(poll);
+    const outcome = await resumePendingBallot(poll, force);
     setSending(false);
     setMyVotes(storageGet<MyVotes>(KEYS.myVotes, {}));
-    setPending(hasPendingBallot(vUser.id, poll.id));
+    setPending(pendingBallotInfo(vUser.id, poll.id));
     if (outcome === "closed") setVoteError("closed");
     reload();
   }, [anonymous, vUser, poll, reload]);
   useEffect(() => { resume(); }, [resume]);
+  // A scheduled ballot goes by itself when its time comes — and at once if the
+  // app is left before that (lib/ballot.ts ▸ flushPendingBallots).
+  useEffect(() => { if (anonymous) installBallotFlush(); }, [anonymous]);
+  useEffect(() => {
+    if (!pending || pending.dueIn <= 0) return;
+    const id = setTimeout(() => resume(), pending.dueIn + 50);
+    return () => clearTimeout(id);
+  }, [pending, resume]);
 
   const totalVotes = Object.values(voteCounts).reduce((a, b) => a + b, 0);
 
@@ -147,7 +159,7 @@ export default function PollBlock({
       setVoteError(outcome);
     }
     setMyVotes(storageGet<MyVotes>(KEYS.myVotes, {}));
-    setPending(anonymous && !!vUser && hasPendingBallot(vUser.id, poll.id));
+    setPending(anonymous && vUser ? pendingBallotInfo(vUser.id, poll.id) : null);
     reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected, myVotes, poll, closed, submitted, sending, voteKey, anonymous, vUser, reload]);
@@ -254,7 +266,9 @@ export default function PollBlock({
                 // is the device they voted from) and why the rest is hidden.
                 <YourVoteCard poll={poll} lang={lang} myVote={myVote} voted={serverVoted}
                   resultsState={pollState?.state} receipt={receipt}
-                  pending={pending} busy={sending} onRetry={resume} t={t} />
+                  pending={pending ? (pending.dueIn > 0 ? "scheduled" : "overdue") : undefined}
+                  pendingChoice={pending?.optionId}
+                  busy={sending} onRetry={() => resume(true)} t={t} />
               )
             ) : (
               <ResultsCard poll={poll} lang={lang} myVote={myVote} voteCounts={voteCounts} totalVotes={totalVotes} closed={closed} t={t} />
@@ -470,16 +484,34 @@ export function resultsNote(poll: Poll, state: PollState["state"] | undefined, t
  *  their own choice — and only on the device they voted from, because the
  *  server never stores who chose what. On any other device the account is
  *  simply told it has already voted. */
-function YourVoteCard({ poll, lang, myVote, voted, resultsState, receipt, pending = false, busy = false, onRetry, t }: {
+function YourVoteCard({ poll, lang, myVote, voted, resultsState, receipt, pending, pendingChoice, busy = false, onRetry, t }: {
   poll: Poll; lang: "el" | "en"; myVote?: string; voted: boolean;
   resultsState?: PollState["state"]; receipt?: string;
-  /** Anonymous ballots: the ticket is on this device but the ballot is not delivered yet. */
-  pending?: boolean; busy?: boolean; onRetry?: () => void; t: (k: string) => string;
+  /** Anonymous ballots: the ticket is on this device but the ballot is not
+   *  delivered yet — "scheduled" (waiting out its random delay, all is well) or
+   *  "overdue" (an attempt did not get through). */
+  pending?: "scheduled" | "overdue"; pendingChoice?: string;
+  busy?: boolean; onRetry?: () => void; t: (k: string) => string;
 }) {
   const chosen = poll.options.find((o) => o.id === myVote);
+  const waiting = poll.options.find((o) => o.id === pendingChoice);
   return (
     <div className="bg-white dark:bg-[#141929] rounded-2xl p-5 border border-gray-100 dark:border-[#1E2D4E] shadow-sm space-y-3">
-      {pending ? (
+      {pending === "scheduled" ? (
+        <div className="bg-primary-50 dark:bg-primary-900/20 p-3.5 rounded-xl">
+          <p className="font-semibold text-sm text-primary dark:text-primary-300">{t("vote_scheduled_title")}</p>
+          {waiting && (
+            <p className="text-[13px] text-gray-700 dark:text-gray-200 mt-1">
+              {t("vote_your_vote")} <span className="font-bold">{waiting.text[lang]}</span>
+            </p>
+          )}
+          <p className="text-[12.5px] text-gray-600 dark:text-gray-300 mt-1.5 leading-relaxed">{t("vote_scheduled_text")}</p>
+          <button type="button" onClick={onRetry} disabled={busy}
+            className="mt-2.5 px-3 py-1.5 rounded-lg border border-primary/40 text-primary dark:text-primary-300 text-[12px] font-bold active:scale-95 disabled:opacity-50">
+            {busy ? t("vote_sending_anon") : t("vote_pending_retry")}
+          </button>
+        </div>
+      ) : pending ? (
         <div className="bg-amber-50 dark:bg-amber-900/20 p-3.5 rounded-xl">
           <p className="font-semibold text-sm text-amber-800 dark:text-amber-300">{t("vote_pending_title")}</p>
           <p className="text-[12.5px] text-amber-900 dark:text-amber-200 mt-1 leading-relaxed">{t("vote_pending_text")}</p>

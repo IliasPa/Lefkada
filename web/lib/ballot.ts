@@ -13,6 +13,13 @@
  * The ticket lives only on this device. It is saved BEFORE each request, so a
  * dropped connection or a closed app never loses the vote: the next visit
  * picks up where it stopped (resumePendingBallot).
+ *
+ * v2.1 — step 2 is SCHEDULED, not immediate: the ballot waits a random few
+ * minutes (BALLOT_DELAY) so it does not arrive right behind the ticket request,
+ * which is what would let someone reading the server's request log pair the
+ * two. Reliability comes first, though: if the citizen leaves the app before
+ * the wait is over, the ballot is sent at that moment (flushPendingBallots) —
+ * a vote is never left stranded on a phone for the sake of the delay.
  */
 
 import type { Poll } from '@/data/voting';
@@ -22,9 +29,18 @@ import { newTicket, finishTicket, receiptOf, type BlindedTicket } from './ballot
 import { sealBallot } from './ballotSeal';
 import { fetchOwnCitizenStatus, getVerifiedUser, type VoteOutcome } from './backend';
 
-/** 'pending' — the ticket is held but the ballot has not been delivered yet;
- *  it will be retried (nothing is lost, nothing more to do for the citizen). */
-export type BallotOutcome = VoteOutcome | 'pending';
+/** 'scheduled' — the ticket is signed and the ballot is waiting out its random
+ *                delay; it goes by itself (or the moment the app is left).
+ *  'pending'   — a delivery was tried and did not get through; it is retried
+ *                (nothing is lost, nothing more to do for the citizen). */
+export type BallotOutcome = VoteOutcome | 'scheduled' | 'pending';
+
+/** The random wait between ticket and ballot, in ms: uniform between a tenth
+ *  of the maximum and the maximum. NEXT_PUBLIC_BALLOT_DELAY_MAX_S (seconds,
+ *  default 600 = ten minutes; 0 switches the wait off). */
+const DELAY_MAX_MS = Math.max(0, Number(process.env.NEXT_PUBLIC_BALLOT_DELAY_MAX_S ?? 600) || 0) * 1000;
+/** Never schedule a ballot later than this long before the poll closes. */
+const CLOSING_MARGIN_MS = 120_000;
 
 interface PendingBallot {
   pollId: string;
@@ -39,6 +55,11 @@ interface PendingBallot {
   /** v1.9: the referendum's public encryption key — the ballot is then sent
    *  SEALED (a ciphertext instead of the option). */
   encryptionKey?: string;
+  /** v2.1: the exact request that will be sent (sealed already, if the
+   *  referendum is encrypted) and when it is due — prepared the moment the
+   *  ticket is signed, so sending it later is a single request. */
+  body?: string;
+  sendAt?: number;
 }
 
 type Store<T> = Record<string, T>;
@@ -56,6 +77,14 @@ export function hasPendingBallot(userId: string, pollId: string): boolean {
   return !!getPending(keyOf(userId, pollId));
 }
 
+/** What this device still owes for a poll: the option picked and when the
+ *  ballot is due (0 = now / overdue). null when nothing is waiting. */
+export function pendingBallotInfo(userId: string, pollId: string): { optionId: string; dueIn: number } | null {
+  const p = getPending(keyOf(userId, pollId));
+  if (!p) return null;
+  return { optionId: p.optionId, dueIn: p.signature && p.sendAt ? Math.max(0, p.sendAt - Date.now()) : 0 };
+}
+
 /** The receipt code of a ballot cast from this device (64 hex chars), if any. */
 export function getReceipt(userId: string, pollId: string): string | undefined {
   return storageGet<Store<string>>(KEYS.ballotReceipts, {})[keyOf(userId, pollId)];
@@ -70,10 +99,11 @@ export async function checkReceipt(pollId: string, receipt: string): Promise<boo
   return error ? null : (data ?? []).length > 0;
 }
 
-/** POST to an Edge Function. `token` = the citizen's session for step 1;
- *  step 2 passes NONE on purpose — only the project's public key — so the
- *  ballot carries no account. (supabase.functions.invoke() would attach the
- *  session automatically, which is exactly what must not happen here.) */
+/** POST to an Edge Function with the citizen's session (`token`) — step 1,
+ *  the ticket request. Step 2 does NOT go through here: deliver() sends the
+ *  ballot with only the project's public key, so it carries no account.
+ *  (supabase.functions.invoke() would attach the session automatically, which
+ *  is exactly what must not happen to a ballot.) */
 async function callFn(name: string, body: unknown, token?: string): Promise<{ status: number; body: Record<string, unknown> }> {
   try {
     const res = await fetch(`${supabaseUrl}/functions/v1/${name}`, {
@@ -92,34 +122,48 @@ async function callFn(name: string, body: unknown, token?: string): Promise<{ st
   }
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const castUrl = () => `${supabaseUrl}/functions/v1/ballot-cast`;
+const castHeaders = () => ({ 'Content-Type': 'application/json', apikey: supabaseAnonKey ?? '' });
 
-/** Step 2: deliver the ballot with its ticket and no account. */
-async function deliver(k: string, p: PendingBallot): Promise<BallotOutcome> {
-  if (!p.signature) return 'pending';
-  // A short random wait, so the ballot does not arrive right behind the ticket
-  // request — skipped when the poll is about to close.
-  const left = new Date(p.endsAt).getTime() - Date.now();
-  if (left > 90_000) await sleep(2000 + Math.random() * 8000);
-  let choice: { option: number } | { ciphertext: string };
-  try {
-    choice = p.encryptionKey
-      ? { ciphertext: await sealBallot(p.pollId, p.option, p.encryptionKey) }
-      : { option: p.option };
-  } catch {
-    return 'pending'; // could not seal on this device right now — keep the ticket
-  }
-  const r = await callFn('ballot-cast', {
+/** Build the request of step 2 once — sealing the choice if the referendum is
+ *  encrypted — and pick when it is due. */
+async function prepare(p: PendingBallot): Promise<PendingBallot> {
+  const choice = p.encryptionKey
+    ? { ciphertext: await sealBallot(p.pollId, p.option, p.encryptionKey) }
+    : { option: p.option };
+  const body = JSON.stringify({
     poll_id: p.pollId, ...choice, resident: p.resident, serial: p.ticket.serial, signature: p.signature,
   });
-  const code = r.body.error as string | undefined;
-  // 23505 = this very ticket was already counted (the earlier reply was lost).
-  if (r.status === 200 || code === '23505') {
+  const room = new Date(p.endsAt).getTime() - Date.now() - CLOSING_MARGIN_MS;
+  const wait = DELAY_MAX_MS * (0.1 + 0.9 * Math.random());
+  return { ...p, body, sendAt: Date.now() + Math.max(0, Math.min(wait, room)) };
+}
+
+/** Step 2: deliver the ballot with its ticket and NO account. */
+async function deliver(k: string, p: PendingBallot): Promise<BallotOutcome> {
+  if (!p.signature) return 'pending';
+  if (!p.body) {
+    try { p = await prepare(p); setPending(k, p); }
+    catch { return 'pending'; } // could not seal on this device right now — keep the ticket
+  }
+  let status = 0;
+  let code: string | undefined;
+  try {
+    // No Authorization header, no cookies: only the project's public key.
+    const res = await fetch(castUrl(), { method: 'POST', headers: castHeaders(), body: p.body, credentials: 'omit' });
+    status = res.status;
+    code = ((await res.json().catch(() => ({}))) as { error?: string }).error;
+  } catch {
+    status = 0;
+  }
+  // 23505 = this very ticket was already counted (an earlier reply was lost,
+  // or the ballot went out as the app was being left).
+  if (status === 200 || code === '23505') {
     const receipts = storageGet<Store<string>>(KEYS.ballotReceipts, {});
     receipts[k] = await receiptOf(p.pollId, p.ticket.serial);
     storageSet(KEYS.ballotReceipts, receipts);
     // Remember the choice on this device only. (Once a ticket is signed its
-    // option can no longer change, so a lost-reply retry carries the same one.)
+    // option can no longer change, so a retry carries the same one.)
     storageSet(KEYS.myVotes, { ...storageGet<Store<string>>(KEYS.myVotes, {}), [k]: p.optionId });
     setPending(k, null);
     return 'ok';
@@ -128,7 +172,41 @@ async function deliver(k: string, p: PendingBallot): Promise<BallotOutcome> {
     setPending(k, null); // the referendum closed before the ballot arrived
     return 'closed';
   }
-  return 'pending'; // offline / server hiccup — the ticket stays for the next try
+  setPending(k, { ...p, sendAt: 0 }); // offline / server hiccup — due again at once
+  return 'pending';
+}
+
+/** Deliver now if the ballot is due (or `force`), otherwise leave it scheduled. */
+function deliverWhenDue(k: string, p: PendingBallot, force = false): Promise<BallotOutcome> | BallotOutcome {
+  return force || !p.sendAt || Date.now() >= p.sendAt ? deliver(k, p) : 'scheduled';
+}
+
+/** The app is being left (tab hidden, phone locked, page closed): send every
+ *  ballot that is still waiting, RIGHT NOW, as a request the browser finishes
+ *  on its own. The reply is not awaited — the next visit asks again and the
+ *  server answers "already counted", which is how the receipt gets confirmed. */
+export function flushPendingBallots(): void {
+  const all = storageGet<Store<PendingBallot>>(KEYS.pendingBallots, {});
+  let changed = false;
+  for (const [k, p] of Object.entries(all)) {
+    if (!p.signature || !p.body || !p.sendAt || Date.now() >= p.sendAt) continue;
+    try {
+      void fetch(castUrl(), { method: 'POST', headers: castHeaders(), body: p.body, credentials: 'omit', keepalive: true })
+        .catch(() => {});
+    } catch { /* the next visit retries */ }
+    all[k] = { ...p, sendAt: 0 };
+    changed = true;
+  }
+  if (changed) storageSet(KEYS.pendingBallots, all);
+}
+
+let flushInstalled = false;
+/** Hook flushPendingBallots() to the moments an app is left. Safe to call often. */
+export function installBallotFlush(): void {
+  if (flushInstalled || typeof window === 'undefined') return;
+  flushInstalled = true;
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushPendingBallots(); });
+  window.addEventListener('pagehide', flushPendingBallots);
 }
 
 /** Cast an anonymous ballot (or continue one that was interrupted). */
@@ -143,7 +221,7 @@ export async function castAnonymousBallot(poll: Poll, optionIndex: number): Prom
   const k = keyOf(user.id, poll.id);
 
   let p: PendingBallot | undefined = getPending(k);
-  if (p?.signature) return deliver(k, p); // only step 2 was left
+  if (p?.signature) return deliverWhenDue(k, p); // only step 2 was left
 
   const { data } = await sb.auth.getSession();
   const token = data.session?.access_token;
@@ -170,8 +248,10 @@ export async function castAnonymousBallot(poll: Poll, optionIndex: number): Prom
       } catch {
         return 'failed';
       }
-      setPending(k, p);
-      return deliver(k, p);
+      setPending(k, p); // the signed ticket is safe on the device from here on
+      try { p = await prepare(p); setPending(k, p); }
+      catch { return 'pending'; }
+      return deliverWhenDue(k, p);
     }
     if (code === 'LF005' && typeof r.body.resident === 'boolean' && attempt === 0) {
       resident = r.body.resident; // the registry says otherwise — nothing was recorded, redo with the right key
@@ -186,12 +266,13 @@ export async function castAnonymousBallot(poll: Poll, optionIndex: number): Prom
   return 'failed';
 }
 
-/** Finish a ballot this device still owes (ticket signed, ballot not delivered). */
-export async function resumePendingBallot(poll: Poll): Promise<BallotOutcome | null> {
+/** Finish a ballot this device still owes (ticket signed, ballot not
+ *  delivered): sends it if it is due — or at once with `force` («send now»). */
+export async function resumePendingBallot(poll: Poll, force = false): Promise<BallotOutcome | null> {
   const user = await getVerifiedUser();
   if (!user) return null;
   const k = keyOf(user.id, poll.id);
   const p = getPending(k);
   if (!p?.signature) return null;
-  return deliver(k, p);
+  return deliverWhenDue(k, p, force);
 }

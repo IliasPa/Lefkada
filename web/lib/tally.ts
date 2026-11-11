@@ -60,3 +60,13 @@ export async function recount(
   }
   return out;
 }
+
+/** How many tickets were used in a poll = how many ballots the server
+ *  accepted (the public receipt list). null = could not be read. */
+export async function countUsedTickets(pollId: string): Promise<number | null> {
+  const sb = getSupabase();
+  if (!sb) return null;
+  const { count, error } = await sb.from('referendums_tickets')
+    .select('serial_hash', { count: 'exact', head: true }).eq('poll_id', pollId);
+  return error ? null : count ?? 0;
+}

@@ -461,6 +461,63 @@ mark can be written only by this function: an ΑΦΜ typed into the registry by
 hand shows as «χωρίς ταυτοποίηση» and does not let the account vote in a
 TAXISnet-only referendum.
 
+## 14. Checking the live site against the published code (v2.1)
+
+Nothing to deploy — one variable to set, and one habit to adopt.
+
+**What changed in the app (automatic):** every page now carries a
+Content-Security-Policy (the browser refuses connections outside a short
+allow-list) and the commit it was built from (Settings ▸ «Έκδοση κώδικα»).
+
+**If an image stops showing after this update** it is hosted somewhere the
+policy does not list. Images may come from this site, `lefkada.gov.gr`,
+Wikimedia, the Supabase project's storage and the map tiles; anything else
+(for example an e-book cover pasted from another website) must be uploaded to
+one of those or its host added to `contentSecurityPolicy()` in
+`web/lib/build.ts`.
+
+**Switch the scheduled check on:**
+
+1. GitHub ▸ the repository ▸ Settings ▸ Secrets and variables ▸ Actions ▸
+   **Variables** ▸ New variable: `LIVE_URL` = the app's public address
+   (e.g. `https://lefkada.example`).
+2. If the hosting provider has any of these set, add each as a variable with
+   the **same name and value** — they are compiled into the files, so the
+   check must build with them: `NEXT_PUBLIC_VAPID_PUBLIC_KEY`,
+   `NEXT_PUBLIC_VOTE_SEED`, `NEXT_PUBLIC_GOVGR_ENABLED`,
+   `NEXT_PUBLIC_BALLOT_DELAY_MAX_S`. (None is a secret.)
+3. Actions ▸ «Verify the live site against the published code» ▸ Run
+   workflow, once, to see it pass.
+
+From then on it runs four times a day and opens an issue (GitHub emails it)
+if the site serves anything other than what the published commit builds to.
+
+**The first run is a real test.** The comparison was verified on one
+computer: the same commit built in different folders gives identical files,
+an honest site passes, and a changed script, an added script tag or a
+tampered runtime file are each caught. Whether the hosting provider's build
+(Linux, its own Node version) and GitHub's build of the same commit come out
+identical has **not** been tested — if the first run reports differences on
+an honest deployment, send the developer the list it prints, and try setting
+the `NODE_VERSION` variable to the Node version the host builds with. (One
+difference is already known and allowed: the order of entries in webpack's
+runtime file varies between builds.)
+
+**Do not rely on this workflow alone.** It lives in the same repository as
+the code, so whoever can change the code can change the check. For a real
+vote, ask someone independent to run it from their own computer (it needs
+git, Node and no passwords), ideally on a schedule:
+
+```bash
+git clone https://github.com/IliasPa/Lefkada.git && cd Lefkada
+NEXT_PUBLIC_SUPABASE_URL=… NEXT_PUBLIC_SUPABASE_ANON_KEY=… \
+  node scripts/verify-live.mjs --url https://<the app's public address>
+```
+
+Also worth doing now, outside the code: two-factor sign-in on GitHub, the
+hosting provider and Supabase, and a rule that changes reach `main` only
+after a second person has looked at them.
+
 ## 9. Citizen verification — email sign-in (v1.3)
 
 Voting requires a signed-in citizen (anonymous device voting was removed):
