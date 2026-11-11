@@ -443,8 +443,9 @@ export async function submitVeto(): Promise<boolean> {
 
 /** 'visible' — counts are in `rows`; otherwise why they are withheld:
  *  'unpublished' (the mayor has not revealed them), 'until_close' (hidden
- *  while the poll is open — for the mayor too), 'below_min' (too few ballots). */
-export type ResultsState = 'visible' | 'unpublished' | 'until_close' | 'below_min';
+ *  while the poll is open — for the mayor too), 'below_min' (too few ballots),
+ *  'awaiting_count' (encrypted ballots: closed, the key holder has not counted yet). */
+export type ResultsState = 'visible' | 'unpublished' | 'until_close' | 'below_min' | 'awaiting_count';
 
 export interface PollState {
   /** This account has voted in this poll (never WHAT — that is not stored). */

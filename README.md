@@ -285,6 +285,7 @@ _/admin ▸ Δημοψηφίσματα with **dummy data** (no real citizens or 
 | **Results hidden until closing** | v1.7 | Nobody, the mayor included, reads results while the poll is open — only the turnout | `poll_state()` — the only reader of `referendums_results` (no table `SELECT` policy exists) |
 | **Minimum number of votes** | v1.7 | No results below N ballots; the Δημότες / non-Δημότες split is merged while either group is smaller than N | `poll_state()` |
 | **Anonymous ballots** | v1.8 | The ballot reaches the server **without the voter's account**. The municipality sees _who received a voting ticket_ and a separate count of ballots — never which ballot is whose | RSA blind signatures (RFC 9474) — Edge Functions `ballot-ticket` + `ballot-cast` |
+| **Encrypted ballots** | v1.9 | The phone encrypts the choice to the referendum's public key. The database holds only ciphertext, so **no tally exists anywhere** — for anyone, with any access — until the key holder counts after closing. Afterwards every ballot's one-time key is published and **anyone can recount** | ECDH P-256 → HKDF-SHA256 → AES-256-GCM in the browser; `scripts/tally.mjs` + `publish_tally()` |
 
 ### Anonymous ballots (v1.8)
 
@@ -299,6 +300,15 @@ One tap for the citizen; underneath, two requests the server cannot connect:
 - **Nothing is lost on a bad connection:** the ticket is saved on the device before each request; reopening the app delivers a ballot that was interrupted.
 - **Ballots can never outnumber tickets:** the database refuses a ballot beyond the number of tickets issued, and /admin shows both numbers.
 - Requires **results hidden until closing** (watching live results would undo it), so the switch turns that on too.
+
+### Encrypted ballots (v1.9)
+
+- **Sealed on the phone:** the choice is encrypted to the referendum's **public key** before it leaves the device; every sealed ballot is the same length and two votes for the same option look unrelated. The server stores it without being able to read it.
+- **The private key never touches the server.** It is created outside the app — ideally **inside a hardware security key** that cannot release it, sealed in public until closing — and only its public half is pasted into the referendum form. Its fingerprint is shown in /admin and to citizens.
+- **The count** happens after closing, on the mayor's computer: `node scripts/tally.mjs count --poll <id>` asks the key to open each ballot and writes a count file. /admin re-opens every ballot with that file before publishing — a file that doesn't open the ballots to what it claims is refused.
+- **Anyone can verify:** once counted, each ballot's one-time key is public. The **"Verify the count"** button on the referendum decrypts every ballot on the citizen's own device and compares the recount with the published result.
+- **Built on anonymous ballots:** the ballots are opened one by one, so they must carry no voter — the switch turns anonymous ballots (and hidden results) on. The Δημότες flag of each ballot is kept in a table nobody can read and is used only for the aggregated statistic.
+- **Trade-offs:** if the private key is lost, that referendum's votes cannot be counted; whoever does the count sees the result even when it is below the minimum-votes threshold; and a count that marks ballots as "invalid" cannot be proven honest by the recount alone (a wrong _option_ can).
 
 Always on, for every referendum (v1.7): `cast_vote()` refuses a ballot unless the referendum exists, is published, is still open and the option is on the ballot; the ballot options freeze with the first vote; and the app records a choice on the device only after the server confirmed it.
 

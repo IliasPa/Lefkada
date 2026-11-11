@@ -7,7 +7,9 @@ import { type Poll } from "@/data/voting";
 import { KEYS, storageGet } from "@/lib/storage";
 import { YouTubeEmbed, ResultsCard, resultsNote } from "@/components/PollBlock";
 import ProtectionNotice from "@/components/ProtectionNotice";
-import { usePollState, countsFromState } from "@/lib/backend";
+import { usePollState, countsFromState, type PollState } from "@/lib/backend";
+import { keyFingerprint } from "@/lib/ballotSeal";
+import { fetchBallots, recount } from "@/lib/tally";
 import { backendConfigured } from "@/lib/supabase";
 
 type Panel = "short" | "medium" | "full" | "results" | "youtube";
@@ -107,9 +109,12 @@ export default function ReferendumCard({ poll }: { poll: Poll }) {
               !serverPoll ? (
                 <ResultsCard poll={poll} lang={lang} myVote={myVote} voteCounts={counts} totalVotes={total} closed t={t} />
               ) : pollState?.state === "visible" ? (
-                <ResultsCard poll={poll} lang={lang}
-                  voteCounts={countsFromState(pollState, poll.options.map((o) => o.id))}
-                  totalVotes={pollState.rows.reduce((a, r) => a + r.v, 0)} closed t={t} />
+                <>
+                  <ResultsCard poll={poll} lang={lang}
+                    voteCounts={countsFromState(pollState, poll.options.map((o) => o.id))}
+                    totalVotes={pollState.rows.reduce((a, r) => a + r.v, 0)} closed t={t} />
+                  {poll.protections?.encrypted && <VerifyCount poll={poll} state={pollState} t={t} />}
+                </>
               ) : (
                 <p className="text-[13px] text-gray-500 dark:text-gray-400 text-center py-3">
                   {resultsNote(poll, pollState?.state, t)}
@@ -123,5 +128,47 @@ export default function ReferendumCard({ poll }: { poll: Poll }) {
         )}
       </div>
     </article>
+  );
+}
+
+/** Encrypted referendums (v1.9): anyone can re-decrypt every ballot on their
+ *  own device with the published one-time keys and compare the recount with
+ *  the published result — the count does not have to be taken on trust. */
+function VerifyCount({ poll, state, t }: { poll: Poll; state: PollState; t: (k: string) => string }) {
+  const [phase, setPhase] = useState<"idle" | "running" | "ok" | "mismatch" | "unavailable">("idle");
+  const [info, setInfo] = useState({ total: 0, invalid: 0 });
+  const [fp, setFp] = useState("");
+  useEffect(() => {
+    if (poll.encryptionKey) keyFingerprint(poll.encryptionKey).then(setFp, () => setFp(""));
+  }, [poll.encryptionKey]);
+
+  const run = async () => {
+    setPhase("running");
+    const rows = await fetchBallots(poll.id);
+    if (!rows || rows.length === 0 || rows.some((b) => !b.opening)) { setPhase("unavailable"); return; }
+    const rc = await recount(poll.id, rows, poll.options.length);
+    const published = poll.options.map((_, i) => state.rows.filter((r) => r.o === i).reduce((a, r) => a + r.v, 0));
+    const same = rc.disagreements === 0 && rc.counts.every((c, i) => c === published[i]);
+    setInfo({ total: rc.total, invalid: rc.invalid });
+    setPhase(same ? "ok" : "mismatch");
+  };
+
+  return (
+    <div className="mt-3 rounded-xl border border-gray-100 dark:border-[#1E2D4E] p-3.5 space-y-2">
+      <button type="button" onClick={run} disabled={phase === "running"}
+        className="px-3 py-1.5 rounded-lg text-[12px] font-bold border active:scale-95 disabled:opacity-50"
+        style={{ borderColor: ACCENT + "44", color: ACCENT }}>
+        {phase === "running" ? t("verify_running") : t("verify_btn")}
+      </button>
+      {phase === "ok" && (
+        <p className="text-[12.5px] font-semibold text-green-600 dark:text-green-400 leading-relaxed">
+          ✓ {t("verify_ok").replace("{n}", String(info.total))}
+          {info.invalid > 0 && " " + t("verify_invalid").replace("{n}", String(info.invalid))}
+        </p>
+      )}
+      {phase === "mismatch" && <p className="text-[12.5px] font-bold text-red-500 leading-relaxed">✗ {t("verify_mismatch")}</p>}
+      {phase === "unavailable" && <p className="text-[12.5px] text-gray-500 dark:text-gray-400">{t("verify_unavailable")}</p>}
+      {fp && <p className="text-[11px] text-gray-400">{t("verify_key")}: <span className="font-mono">{fp}</span></p>}
+    </div>
   );
 }

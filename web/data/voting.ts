@@ -17,6 +17,9 @@ export interface PollProtections {
   minVotes: number;
   /** The ballot reaches the server without the voter's account (v1.8). */
   anonymous: boolean;
+  /** The choice is encrypted on the phone; no tally exists until the key
+   *  holder counts after closing (v1.9). */
+  encrypted: boolean;
 }
 
 export interface Poll {
@@ -35,6 +38,8 @@ export interface Poll {
   protections?: PollProtections;
   /** The referendum's two public ticket keys (anonymous ballots only). */
   ticketKeys?: { resident: string; other: string };
+  /** The referendum's public encryption key, SPKI base64 (encrypted ballots only). */
+  encryptionKey?: string;
 }
 
 // voting.json = { bundled: [...], baked: [raw referendum rows] } — referendums

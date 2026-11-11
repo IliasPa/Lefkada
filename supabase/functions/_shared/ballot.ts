@@ -17,6 +17,8 @@ const RSA = { name: "RSA-PSS", hash: "SHA-384" } as const;
 const MODULUS_BITS = 2048;
 const MODULUS_BYTES = MODULUS_BITS / 8;
 const SERIAL_BYTES = 32;
+/** A sealed ballot (v1.9): ephemeral key 65 ‖ iv 12 ‖ ciphertext+tag 32. */
+const CIPHERTEXT_BYTES = 109;
 
 export interface DbError { code?: string; message: string }
 export interface Deps {
@@ -162,9 +164,13 @@ export async function handleCast(req: Request, deps: Deps): Promise<Response> {
   try {
     const b = await body(req);
     const signature = fromB64(b?.signature, MODULUS_BYTES);
+    // v1.9: an encrypted referendum's ballot carries a ciphertext INSTEAD of
+    // the option — exactly one of the two must be present (the database then
+    // refuses whichever kind the referendum does not take).
+    const sealed = typeof b?.ciphertext === "string";
     if (!b || typeof b.poll_id !== "string" || typeof b.resident !== "boolean"
-        || !Number.isInteger(b.option) || typeof b.serial !== "string"
-        || !fromB64(b.serial, SERIAL_BYTES) || !signature) {
+        || (sealed ? b.option !== undefined || !fromB64(b.ciphertext, CIPHERTEXT_BYTES) : !Number.isInteger(b.option))
+        || typeof b.serial !== "string" || !fromB64(b.serial, SERIAL_BYTES) || !signature) {
       return json({ error: "bad-request" }, 400);
     }
     const keys = await deps.rpc("ticket_public_keys", { p_poll_id: b.poll_id });
@@ -180,9 +186,13 @@ export async function handleCast(req: Request, deps: Deps): Promise<Response> {
     }
     if (!valid) return json({ error: "ticket" }, 403);
     const hash = await serialHash(b.poll_id, b.serial);
-    const { error } = await deps.rpc("ballot_record", {
-      p_poll_id: b.poll_id, p_option: b.option, p_resident: b.resident, p_serial_hash: hash,
-    });
+    const { error } = sealed
+      ? await deps.rpc("ballot_record_encrypted", {
+        p_poll_id: b.poll_id, p_resident: b.resident, p_serial_hash: hash, p_ciphertext: b.ciphertext,
+      })
+      : await deps.rpc("ballot_record", {
+        p_poll_id: b.poll_id, p_option: b.option, p_resident: b.resident, p_serial_hash: hash,
+      });
     if (error) return refusal(error);
     return json({ ok: true, receipt: hash });
   } catch (e) {

@@ -147,7 +147,7 @@ function syncNews() {
  *  served from the bundle still tells citizens which protections it lacks.
  *  Only the ones the database actually has are selected, so the sync keeps
  *  working against a database whose schema.sql has not been re-run yet. */
-const PROTECTION_COLUMNS = ['hide_until_close', 'min_votes', 'anonymous_ballots'];
+const PROTECTION_COLUMNS = ['hide_until_close', 'min_votes', 'anonymous_ballots', 'encrypted_ballots', 'encryption_key'];
 
 function syncReferendums() {
   const path = join(DATA, 'voting.json');

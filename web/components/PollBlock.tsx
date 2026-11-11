@@ -450,6 +450,7 @@ export function ResultsCard({ poll, lang, myVote, voteCounts, totalVotes, closed
 /** Why a poll's results are not shown — one line per poll_state() state. */
 export function resultsNote(poll: Poll, state: PollState["state"] | undefined, t: (k: string) => string): string {
   if (state === "until_close") return t("vote_results_after_close");
+  if (state === "awaiting_count") return t("vote_results_awaiting_count");
   if (state === "below_min") return t("vote_results_below_min").replace("{n}", String(poll.protections?.minVotes ?? 0));
   return t("vote_results_hidden");
 }

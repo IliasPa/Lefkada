@@ -149,6 +149,8 @@ automatically; the count shows up in `/admin ▸ Ειδοποιήσεις`.
 | Votes (what) | `referendums_results` table — `(poll_id, option_id INT, residency, votes)`, counts only, never tied to a voter | `cast_vote()` only (security definer) | mayor + public for **shown** polls |
 | Results reader | `poll_state(poll_id)` — the only way results leave the database; applies each referendum's protections (v1.7) | everyone (mayor included) | function |
 | Ticket keys (private) | `referendum_ticket_keys` — wrapped with the `TICKET_MASTER_KEY` secret; no API access at all (v1.8) | Edge Functions only | function |
+| Sealed ballots | `referendums_ballots` — `(id, poll_id, ciphertext, opening, option_id)`; no voter, no time; opening + option filled in by the count (v1.9) | everyone once the results are public (unopened ciphertexts: always) | `ballot-cast`, `publish_tally()` |
+| Ballot → Δημότης flag | `referendums_ballot_groups` — used only inside `publish_tally()` (v1.9) | nobody | `ballot-cast` |
 | Used tickets / receipts | `referendums_tickets` — `(poll_id, serial_hash)`, no voter, no time, no option (v1.8) | everyone (public receipt list) | `ballot-cast` only |
 | Votes (who) | `referendums_participants` table — `(poll_id, user_id, email, tax_number)`; its `unique(poll_id, user_id)` is the one-vote-per-account gate; a filled ΑΦΜ means gov.gr-verified | `cast_vote()` only | mayor |
 | Vetos | `vetos` table — `(veto_date, voter_key)` only, no PK/timestamp; confirmed Δημότες only; each veto stays active 7 days (rolling); voter_key hashed with the week's Monday so it's one veto per week | `cast_veto()` only | mayor |
@@ -321,6 +323,87 @@ What it does not hide: the function logs of your Supabase project record the
 time and IP address of every request. The app waits a few random seconds
 between the ticket and the ballot, but someone with access to those logs could
 still try to pair requests by time and address.
+
+## 12. Encrypted ballots (v1.9)
+
+Needed only for referendums with **«Κρυπτογραφημένα ψηφοδέλτια»** on. It
+builds on §11 (anonymous ballots must be set up), needs **no new secret and no
+new function to deploy** — only a re-run of `supabase/schema.sql` and a
+redeploy of `ballot-cast` (it now also accepts sealed ballots):
+
+```bash
+supabase functions deploy ballot-cast --no-verify-jwt
+```
+
+Every encrypted referendum has a key pair. The **public** half goes into the
+referendum form; the **private** half opens the ballots and must stay out of
+reach until the referendum has closed.
+
+### Option A — a key file (to try it out, or for low-stakes polls)
+
+```bash
+node scripts/tally.mjs keygen --out referendum-key.pem
+```
+
+Prints the public key (paste it into the form) and its fingerprint. The file
+IS the private key: anyone who copies it can read the ballots as they come in.
+Keep it off the internet (a USB stick in a drawer), and treat this option as
+"encrypted against outsiders", not "encrypted against whoever holds the file".
+
+### Option B — a hardware security key (the real thing) — NOT TESTED YET
+
+A PIV security key (for example a YubiKey 5) generates the key **inside
+itself** and cannot give it out, so sealing the device in public really does
+mean nobody can open ballots early. **This path was written without a device
+and has never been run** — the self-test below is how you find out whether it
+works with yours, before any real referendum depends on it.
+
+```bash
+brew install ykman opensc yubico-piv-tool
+
+# 1. Generate a P-256 key INSIDE the device, in the key-management slot (9d).
+ykman piv keys generate --algorithm ECCP256 9d referendum-public.pem
+# 2. Optional: the device's certificate that the key was born inside it.
+ykman piv keys attest 9d referendum-attestation.pem
+# 3. Prove the device opens ballots sealed to it (asks for the PIV PIN).
+node scripts/tally.mjs selftest --piv --pub referendum-public.pem
+```
+
+(The two `ykman` lines follow Yubico's documented syntax but were not run
+here either — check them against `ykman piv keys --help`.) If step 3 prints
+✓, paste `referendum-public.pem` (and the attestation) into the referendum
+form. If it fails, use option A and tell the developer what it printed.
+
+### The procedure around it
+
+1. Create the referendum with the public key; note the **fingerprint** the
+   form shows (8 groups of 4 characters).
+2. Seal the key (device or USB stick) in a tamper-evident envelope, write the
+   fingerprint on it, and put it somewhere visible and locked. If someone else
+   created the key and you never held it, so much the better.
+3. After closing, open the envelope in public, compare the fingerprint, and
+   count:
+
+   ```bash
+   node scripts/tally.mjs count --poll <referendum id> --key-file referendum-key.pem
+   # or:                               --piv --pub referendum-public.pem
+   ```
+
+   The referendum id is shown in /admin under the closed referendum. The
+   script refuses to run before closing and refuses a key that is not this
+   referendum's.
+4. Upload the resulting `tally-<id>.json` in /admin ▸ Δημοψηφίσματα. The page
+   re-opens every ballot, shows the totals and asks before publishing. It
+   cannot be undone.
+5. Anyone can now press **Επαλήθευση καταμέτρησης** on the referendum.
+
+**One key per referendum, or one key for all?** A file key: make a new one
+per referendum. A hardware key can serve several referendums, but opening its
+envelope for one ends the seal for all of them — so never let two encrypted
+referendums overlap on one device, and reseal it in public after each count.
+
+**If the key is lost or the device breaks, the votes of that referendum
+cannot be counted.** There is no back door, by design.
 
 ## 9. Citizen verification — email sign-in (v1.3)
 

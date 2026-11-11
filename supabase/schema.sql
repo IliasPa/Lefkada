@@ -161,6 +161,26 @@ alter table public.referendums add column if not exists ticket_keys jsonb;
 alter table public.referendums drop constraint if exists referendums_anonymous_check;
 alter table public.referendums add constraint referendums_anonymous_check
   check (not anonymous_ballots or hide_until_close);
+-- v1.9 — ENCRYPTED BALLOTS (see «Encrypted ballots» below)
+--   encrypted_ballots      — the phone encrypts the choice to this
+--                            referendum's public key; the database holds only
+--                            ciphertext, so no tally exists (for anyone, with
+--                            any access) until the key holder counts after
+--                            closing. Requires anonymous_ballots: the ballots
+--                            are opened one by one, so they must carry no voter.
+--   encryption_key         — the PUBLIC key (P-256, SPKI base64 = the body of
+--                            its PEM). Its private half never touches the
+--                            server — ideally it lives in a sealed hardware key.
+--   encryption_attestation — optional: the device's certificate that the key
+--                            was generated inside it (PEM), published as-is.
+--   tallied_at             — set by publish_tally() when the count is uploaded.
+alter table public.referendums add column if not exists encrypted_ballots boolean not null default false;
+alter table public.referendums add column if not exists encryption_key text not null default '';
+alter table public.referendums add column if not exists encryption_attestation text not null default '';
+alter table public.referendums add column if not exists tallied_at timestamptz;
+alter table public.referendums drop constraint if exists referendums_encrypted_check;
+alter table public.referendums add constraint referendums_encrypted_check
+  check (not encrypted_ballots or (anonymous_ballots and encryption_key <> ''));
 alter table public.referendums enable row level security;
 drop policy if exists "public reads published referendums" on public.referendums;
 create policy "public reads published referendums" on public.referendums
@@ -515,6 +535,8 @@ grant execute on function public.cast_vote(text, int) to authenticated;
 --           'until_close' : hide_until_close is on and the poll is still open
 --                           — applies to the MAYOR too
 --           'below_min'   : fewer ballots than min_votes — mayor too
+--           'awaiting_count' : encrypted ballots (v1.9), closed, but the key
+--                           holder has not uploaded the count yet
 --   split — false when the Δημότες / non-Δημότες breakdown was merged because
 --           one of the two groups is smaller than min_votes (residency = null)
 --   rows  — [{ o: option index, r: residency | null, v: votes }]
@@ -549,6 +571,8 @@ begin
       v_state := 'unpublished';
     elsif r.hide_until_close and now() < r.ends_at then
       v_state := 'until_close';
+    elsif r.encrypted_ballots and r.tallied_at is null then
+      v_state := 'awaiting_count';
     elsif r.min_votes > 0 and v_total < r.min_votes then
       v_state := 'below_min';
     elsif r.min_votes > 0 and ((v_res > 0 and v_res < r.min_votes)
@@ -594,9 +618,16 @@ begin
     v_voted := exists (select 1 from public.referendums_participants p
                        where p.poll_id = 'ref_' || old.id::text);
     if (old.published or v_voted)
-       and (new.hide_until_close, new.min_votes, new.anonymous_ballots)
-           is distinct from (old.hide_until_close, old.min_votes, old.anonymous_ballots) then
+       and (new.hide_until_close, new.min_votes, new.anonymous_ballots,
+            new.encrypted_ballots, new.encryption_key, new.encryption_attestation)
+           is distinct from (old.hide_until_close, old.min_votes, old.anonymous_ballots,
+            old.encrypted_ballots, old.encryption_key, old.encryption_attestation) then
       raise exception 'protections are locked once a referendum is published' using errcode = 'LF010';
+    end if;
+    -- v1.9: «counted» is stamped by publish_tally() only.
+    if new.tallied_at is distinct from old.tallied_at
+       and coalesce(current_setting('lefkada.tally', true), '') <> 'on' then
+      raise exception 'the count is published through publish_tally() only' using errcode = 'LF014';
     end if;
     if v_voted and new.options is distinct from old.options then
       raise exception 'the ballot options are locked once votes exist' using errcode = 'LF011';
@@ -606,6 +637,9 @@ begin
   if v_role not in ('', 'service_role')
      and new.ticket_keys is distinct from (case when tg_op = 'UPDATE' then old.ticket_keys end) then
     raise exception 'ticket keys are written by the ballot-ticket function only' using errcode = 'LF013';
+  end if;
+  if tg_op = 'INSERT' and new.tallied_at is not null then
+    raise exception 'the count is published through publish_tally() only' using errcode = 'LF014';
   end if;
   if new.published and new.anonymous_ballots and new.ticket_keys is null then
     raise exception 'an anonymous-ballot referendum needs its ticket keys before it is published' using errcode = 'LF012';
@@ -772,6 +806,9 @@ language plpgsql security definer set search_path = public as $$
 declare
   r public.referendums%rowtype := public.anonymous_referendum(p_poll_id);
 begin
+  if r.encrypted_ballots then
+    raise exception 'this referendum takes encrypted ballots only' using errcode = 'LF007';
+  end if;
   if p_option is null or p_option < 0 or p_option >= jsonb_array_length(r.options) then
     raise exception 'that option is not on the ballot' using errcode = 'LF002';
   end if;
@@ -790,6 +827,158 @@ begin
     on conflict (poll_id, option_id, residency)
       do update set votes = public.referendums_results.votes + 1;
 end $$;
+
+-- ── Encrypted ballots (v1.9) ─────────────────────────────────────────────────
+-- For a referendum with encrypted_ballots on, the anonymous ballot (v1.8)
+-- carries a CIPHERTEXT instead of the option:
+--   · the phone encrypts the choice to the referendum's public key (ECDH P-256
+--     → HKDF-SHA256 → AES-256-GCM; web/lib/ballotSeal.ts), every ciphertext the
+--     same length;
+--   · the database stores it as-is — no tally can exist before the count, for
+--     anyone, with any level of access;
+--   · after closing, whoever holds the private key (scripts/tally.mjs, with
+--     the sealed hardware key plugged in) derives each ballot's one-time key —
+--     its OPENING — and the mayor uploads them through publish_tally();
+--   · the ballots and their openings are then public, so anyone can decrypt
+--     every ballot and recount (the app has a «verify the count» button).
+-- The private key is never needed again and never leaves its device.
+
+-- One row per encrypted ballot. No voter, no timestamp, and no residency (the
+-- Δημότες flag lives in a table nobody can read — below — so the per-ballot
+-- public list can't expose a lone voter of a small group).
+create table if not exists public.referendums_ballots (
+  id         uuid primary key default gen_random_uuid(),
+  poll_id    text not null check (char_length(poll_id) between 1 and 80),
+  -- ephemeral key (65) ‖ iv (12) ‖ ciphertext+tag (32) = 109 bytes, base64
+  ciphertext text not null check (ciphertext ~ '^[A-Za-z0-9+/]{146}==$'),
+  -- set by publish_tally(): the ballot's one-time AES key (base64) and the
+  -- option it decrypts to (null = it did not decrypt to a valid option)
+  opening    text,
+  option_id  smallint
+);
+create index if not exists referendums_ballots_poll_idx on public.referendums_ballots (poll_id);
+alter table public.referendums_ballots enable row level security;
+
+-- The Δημότες flag of each encrypted ballot — readable by NOBODY through the
+-- API; only publish_tally() uses it, to build the aggregated statistic.
+create table if not exists public.referendums_ballot_groups (
+  ballot_id uuid primary key references public.referendums_ballots (id) on delete cascade,
+  residency boolean not null
+);
+alter table public.referendums_ballot_groups enable row level security;
+revoke all on table public.referendums_ballot_groups from anon, authenticated;
+
+-- Unopened ciphertexts say nothing, so they are always readable (the count
+-- script needs them). OPENED ballots are as revealing as the results, so they
+-- follow the same rules: published by the mayor, and not below the minimum.
+create or replace function public.opened_ballots_public(p_poll_id text)
+returns boolean
+language plpgsql stable security definer set search_path = public as $$
+declare r public.referendums%rowtype;
+begin
+  select * into r from public.referendums where 'ref_' || id::text = p_poll_id;
+  if not found then return false; end if;
+  if r.min_votes > 0
+     and (select count(*) from public.referendums_ballots where poll_id = p_poll_id) < r.min_votes then
+    return false;
+  end if;
+  return r.results_published or public.has_role('mayor');
+end $$;
+drop policy if exists "public reads ballots" on public.referendums_ballots;
+create policy "public reads ballots" on public.referendums_ballots
+  for select using (opening is null or public.opened_ballots_public(poll_id));
+
+-- Step 2 for an encrypted referendum: burn the ticket and store the
+-- ciphertext. Same gates as ballot_record().
+create or replace function public.ballot_record_encrypted(
+  p_poll_id text, p_resident boolean, p_serial_hash text, p_ciphertext text)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  r    public.referendums%rowtype := public.anonymous_referendum(p_poll_id);
+  v_id uuid;
+begin
+  if not r.encrypted_ballots then
+    raise exception 'this referendum does not take encrypted ballots' using errcode = 'LF007';
+  end if;
+  perform pg_advisory_xact_lock(hashtext(p_poll_id));
+  if exists (select 1 from public.referendums_tickets
+             where poll_id = p_poll_id and serial_hash = p_serial_hash) then
+    raise exception 'this ticket was already used' using errcode = '23505';
+  end if;
+  if (select count(*) from public.referendums_tickets where poll_id = p_poll_id)
+     >= (select count(*) from public.referendums_participants where poll_id = p_poll_id) then
+    raise exception 'more ballots than tickets — refused' using errcode = 'LF006';
+  end if;
+  insert into public.referendums_tickets (poll_id, serial_hash) values (p_poll_id, p_serial_hash);
+  insert into public.referendums_ballots (poll_id, ciphertext) values (p_poll_id, p_ciphertext)
+    returning id into v_id;
+  insert into public.referendums_ballot_groups (ballot_id, residency) values (v_id, p_resident);
+end $$;
+
+-- The count. Mayor only, once, and only after closing. p_ballots maps EVERY
+-- ballot id of the referendum to { "k": <opening, base64>, "o": <option index
+-- or null> } — produced by scripts/tally.mjs with the private key, re-checked
+-- by the admin page before it is sent. The database cannot decrypt, so it
+-- takes the stated option; that is safe because the openings are published
+-- with it and anyone can re-decrypt every ballot.
+create or replace function public.publish_tally(p_poll_id text, p_ballots jsonb)
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  r       public.referendums%rowtype;
+  v_n     integer;
+  v_valid integer;
+begin
+  if not public.has_role('mayor') then
+    raise exception 'mayor only' using errcode = '42501';
+  end if;
+  select * into r from public.referendums where 'ref_' || id::text = p_poll_id for update;
+  if not found or not r.encrypted_ballots then
+    raise exception 'this referendum does not take encrypted ballots' using errcode = 'LF007';
+  end if;
+  if now() < r.ends_at then
+    raise exception 'the count can be published only after closing' using errcode = 'LF020';
+  end if;
+  if r.tallied_at is not null then
+    raise exception 'this referendum was already counted' using errcode = 'LF021';
+  end if;
+  select count(*) into v_n from public.referendums_ballots where poll_id = p_poll_id;
+  if jsonb_typeof(p_ballots) is distinct from 'object'
+     or v_n <> (select count(*) from jsonb_object_keys(p_ballots))
+     or exists (select 1 from public.referendums_ballots b
+                where b.poll_id = p_poll_id and not p_ballots ? b.id::text) then
+    raise exception 'the count must cover every ballot of the referendum' using errcode = 'LF022';
+  end if;
+  if exists (select 1 from jsonb_each(p_ballots) e
+             where coalesce(e.value->>'k', '') !~ '^[A-Za-z0-9+/]{43}=$'
+                or (jsonb_typeof(e.value->'o') = 'number'
+                    and ((e.value->>'o')::int < 0 or (e.value->>'o')::int >= jsonb_array_length(r.options)))
+                or jsonb_typeof(e.value->'o') not in ('number', 'null')) then
+    raise exception 'malformed count' using errcode = 'LF002';
+  end if;
+  update public.referendums_ballots b
+     set opening = p_ballots->b.id::text->>'k',
+         option_id = (p_ballots->b.id::text->>'o')::smallint
+   where b.poll_id = p_poll_id;
+  delete from public.referendums_results where poll_id = p_poll_id;
+  insert into public.referendums_results (poll_id, option_id, residency, votes)
+    select p_poll_id, b.option_id, g.residency, count(*)::int
+      from public.referendums_ballots b
+      join public.referendums_ballot_groups g on g.ballot_id = b.id
+     where b.poll_id = p_poll_id and b.option_id is not null
+     group by b.option_id, g.residency;
+  select count(*) into v_valid from public.referendums_ballots
+    where poll_id = p_poll_id and option_id is not null;
+  perform set_config('lefkada.tally', 'on', true);
+  update public.referendums set tallied_at = now(), updated_at = now() where id = r.id;
+  perform set_config('lefkada.tally', '', true);
+  return jsonb_build_object('ballots', v_n, 'counted', v_valid, 'invalid', v_n - v_valid);
+end $$;
+revoke all on function public.publish_tally(text, jsonb) from public, anon;
+grant execute on function public.publish_tally(text, jsonb) to authenticated;
+revoke all on function public.ballot_record_encrypted(text, boolean, text, text) from public, anon, authenticated;
+grant execute on function public.ballot_record_encrypted(text, boolean, text, text) to service_role;
 
 do $$
 declare f text;

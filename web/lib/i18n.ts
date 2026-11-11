@@ -196,6 +196,19 @@ const el: Record<string, string> = {
   vote_receipt: "Κωδικός παραλαβής",
   vote_receipt_found: "βρέθηκε στη δημόσια λίστα ψηφοδελτίων",
   vote_receipt_missing: "ΔΕΝ βρέθηκε στη δημόσια λίστα ψηφοδελτίων",
+  // v1.9 — encrypted ballots
+  prot_enc_label: "Κρυπτογραφημένα ψηφοδέλτια",
+  prot_enc_text:
+    "Οι ψήφοι φτάνουν στον διακομιστή αναγνώσιμες και μετριούνται αμέσως — όποιος έχει πρόσβαση στη βάση δεδομένων μπορεί να δει το αποτέλεσμα να διαμορφώνεται πριν από τη λήξη.",
+  vote_results_awaiting_count:
+    "Η ψηφοφορία έληξε. Τα ψηφοδέλτια είναι κρυπτογραφημένα — τα αποτελέσματα θα εμφανιστούν μόλις γίνει η καταμέτρηση με το κλειδί του δημοψηφίσματος.",
+  verify_btn: "Επαλήθευση καταμέτρησης",
+  verify_running: "Αποκρυπτογράφηση ψηφοδελτίων…",
+  verify_ok: "Η καταμέτρηση επαληθεύτηκε: {n} ψηφοδέλτια αποκρυπτογραφήθηκαν στη συσκευή σας και συμφωνούν με το δημοσιευμένο αποτέλεσμα.",
+  verify_invalid: "{n} ψηφοδέλτια δεν ανοίγουν (άκυρα).",
+  verify_mismatch: "ΑΣΥΜΦΩΝΙΑ: η αποκρυπτογράφηση στη συσκευή σας ΔΕΝ δίνει το δημοσιευμένο αποτέλεσμα.",
+  verify_unavailable: "Τα ανοιγμένα ψηφοδέλτια δεν είναι διαθέσιμα ακόμη.",
+  verify_key: "Κλειδί δημοψηφίσματος",
   veto_send_error:
     "Το βέτο καταγράφηκε στη συσκευή, αλλά δεν στάλθηκε στον διακομιστή.",
   // v1.3 — verified voting & published results
@@ -810,6 +823,19 @@ const en: Record<string, string> = {
   vote_receipt: "Receipt code",
   vote_receipt_found: "found in the public list of ballots",
   vote_receipt_missing: "NOT found in the public list of ballots",
+  // v1.9 — encrypted ballots
+  prot_enc_label: "Encrypted ballots",
+  prot_enc_text:
+    "Votes reach the server readable and are counted at once — anyone with access to the database can watch the result take shape before closing.",
+  vote_results_awaiting_count:
+    "Voting has ended. The ballots are encrypted — results will appear once the count is done with the referendum's key.",
+  verify_btn: "Verify the count",
+  verify_running: "Decrypting ballots…",
+  verify_ok: "Count verified: {n} ballots were decrypted on your device and match the published result.",
+  verify_invalid: "{n} ballots do not open (invalid).",
+  verify_mismatch: "MISMATCH: decrypting on your device does NOT give the published result.",
+  verify_unavailable: "The opened ballots are not available yet.",
+  verify_key: "Referendum key",
   // v1.3 — verified voting & published results
   acc_verify_section: "Voter verification",
   acc_verify_intro:

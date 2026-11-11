@@ -71,6 +71,9 @@ export interface ReferendumRow {
   // v1.8 anonymous ballots
   anonymous_ballots?: boolean;
   ticket_keys?: { resident: string; other: string } | null;
+  // v1.9 encrypted ballots
+  encrypted_ballots?: boolean;
+  encryption_key?: string;
 }
 
 /** Competitions added from /admin ▸ Παιδεία (any lesson category). */
@@ -231,8 +234,10 @@ export const mapReferendumRows = (rows: ReferendumRow[]): Poll[] =>
       hideUntilClose: r.hide_until_close ?? false,
       minVotes: r.min_votes ?? 0,
       anonymous: r.anonymous_ballots ?? false,
+      encrypted: r.encrypted_ballots ?? false,
     },
     ...(r.ticket_keys ? { ticketKeys: r.ticket_keys } : {}),
+    ...(r.encryption_key ? { encryptionKey: r.encryption_key } : {}),
   }));
 
 // ── news table → NewsItem + Reporter ─────────────────────────────────────────

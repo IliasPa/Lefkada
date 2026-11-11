@@ -19,6 +19,7 @@ import type { Poll } from '@/data/voting';
 import { getSupabase, supabaseUrl, supabaseAnonKey } from './supabase';
 import { KEYS, storageGet, storageSet } from './storage';
 import { newTicket, finishTicket, receiptOf, type BlindedTicket } from './ballotCrypto';
+import { sealBallot } from './ballotSeal';
 import { fetchOwnCitizenStatus, getVerifiedUser, type VoteOutcome } from './backend';
 
 /** 'pending' — the ticket is held but the ballot has not been delivered yet;
@@ -35,6 +36,9 @@ interface PendingBallot {
   /** Present once the server signed the ticket — from then on only step 2 is left. */
   signature?: string;
   endsAt: string;
+  /** v1.9: the referendum's public encryption key — the ballot is then sent
+   *  SEALED (a ciphertext instead of the option). */
+  encryptionKey?: string;
 }
 
 type Store<T> = Record<string, T>;
@@ -97,8 +101,16 @@ async function deliver(k: string, p: PendingBallot): Promise<BallotOutcome> {
   // request — skipped when the poll is about to close.
   const left = new Date(p.endsAt).getTime() - Date.now();
   if (left > 90_000) await sleep(2000 + Math.random() * 8000);
+  let choice: { option: number } | { ciphertext: string };
+  try {
+    choice = p.encryptionKey
+      ? { ciphertext: await sealBallot(p.pollId, p.option, p.encryptionKey) }
+      : { option: p.option };
+  } catch {
+    return 'pending'; // could not seal on this device right now — keep the ticket
+  }
   const r = await callFn('ballot-cast', {
-    poll_id: p.pollId, option: p.option, resident: p.resident, serial: p.ticket.serial, signature: p.signature,
+    poll_id: p.pollId, ...choice, resident: p.resident, serial: p.ticket.serial, signature: p.signature,
   });
   const code = r.body.error as string | undefined;
   // 23505 = this very ticket was already counted (the earlier reply was lost).
@@ -112,7 +124,7 @@ async function deliver(k: string, p: PendingBallot): Promise<BallotOutcome> {
     setPending(k, null);
     return 'ok';
   }
-  if (code === 'LF001' || code === 'LF002' || code === 'LF004') {
+  if (code === 'LF001' || code === 'LF002' || code === 'LF004' || code === 'LF007') {
     setPending(k, null); // the referendum closed before the ballot arrived
     return 'closed';
   }
@@ -125,7 +137,9 @@ export async function castAnonymousBallot(poll: Poll, optionIndex: number): Prom
   const user = await getVerifiedUser();
   const keys = poll.ticketKeys;
   const option = poll.options[optionIndex];
+  const encryptionKey = poll.protections?.encrypted ? poll.encryptionKey : undefined;
   if (!sb || !user || !keys || !option) return 'failed';
+  if (poll.protections?.encrypted && !encryptionKey) return 'failed'; // never fall back to an unsealed ballot
   const k = keyOf(user.id, poll.id);
 
   let p: PendingBallot | undefined = getPending(k);
@@ -141,7 +155,7 @@ export async function castAnonymousBallot(poll: Poll, optionIndex: number): Prom
     // lost reply costs nothing); otherwise make a fresh one and save it first.
     if (!p || p.resident !== resident) {
       p = { pollId: poll.id, optionId: option.id, option: optionIndex, resident,
-            ticket: await newTicket(poll.id, resident, keys), endsAt: poll.endDate };
+            ticket: await newTicket(poll.id, resident, keys), endsAt: poll.endDate, encryptionKey };
     } else {
       p = { ...p, optionId: option.id, option: optionIndex };
     }

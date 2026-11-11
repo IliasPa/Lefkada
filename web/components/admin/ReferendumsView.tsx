@@ -27,6 +27,12 @@
  * ballot.ts). Switching it on asks the ballot-ticket Edge Function to create
  * the referendum's ticket keys; the card then shows tickets issued vs ballots
  * received.
+ *
+ * v1.9: «Κρυπτογραφημένα ψηφοδέλτια» — the phone seals the choice to the
+ * referendum's public key (pasted into the form; its private half stays in a
+ * sealed hardware key or an offline file). No tally exists until, after
+ * closing, the count file made by scripts/tally.mjs is uploaded here: the page
+ * re-opens every ballot with it before calling publish_tally().
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -37,6 +43,8 @@ import {
 import { pollsData } from '@/data/voting';
 import { getSupabase } from '@/lib/supabase';
 import { vetoWeek, athensToday, type PollState } from '@/lib/backend';
+import { checkEncryptionKey, keyFingerprint, pemToB64 } from '@/lib/ballotSeal';
+import { fetchBallots, recount } from '@/lib/tally';
 import { maybeNotifyVetoStep } from '@/lib/notify';
 import AnimatedSegmented from '@/components/AnimatedSegmented';
 import { Card, Field, GhostBtn, PrimaryBtn, inputCls } from './AdminShell';
@@ -62,6 +70,12 @@ interface RefRow {
   anonymous_ballots: boolean;
   /** Public ticket keys — written by the ballot-ticket function only. */
   ticket_keys: { resident: string; other: string } | null;
+  encrypted_ballots: boolean;
+  /** Public encryption key, SPKI base64 (the form also accepts its PEM). */
+  encryption_key: string;
+  encryption_attestation: string;
+  /** Set by publish_tally() when the count was uploaded. */
+  tallied_at: string | null;
 }
 
 /** The protections as the mayor sees them: every one, on or off. (Citizens see
@@ -70,6 +84,7 @@ const ADMIN_PROTECTIONS: { label: string; on: (r: RefRow) => boolean; detail?: (
   { label: 'Απόκρυψη μέχρι τη λήξη', on: (r) => r.hide_until_close },
   { label: 'Ελάχιστο όριο ψήφων', on: (r) => r.min_votes > 0, detail: (r) => String(r.min_votes) },
   { label: 'Ανώνυμα ψηφοδέλτια', on: (r) => r.anonymous_ballots },
+  { label: 'Κρυπτογραφημένα ψηφοδέλτια', on: (r) => r.encrypted_ballots },
 ];
 
 /** Database refusals the form can explain (see supabase/schema.sql). */
@@ -77,6 +92,9 @@ const DB_ERRORS: Record<string, string> = {
   LF010: 'Οι προστασίες κλειδώνουν μόλις το δημοψήφισμα δημοσιευθεί — δεν αλλάζουν πλέον.',
   LF011: 'Οι επιλογές ψήφου κλειδώνουν μόλις υπάρξει η πρώτη ψήφος.',
   LF012: 'Τα ανώνυμα ψηφοδέλτια χρειάζονται πρώτα τα κλειδιά εισιτηρίων (λειτουργία ballot-ticket).',
+  LF020: 'Η καταμέτρηση δημοσιεύεται μόνο μετά τη λήξη της ψηφοφορίας.',
+  LF021: 'Το δημοψήφισμα έχει ήδη καταμετρηθεί.',
+  LF022: 'Το αρχείο καταμέτρησης δεν καλύπτει όλα τα ψηφοδέλτια — τρέξτε ξανά το scripts/tally.mjs.',
 };
 const dbError = (e: { code?: string; message: string }) => DB_ERRORS[e.code ?? ''] ?? e.message;
 
@@ -112,7 +130,7 @@ function countsFor(tallies: TallyRow[], index: number) {
   return { all, resident };
 }
 
-const EMPTY: Omit<RefRow, 'id' | 'created_at' | 'updated_at' | 'results_published' | 'ticket_keys'> = {
+const EMPTY: Omit<RefRow, 'id' | 'created_at' | 'updated_at' | 'results_published' | 'ticket_keys' | 'tallied_at'> = {
   title_el: '', title_en: '',
   small_el: '', small_en: '',
   medium_el: '', medium_en: '',
@@ -127,6 +145,9 @@ const EMPTY: Omit<RefRow, 'id' | 'created_at' | 'updated_at' | 'results_publishe
   hide_until_close: false,
   min_votes: 0,
   anonymous_ballots: false,
+  encrypted_ballots: false,
+  encryption_key: '',
+  encryption_attestation: '',
 };
 
 function toLocalInput(iso: string): string {
@@ -233,8 +254,15 @@ export default function ReferendumsView() {
       pdf_url = sb.storage.from('docs').getPublicUrl(path).data.publicUrl;
     }
 
-    const anonymous = editing.anonymous_ballots ?? false;
+    const encrypted = editing.encrypted_ballots ?? false;
+    const anonymous = encrypted || (editing.anonymous_ballots ?? false);
     const wantsPublished = editing.published ?? false;
+    // The public key may be pasted as PEM; it is stored as its bare base64.
+    const encryptionKey = encrypted ? pemToB64(editing.encryption_key ?? '') : '';
+    if (encrypted) {
+      try { await checkEncryptionKey(encryptionKey); }
+      catch { alert('Το δημόσιο κλειδί δεν είναι έγκυρο κλειδί P-256. Επικολλήστε το αρχείο public key (PEM) όπως το έβγαλε το scripts/tally.mjs ή η συσκευή.'); return; }
+    }
     // An anonymous-ballot referendum cannot be published before its ticket
     // keys exist (the database refuses) — so it is saved unpublished first,
     // the keys are created, and only then is it published.
@@ -250,6 +278,9 @@ export default function ReferendumsView() {
       hide_until_close: anonymous || (editing.hide_until_close ?? false),
       min_votes: Math.max(0, Math.floor(Number(editing.min_votes) || 0)),
       anonymous_ballots: anonymous,
+      encrypted_ballots: encrypted,
+      encryption_key: encryptionKey,
+      encryption_attestation: encrypted ? (editing.encryption_attestation ?? '').trim() : '',
     };
     const { data: saved, error } = editing.id
       ? await sb.from('referendums').update(payload).eq('id', editing.id).select('id').single()
@@ -286,6 +317,39 @@ export default function ReferendumsView() {
     load();
   };
 
+  /** Publish the count of an encrypted referendum from the file made by
+   *  scripts/tally.mjs. Every ballot is re-opened HERE with the openings in
+   *  the file first — a file that does not open the ballots to what it claims
+   *  is refused before anything is sent. */
+  const publishTally = async (r: RefRow, file: File) => {
+    const sb = getSupabase();
+    if (!sb) return;
+    const pid = `ref_${r.id}`;
+    let parsed: { poll_id?: string; ballots?: Record<string, { k: string; o: number | null }> };
+    try { parsed = JSON.parse(await file.text()); }
+    catch { alert('Το αρχείο δεν είναι έγκυρο αρχείο καταμέτρησης (JSON).'); return; }
+    if (parsed.poll_id !== pid || !parsed.ballots) { alert('Το αρχείο καταμέτρησης είναι άλλου δημοψηφίσματος.'); return; }
+    setBusy(true);
+    const rows = await fetchBallots(pid);
+    if (!rows) { setBusy(false); alert('Δεν ήταν δυνατή η ανάγνωση των ψηφοδελτίων.'); return; }
+    if (rows.length !== Object.keys(parsed.ballots).length || rows.some((b) => !parsed.ballots![b.id])) {
+      setBusy(false);
+      alert('Το αρχείο δεν καλύπτει ακριβώς τα ψηφοδέλτια του δημοψηφίσματος — τρέξτε ξανά το scripts/tally.mjs.');
+      return;
+    }
+    const rc = await recount(pid, rows, r.options.length, parsed.ballots);
+    setBusy(false);
+    if (rc.disagreements > 0) {
+      alert(`ΑΠΟΡΡΙΦΘΗΚΕ: ${rc.disagreements} ψηφοδέλτια δεν ανοίγουν σε αυτό που δηλώνει το αρχείο. Τίποτα δεν δημοσιεύθηκε.`);
+      return;
+    }
+    const lines = r.options.map((o, i) => `${o.id.toUpperCase()}. ${o.el}: ${rc.counts[i]}`).join('\n');
+    if (!confirm(`Καταμέτρηση «${r.title_el}»\n\n${lines}\n${rc.invalid ? `Άκυρα: ${rc.invalid}\n` : ''}Σύνολο ψηφοδελτίων: ${rc.total}\n\nΔημοσίευση; Δεν αναιρείται.`)) return;
+    const { error } = await sb.rpc('publish_tally', { p_poll_id: pid, p_ballots: parsed.ballots });
+    if (error) alert('Σφάλμα: ' + dbError(error));
+    load();
+  };
+
   const togglePublish = async (r: RefRow) => {
     await getSupabase()?.from('referendums').update({ published: !r.published }).eq('id', r.id);
     load();
@@ -299,6 +363,8 @@ export default function ReferendumsView() {
     const stored = e.id ? rows.find((r) => r.id === e.id) : undefined;
     const hasVotes = !!e.id && participants.some((p) => p.poll_id === `ref_${e.id}`);
     const locked = !!stored && (stored.published || hasVotes);
+    // Anonymous (and therefore encrypted) ballots need the results hidden until closing.
+    const forcesHide = !!e.anonymous_ballots || !!e.encrypted_ballots;
     return (
       <div className="max-w-3xl mx-auto px-4 py-5 space-y-4">
         <div className="flex items-center justify-between">
@@ -373,9 +439,9 @@ export default function ReferendumsView() {
                 </span>
               )}
             </div>
-            <label className={`flex items-start gap-2 text-sm font-semibold ${locked || e.anonymous_ballots ? 'opacity-60' : ''}`}>
-              <input type="checkbox" className="mt-0.5" disabled={locked || !!e.anonymous_ballots}
-                checked={(e.hide_until_close ?? false) || !!e.anonymous_ballots}
+            <label className={`flex items-start gap-2 text-sm font-semibold ${locked || forcesHide ? 'opacity-60' : ''}`}>
+              <input type="checkbox" className="mt-0.5" disabled={locked || forcesHide}
+                checked={(e.hide_until_close ?? false) || forcesHide}
                 onChange={(ev) => set({ hide_until_close: ev.target.checked })} />
               <span>
                 Απόκρυψη αποτελεσμάτων μέχρι τη λήξη
@@ -396,8 +462,9 @@ export default function ReferendumsView() {
                 </span>
               </span>
             </label>
-            <label className={`flex items-start gap-2 text-sm font-semibold ${locked ? 'opacity-60' : ''}`}>
-              <input type="checkbox" className="mt-0.5" disabled={locked} checked={e.anonymous_ballots ?? false}
+            <label className={`flex items-start gap-2 text-sm font-semibold ${locked || e.encrypted_ballots ? 'opacity-60' : ''}`}>
+              <input type="checkbox" className="mt-0.5" disabled={locked || !!e.encrypted_ballots}
+                checked={(e.anonymous_ballots ?? false) || !!e.encrypted_ballots}
                 onChange={(ev) => set({ anonymous_ballots: ev.target.checked })} />
               <span>
                 Ανώνυμα ψηφοδέλτια
@@ -408,6 +475,39 @@ export default function ReferendumsView() {
                 </span>
               </span>
             </label>
+            <label className={`flex items-start gap-2 text-sm font-semibold ${locked ? 'opacity-60' : ''}`}>
+              <input type="checkbox" className="mt-0.5" disabled={locked} checked={e.encrypted_ballots ?? false}
+                onChange={(ev) => set({ encrypted_ballots: ev.target.checked })} />
+              <span>
+                Κρυπτογραφημένα ψηφοδέλτια (σφραγισμένο κλειδί)
+                <span className="block text-[11.5px] font-medium text-gray-400">
+                  Το κινητό κρυπτογραφεί την επιλογή με το δημόσιο κλειδί του δημοψηφίσματος. Η βάση δεδομένων
+                  κρατά μόνο ακατανόητα ψηφοδέλτια — αποτέλεσμα δεν υπάρχει πουθενά μέχρι να γίνει η καταμέτρηση
+                  με το ιδιωτικό κλειδί, μετά τη λήξη. Ενεργοποιεί υποχρεωτικά τα ανώνυμα ψηφοδέλτια.
+                </span>
+              </span>
+            </label>
+            {e.encrypted_ballots && (
+              <div className="pl-6 space-y-2.5">
+                <Field label="Δημόσιο κλειδί δημοψηφίσματος (PEM)">
+                  <textarea rows={4} disabled={locked} value={e.encryption_key ?? ''} spellCheck={false}
+                    onChange={(ev) => set({ encryption_key: ev.target.value })}
+                    placeholder={'-----BEGIN PUBLIC KEY-----\n…\n-----END PUBLIC KEY-----'}
+                    className={inputCls + ' font-mono !text-[11.5px]'} />
+                </Field>
+                <Fingerprint spki={e.encryption_key ?? ''} />
+                <Field label="Πιστοποιητικό συσκευής — attestation (προαιρετικό, PEM)">
+                  <textarea rows={2} disabled={locked} value={e.encryption_attestation ?? ''} spellCheck={false}
+                    onChange={(ev) => set({ encryption_attestation: ev.target.value })}
+                    className={inputCls + ' font-mono !text-[11.5px]'} />
+                </Field>
+                <p className="text-[11px] text-gray-400 leading-relaxed">
+                  Το κλειδί φτιάχνεται ΕΚΤΟΣ εφαρμογής (<span className="font-mono">scripts/tally.mjs</span> ή
+                  συσκευή ασφαλείας — SETUP_BACKEND.md §12). Εδώ μπαίνει μόνο το δημόσιο μισό του· το ιδιωτικό δεν
+                  ανεβαίνει ποτέ. Αν χαθεί, οι ψήφοι αυτού του δημοψηφίσματος δεν μπορούν να μετρηθούν.
+                </p>
+              </div>
+            )}
             <p className="text-[11px] text-gray-400 leading-relaxed">
               {locked
                 ? 'Το δημοψήφισμα έχει δημοσιευθεί ή έχει ήδη ψήφους — οι προστασίες δεν αλλάζουν πλέον.'
@@ -469,6 +569,7 @@ export default function ReferendumsView() {
                     tallies={talliesOf(pid, states[pid])}
                     participants={participants.filter((p) => p.poll_id === pid)}
                     residentByUser={residentByUser}
+                    onTally={(file) => publishTally(r, file)} busy={busy}
                     onPublishToggle={() => setResultsPublished(r.id, !r.results_published)}
                     onToggle={() => togglePublish(r)} onEdit={() => setEditing(r)} onRemove={() => remove(r)} />
                 );
@@ -557,10 +658,12 @@ function VotersView({ rows, onToggle }: { rows: CitizenRow[]; onToggle: (c: Citi
 
 // ── Results: one referendum ──────────────────────────────────────────────────
 
-function RefCard({ r, state, ballots, tallies, participants, residentByUser, onPublishToggle, onToggle, onEdit, onRemove }: {
+function RefCard({ r, state, ballots, tallies, participants, residentByUser, onTally, busy, onPublishToggle, onToggle, onEdit, onRemove }: {
   r: RefRow; state?: PollState; tallies: TallyRow[]; participants: ParticipantRow[];
   /** Anonymous-ballot polls: ballots received (used tickets). */
   ballots?: number;
+  /** Encrypted polls: upload the count file made by scripts/tally.mjs. */
+  onTally: (file: File) => void; busy: boolean;
   residentByUser: Map<string, boolean>;
   onPublishToggle: () => void; onToggle: () => void; onEdit: () => void; onRemove: () => void;
 }) {
@@ -593,6 +696,12 @@ function RefCard({ r, state, ballots, tallies, participants, residentByUser, onP
       </div>
 
       <ProtectionChips r={r} />
+      {r.encrypted_ballots && (
+        <div className="mt-1.5 flex items-center gap-2 flex-wrap text-[11px] text-gray-400">
+          <Fingerprint spki={r.encryption_key} />
+          {r.tallied_at && <span className="font-semibold text-green-600">· καταμετρήθηκε {new Date(r.tallied_at).toLocaleString('el-GR')}</span>}
+        </div>
+      )}
 
       <div className="mt-3 flex items-center gap-1.5 text-[12px] font-bold text-gray-600 dark:text-gray-300">
         <Vote size={13} className="text-primary dark:text-primary-300" />
@@ -610,8 +719,18 @@ function RefCard({ r, state, ballots, tallies, participants, residentByUser, onP
           <Lock size={16} className="text-gray-400 flex-shrink-0 mt-0.5" />
           <p className="text-[12.5px] font-semibold text-gray-500 dark:text-gray-400 leading-relaxed">
             {state.state === 'until_close'
-              ? 'Τα αποτελέσματα είναι κλειδωμένα μέχρι τη λήξη της ψηφοφορίας — δεν τα βλέπει κανείς, ούτε ο δήμος.'
-              : `Τα αποτελέσματα εμφανίζονται μόνο όταν συγκεντρωθούν τουλάχιστον ${r.min_votes} ψήφοι.`}
+              ? (r.encrypted_ballots
+                  ? 'Τα ψηφοδέλτια είναι κρυπτογραφημένα — αποτέλεσμα δεν υπάρχει πουθενά μέχρι την καταμέτρηση με το κλειδί, μετά τη λήξη.'
+                  : 'Τα αποτελέσματα είναι κλειδωμένα μέχρι τη λήξη της ψηφοφορίας — δεν τα βλέπει κανείς, ούτε ο δήμος.')
+              : state.state === 'awaiting_count'
+                ? <>
+                    Η ψηφοφορία έληξε. Τρέξτε <span className="font-mono">node scripts/tally.mjs count --poll {r.id}</span> με
+                    το κλειδί του δημοψηφίσματος και ανεβάστε εδώ το αρχείο καταμέτρησης:
+                    <input type="file" accept="application/json,.json" disabled={busy}
+                      onChange={(ev) => { const f = ev.target.files?.[0]; ev.target.value = ''; if (f) onTally(f); }}
+                      className="block mt-2 text-xs" />
+                  </>
+                : `Τα αποτελέσματα εμφανίζονται μόνο όταν συγκεντρωθούν τουλάχιστον ${r.min_votes} ψήφοι.`}
           </p>
         </div>
       ) : (
@@ -620,6 +739,26 @@ function RefCard({ r, state, ballots, tallies, participants, residentByUser, onP
       <Participants rows={participants} residentByUser={residentByUser} />
     </Card>
   );
+}
+
+/** The fingerprint of a referendum's public encryption key — the same 8
+ *  groups the count script prints, to compare against the sealed envelope. */
+function Fingerprint({ spki }: { spki: string }) {
+  const [fp, setFp] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const b64 = pemToB64(spki);
+    if (!b64) { setFp(null); return; }
+    checkEncryptionKey(b64).then(() => keyFingerprint(b64)).then(
+      (v) => { if (alive) setFp(v); },
+      () => { if (alive) setFp(''); },
+    );
+    return () => { alive = false; };
+  }, [spki]);
+  if (fp === null) return null;
+  return fp
+    ? <span className="text-[11px] text-gray-500 dark:text-gray-400">Αποτύπωμα κλειδιού: <span className="font-mono font-bold">{fp}</span></span>
+    : <span className="text-[11px] font-semibold text-red-500">Μη έγκυρο δημόσιο κλειδί P-256</span>;
 }
 
 /** Every protection of this referendum, on (green) or off (amber) — what the
