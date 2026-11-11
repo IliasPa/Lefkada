@@ -74,6 +74,8 @@ export interface ReferendumRow {
   // v1.9 encrypted ballots
   encrypted_ballots?: boolean;
   encryption_key?: string;
+  // v2.0 TAXISnet-verified voters only
+  taxis_only?: boolean;
 }
 
 /** Competitions added from /admin ▸ Παιδεία (any lesson category). */
@@ -235,6 +237,7 @@ export const mapReferendumRows = (rows: ReferendumRow[]): Poll[] =>
       minVotes: r.min_votes ?? 0,
       anonymous: r.anonymous_ballots ?? false,
       encrypted: r.encrypted_ballots ?? false,
+      taxisOnly: r.taxis_only ?? false,
     },
     ...(r.ticket_keys ? { ticketKeys: r.ticket_keys } : {}),
     ...(r.encryption_key ? { encryptionKey: r.encryption_key } : {}),

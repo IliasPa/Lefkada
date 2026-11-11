@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- Lefkada civic app — Supabase schema (v1.0)
+-- Lefkada civic app — Supabase schema (v1.0 → v2.0)
 -- Run this whole file once in the Supabase dashboard: SQL Editor → New query.
 -- Safe to re-run: everything is IF NOT EXISTS / OR REPLACE / DROP POLICY first.
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -178,6 +178,12 @@ alter table public.referendums add column if not exists encrypted_ballots boolea
 alter table public.referendums add column if not exists encryption_key text not null default '';
 alter table public.referendums add column if not exists encryption_attestation text not null default '';
 alter table public.referendums add column if not exists tallied_at timestamptz;
+-- v2.0 — TAXISnet-VERIFIED VOTERS ONLY
+--   taxis_only — only accounts that proved who they are with their TAXISnet
+--                codes (gov.gr sign-in; see «TAXISnet verification» below) may
+--                vote. One ΑΦΜ can be linked to ONE account, so one person
+--                cannot vote twice with two email addresses.
+alter table public.referendums add column if not exists taxis_only boolean not null default false;
 alter table public.referendums drop constraint if exists referendums_encrypted_check;
 alter table public.referendums add constraint referendums_encrypted_check
   check (not encrypted_ballots or (anonymous_ballots and encryption_key <> ''));
@@ -408,14 +414,38 @@ create table if not exists public.citizens (
   resident_set_at timestamptz,
   updated_at      timestamptz not null default now()
 );
+-- v2.0 — when (and only when) the ΑΦΜ came from a TAXISnet sign-in. Set by
+-- taxis_link() alone; a tax number typed in by hand never counts as verified.
+alter table public.citizens add column if not exists taxis_verified_at timestamptz;
+-- One ΑΦΜ ↔ one account: the wall against a second account per person.
+create unique index if not exists citizens_tax_number_key
+  on public.citizens (tax_number) where tax_number <> '';
 alter table public.citizens enable row level security;
 
 create or replace function public.citizens_guard()
 returns trigger language plpgsql as $$
+declare
+  v_role text := coalesce(nullif(current_setting('request.jwt.claims', true), '')::json->>'role', '');
 begin
   -- Guard only API requests (they carry JWT claims). Direct SQL — the
-  -- dashboard editor or psql as postgres — stays free for maintenance.
-  if coalesce(current_setting('request.jwt.claims', true), '') <> ''
+  -- dashboard editor or psql as postgres — stays free for maintenance, and so
+  -- does the service role (v2.0: the gov.gr function writes the ΑΦΜ through
+  -- taxis_link()).
+  if v_role not in ('', 'service_role') then
+    -- v2.0: «verified via TAXISnet» is never settable from a session — not
+    -- even the mayor's — and editing the ΑΦΜ by hand clears it.
+    if tg_op = 'INSERT' and new.taxis_verified_at is not null then
+      raise exception 'TAXISnet verification comes from gov.gr only';
+    end if;
+    if tg_op = 'UPDATE' then
+      if new.tax_number is distinct from old.tax_number then
+        new.taxis_verified_at := null;
+      elsif new.taxis_verified_at is distinct from old.taxis_verified_at then
+        raise exception 'TAXISnet verification comes from gov.gr only';
+      end if;
+    end if;
+  end if;
+  if v_role not in ('', 'service_role')
      and not public.has_role('mayor') then
     if tg_op = 'INSERT' and (new.resident or new.resident_set_at is not null) then
       raise exception 'resident flag is set by the municipality';
@@ -474,6 +504,16 @@ returns date language sql stable set search_path = public as $$
           - ((extract(isodow from public.athens_today(at))::int - 1)))::date;
 $$;
 
+-- Has this account proved its identity with TAXISnet codes (v2.0)?
+create or replace function public.taxis_verified(p_user uuid)
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.citizens c
+                 where c.user_id = p_user and c.tax_number <> '' and c.taxis_verified_at is not null);
+$$;
+revoke all on function public.taxis_verified(uuid) from public, anon, authenticated;
+grant execute on function public.taxis_verified(uuid) to service_role;
+
 -- ── cast_vote(): the ONLY writer of the ballot ───────────────────────────────
 -- Runs as SECURITY DEFINER so it can write both tables atomically while the
 -- caller can write neither directly. The participation insert is the
@@ -485,7 +525,8 @@ $$;
 -- v1.7: the server is the wall, not the app — a ballot is refused unless the
 -- referendum exists, is published, is still open and the option is on the
 -- ballot (custom SQLSTATEs: LF001 = not open, LF002 = invalid option,
--- LF003 = the referendum takes anonymous ballots only).
+-- LF003 = the referendum takes anonymous ballots only, LF008 = it takes
+-- TAXISnet-verified voters only).
 create or replace function public.cast_vote(p_poll_id text, p_option int)
 returns void
 language plpgsql security definer set search_path = public, extensions as $$
@@ -512,6 +553,10 @@ begin
     into v_res, v_tax
     from public.citizens c where c.user_id = auth.uid();
   v_res := coalesce(v_res, false);
+  if r.taxis_only and not public.taxis_verified(auth.uid()) then
+    -- v2.0: this referendum takes TAXISnet-verified voters only.
+    raise exception 'verify with TAXISnet to vote in this referendum' using errcode = 'LF008';
+  end if;
   -- one ballot per account per poll — a second call raises unique_violation
   insert into public.referendums_participants (poll_id, user_id, email, tax_number)
     values (p_poll_id, auth.uid(), coalesce(auth.email(), ''), coalesce(v_tax, ''));
@@ -619,9 +664,9 @@ begin
                        where p.poll_id = 'ref_' || old.id::text);
     if (old.published or v_voted)
        and (new.hide_until_close, new.min_votes, new.anonymous_ballots,
-            new.encrypted_ballots, new.encryption_key, new.encryption_attestation)
+            new.encrypted_ballots, new.encryption_key, new.encryption_attestation, new.taxis_only)
            is distinct from (old.hide_until_close, old.min_votes, old.anonymous_ballots,
-            old.encrypted_ballots, old.encryption_key, old.encryption_attestation) then
+            old.encrypted_ballots, old.encryption_key, old.encryption_attestation, old.taxis_only) then
       raise exception 'protections are locked once a referendum is published' using errcode = 'LF010';
     end if;
     -- v1.9: «counted» is stamped by publish_tally() only.
@@ -757,6 +802,9 @@ begin
   if not found then
     raise exception 'this referendum does not take anonymous ballots' using errcode = 'LF004';
   end if;
+  if r.taxis_only and not public.taxis_verified(p_user) then
+    raise exception 'verify with TAXISnet to vote in this referendum' using errcode = 'LF008';
+  end if;
   return jsonb_build_object(
     'resident', coalesce((select c.resident from public.citizens c where c.user_id = p_user), false),
     'resident_key', k.resident_key, 'other_key', k.other_key);
@@ -780,6 +828,9 @@ declare
 begin
   select coalesce(c.resident, false), coalesce(c.tax_number, ''), coalesce(c.email, '')
     into v_res, v_tax, v_mail from public.citizens c where c.user_id = p_user;
+  if r.taxis_only and not public.taxis_verified(p_user) then
+    raise exception 'verify with TAXISnet to vote in this referendum' using errcode = 'LF008';
+  end if;
   if coalesce(v_res, false) is distinct from p_resident then
     raise exception 'the registry designation changed — request the ticket again' using errcode = 'LF005';
   end if;
@@ -995,6 +1046,44 @@ begin
     execute format('grant execute on function %s to service_role', f);
   end loop;
 end $$;
+
+-- ── TAXISnet verification (v2.0) ─────────────────────────────────────────────
+-- The govgr-auth Edge Function sends a signed-in citizen to the gov.gr sign-in
+-- (ΓΓΠΣΨΔ's oAuth2.0 service), receives the citizen's ΑΦΜ straight from it,
+-- and calls taxis_link() — the only place a verified ΑΦΜ is ever written.
+-- Returns:
+--   'linked'   — the ΑΦΜ now belongs to this account (or already did)
+--   'taken'    — the ΑΦΜ is linked to ANOTHER account: one person, one account
+--   'mismatch' — this account is already linked to a DIFFERENT ΑΦΜ
+create or replace function public.taxis_link(p_user uuid, p_tax text, p_name text default '')
+returns text
+language plpgsql security definer set search_path = public as $$
+declare v_cur text;
+begin
+  if p_tax is null or p_tax !~ '^[0-9]{9}$' then
+    raise exception 'not a tax number' using errcode = 'LF002';
+  end if;
+  perform pg_advisory_xact_lock(hashtext('taxis:' || p_tax));
+  if exists (select 1 from public.citizens where tax_number = p_tax and user_id <> p_user) then
+    return 'taken';
+  end if;
+  select tax_number into v_cur from public.citizens where user_id = p_user;
+  if found and v_cur <> '' and v_cur <> p_tax
+     and exists (select 1 from public.citizens where user_id = p_user and taxis_verified_at is not null) then
+    return 'mismatch';
+  end if;
+  insert into public.citizens (user_id, email, full_name, tax_number, taxis_verified_at)
+    values (p_user, coalesce((select u.email from auth.users u where u.id = p_user), ''),
+            coalesce(p_name, ''), p_tax, now())
+    on conflict (user_id) do update
+      set tax_number = excluded.tax_number,
+          taxis_verified_at = now(),
+          full_name = case when public.citizens.full_name = '' then excluded.full_name
+                           else public.citizens.full_name end;
+  return 'linked';
+end $$;
+revoke all on function public.taxis_link(uuid, text, text) from public, anon, authenticated;
+grant execute on function public.taxis_link(uuid, text, text) to service_role;
 
 -- ── cast_veto(): the ONLY writer of vetos ────────────────────────────────────
 -- SECURITY DEFINER, mirroring cast_vote(). Confirmed Δημότες only. The

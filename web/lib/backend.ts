@@ -324,6 +324,8 @@ export interface CitizenStatus {
   resident: boolean;
   full_name: string;
   tax_number: string;
+  /** Identity proved with TAXISnet codes on gov.gr (v2.0). */
+  taxis_verified: boolean;
 }
 
 /** Own registry row, or null when signed out / never synced. */
@@ -332,12 +334,50 @@ export async function fetchOwnCitizenStatus(): Promise<CitizenStatus | null> {
   if (!sb) return null;
   const user = await getVerifiedUser();
   if (!user) return null;
-  const { data } = await sb
-    .from('citizens')
-    .select('resident, full_name, tax_number')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  return (data as CitizenStatus) ?? null;
+  const own = (cols: string) => sb.from('citizens').select(cols).eq('user_id', user.id).maybeSingle();
+  let { data, error } = await own('resident, full_name, tax_number, taxis_verified_at');
+  // A database whose schema.sql has not been re-run for v2.0 yet has no such column.
+  if (error) ({ data } = await own('resident, full_name, tax_number'));
+  if (!data) return null;
+  const row = data as unknown as Omit<CitizenStatus, 'taxis_verified'> & { taxis_verified_at?: string | null };
+  return {
+    resident: row.resident, full_name: row.full_name, tax_number: row.tax_number,
+    taxis_verified: !!row.tax_number && !!row.taxis_verified_at,
+  };
+}
+
+/** TAXISnet verification is offered only where the municipality's gov.gr
+ *  access is live (NEXT_PUBLIC_GOVGR_ENABLED=1 — see SETUP_BACKEND.md §13). */
+export const govgrEnabled = process.env.NEXT_PUBLIC_GOVGR_ENABLED === '1';
+
+/** Send the signed-in citizen to the gov.gr sign-in to prove who they are with
+ *  their TAXISnet codes (typed on gov.gr — never in this app). The browser
+ *  leaves the app and comes back with ?govgr=ok|taken|mismatch|error. */
+export async function startGovgrVerification(): Promise<{ ok: boolean }> {
+  const sb = getSupabase();
+  if (!sb) return { ok: false };
+  try {
+    const { data, error } = await sb.functions.invoke('govgr-auth', { body: { action: 'start' } });
+    const url = (data as { url?: string } | null)?.url;
+    if (error || !url) return { ok: false };
+    window.location.assign(url);
+    return { ok: true };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/** The ?govgr= result gov.gr's round trip left in the address, read ONCE and
+ *  removed from it. */
+export type GovgrResult = 'ok' | 'taken' | 'mismatch' | 'error';
+export function takeGovgrResult(): GovgrResult | null {
+  if (typeof window === 'undefined') return null;
+  const url = new URL(window.location.href);
+  const v = url.searchParams.get('govgr');
+  if (!v) return null;
+  url.searchParams.delete('govgr');
+  window.history.replaceState(null, '', url);
+  return v === 'ok' || v === 'taken' || v === 'mismatch' ? v : 'error';
 }
 
 /** Push the profile's NAME into the registry so the mayor can match the account
@@ -364,8 +404,9 @@ export async function syncCitizenProfile(): Promise<void> {
  *              choice just picked was NOT recorded and must not be shown as theirs
  *  'closed'  — the server refused: the referendum is not open (or the option is
  *              not on the ballot)
+ *  'taxis'   — the referendum takes TAXISnet-verified voters only (v2.0)
  *  'failed'  — a configured backend genuinely failed; the citizen may retry */
-export type VoteOutcome = 'ok' | 'already' | 'closed' | 'failed';
+export type VoteOutcome = 'ok' | 'already' | 'closed' | 'taxis' | 'failed';
 
 /** Record a vote — signed-in citizens only, ONE shot (there is no changing a
  *  cast vote). Everything happens inside public.cast_vote(): it checks the
@@ -384,6 +425,7 @@ export async function submitVote(pollId: string, optionIndex: number): Promise<V
     const code = (error as { code?: string }).code;
     if (code === '23505') return 'already'; // one ballot per account
     if (code === 'LF001' || code === 'LF002') return 'closed';
+    if (code === 'LF008') return 'taxis';
     return 'failed';
   } catch {
     return 'failed';

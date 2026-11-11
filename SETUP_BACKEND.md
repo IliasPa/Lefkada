@@ -405,6 +405,62 @@ referendums overlap on one device, and reseal it in public after each count.
 **If the key is lost or the device breaks, the votes of that referendum
 cannot be counted.** There is no back door, by design.
 
+## 13. TAXISnet verification through gov.gr (v2.0) — NOT TESTED AGAINST THE REAL SERVICE
+
+Lets a citizen prove who they are with their TAXISnet codes, links their ΑΦΜ
+to exactly one account, and enables the **«Μόνο ταυτοποιημένοι με κωδικούς
+TAXISnet»** switch on referendums. Everything else works without it.
+
+**It cannot be switched on by the developer.** The sign-in service (ΓΓΠΣΨΔ
+«Υπηρεσία Αυθεντικοποίησης Χρηστών oAuth2.0») is provided to organisations
+through the Κέντρο Διαλειτουργικότητας. The **municipality** applies (through
+the ΕΔΑ application, by its representative or its appointed web-services
+administrators) describing this system; on approval it receives the service's
+addresses and a client id + secret — first for the test environment, then for
+production. Confirm the current procedure with ΓΓΠΣΨΔ; the code below assumes
+only a standard OAuth 2.0 authorization-code flow whose user-info answer
+contains the tax number, and has only ever been run against a stand-in.
+
+1. **Re-run `supabase/schema.sql`.** If it stops at
+   `citizens_tax_number_key`, two registry rows hold the same ΑΦΜ — clear one
+   of them in /admin ▸ Ψηφοφόροι and run it again.
+2. In the application to ΓΓΠΣΨΔ, give this as the **redirect URI**:
+   `https://<project-ref>.supabase.co/functions/v1/govgr-auth`
+3. **Set the secrets** with the values from the approval:
+
+   ```bash
+   supabase secrets set \
+     GOVGR_AUTHORIZE_URL="…" GOVGR_TOKEN_URL="…" GOVGR_USERINFO_URL="…" \
+     GOVGR_CLIENT_ID="…" GOVGR_CLIENT_SECRET="…" \
+     GOVGR_REDIRECT_URI="https://<project-ref>.supabase.co/functions/v1/govgr-auth" \
+     GOVGR_APP_URL="https://<the app's public address>/" \
+     GOVGR_STATE_SECRET="$(openssl rand -base64 32)"
+   # optional: GOVGR_SCOPE (default "read"), GOVGR_CLIENT_AUTH=basic
+   ```
+
+4. **Deploy** — without JWT verification, because gov.gr sends the browser
+   back with no Supabase session (a signed `state` carries the account):
+
+   ```bash
+   supabase functions deploy govgr-auth --no-verify-jwt
+   ```
+
+5. **Try it in the test environment** with a test account: sign in to the app
+   by email, open the profile, add `NEXT_PUBLIC_GOVGR_ENABLED=1` (next step)
+   and press the TAXISnet button. If the app comes back with "did not
+   complete", the function's log (`supabase functions logs govgr-auth`) says
+   which step failed; the two settings most likely to need changing are
+   `GOVGR_CLIENT_AUTH` (how the secret is sent) and `GOVGR_SCOPE`.
+6. **Show it to citizens:** set `NEXT_PUBLIC_GOVGR_ENABLED=1` in
+   `web/.env.local` and in the hosting provider's environment variables, and
+   redeploy the app. Only now do the button and the referendum switch appear.
+
+What is stored: the ΑΦΜ and the time it was verified, in `citizens`. The
+TAXISnet codes never reach the app — they are typed on gov.gr. The "verified"
+mark can be written only by this function: an ΑΦΜ typed into the registry by
+hand shows as «χωρίς ταυτοποίηση» and does not let the account vote in a
+TAXISnet-only referendum.
+
 ## 9. Citizen verification — email sign-in (v1.3)
 
 Voting requires a signed-in citizen (anonymous device voting was removed):

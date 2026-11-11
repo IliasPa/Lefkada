@@ -20,6 +20,8 @@ export interface PollProtections {
   /** The choice is encrypted on the phone; no tally exists until the key
    *  holder counts after closing (v1.9). */
   encrypted: boolean;
+  /** Only accounts verified with TAXISnet codes (gov.gr) may vote (v2.0). */
+  taxisOnly: boolean;
 }
 
 export interface Poll {

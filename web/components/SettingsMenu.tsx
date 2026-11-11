@@ -94,6 +94,9 @@ export default function SettingsMenu() {
   useEffect(() => {
     const openProfile = () => { setOpen(true); setProfileOpen(true); };
     window.addEventListener("lefkada:open-profile", openProfile);
+    // Coming back from the gov.gr sign-in (?govgr=…): open straight onto the
+    // verification card, which shows how it went.
+    if (new URLSearchParams(window.location.search).has("govgr")) openProfile();
     return () => window.removeEventListener("lefkada:open-profile", openProfile);
   }, []);
 

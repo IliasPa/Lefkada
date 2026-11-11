@@ -209,6 +209,19 @@ const el: Record<string, string> = {
   verify_mismatch: "ΑΣΥΜΦΩΝΙΑ: η αποκρυπτογράφηση στη συσκευή σας ΔΕΝ δίνει το δημοσιευμένο αποτέλεσμα.",
   verify_unavailable: "Τα ανοιγμένα ψηφοδέλτια δεν είναι διαθέσιμα ακόμη.",
   verify_key: "Κλειδί δημοψηφίσματος",
+  // v2.0 — TAXISnet verification (gov.gr)
+  prot_taxis_label: "Ταυτοποίηση με κωδικούς TAXISnet",
+  prot_taxis_text:
+    "Ψηφίζει όποιος έχει λογαριασμό με email — δεν ελέγχεται ότι πίσω από κάθε λογαριασμό βρίσκεται διαφορετικό πρόσωπο, άρα κάποιος θα μπορούσε να ψηφίσει ξανά με δεύτερο email.",
+  vote_taxis_to_vote: "Ταυτοποιηθείτε με TAXISnet για να ψηφίσετε",
+  vote_taxis_required: "Σε αυτή την ψηφοφορία ψηφίζουν μόνο όσοι έχουν ταυτοποιηθεί με κωδικούς TAXISnet — η ψήφος δεν καταχωρήθηκε.",
+  acc_taxis_verify: "Ταυτοποίηση με κωδικούς TAXISnet (gov.gr)",
+  acc_taxis_hint: "Θα μεταφερθείτε στο gov.gr. Οι κωδικοί σας πληκτρολογούνται μόνο εκεί — η εφαρμογή δεν τους βλέπει ποτέ· λαμβάνει μόνο τον ΑΦΜ σας.",
+  acc_taxis_verified: "Ταυτοποιημένος/η με κωδικούς TAXISnet",
+  acc_taxis_result_ok: "Η ταυτοποίηση με TAXISnet ολοκληρώθηκε.",
+  acc_taxis_result_taken: "Αυτός ο ΑΦΜ είναι ήδη συνδεδεμένος με άλλον λογαριασμό. Κάθε πολίτης έχει έναν λογαριασμό — συνδεθείτε με το email εκείνου του λογαριασμού.",
+  acc_taxis_result_mismatch: "Ο λογαριασμός αυτός είναι ήδη ταυτοποιημένος με διαφορετικό ΑΦΜ.",
+  acc_taxis_result_error: "Η ταυτοποίηση με TAXISnet δεν ολοκληρώθηκε. Δοκιμάστε ξανά.",
   veto_send_error:
     "Το βέτο καταγράφηκε στη συσκευή, αλλά δεν στάλθηκε στον διακομιστή.",
   // v1.3 — verified voting & published results
@@ -836,6 +849,19 @@ const en: Record<string, string> = {
   verify_mismatch: "MISMATCH: decrypting on your device does NOT give the published result.",
   verify_unavailable: "The opened ballots are not available yet.",
   verify_key: "Referendum key",
+  // v2.0 — TAXISnet verification (gov.gr)
+  prot_taxis_label: "Identity check with TAXISnet codes",
+  prot_taxis_text:
+    "Anyone with an email account can vote — nothing checks that each account is a different person, so someone could vote again with a second email.",
+  vote_taxis_to_vote: "Verify with TAXISnet to vote",
+  vote_taxis_required: "Only people verified with their TAXISnet codes can vote in this poll — your vote was not recorded.",
+  acc_taxis_verify: "Verify with TAXISnet codes (gov.gr)",
+  acc_taxis_hint: "You will be taken to gov.gr. Your codes are typed only there — this app never sees them; it receives only your tax number.",
+  acc_taxis_verified: "Verified with TAXISnet codes",
+  acc_taxis_result_ok: "TAXISnet verification completed.",
+  acc_taxis_result_taken: "This tax number is already linked to another account. Each citizen has one account — sign in with that account's email.",
+  acc_taxis_result_mismatch: "This account is already verified with a different tax number.",
+  acc_taxis_result_error: "TAXISnet verification did not complete. Please try again.",
   // v1.3 — verified voting & published results
   acc_verify_section: "Voter verification",
   acc_verify_intro:

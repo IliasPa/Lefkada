@@ -6,7 +6,7 @@ import { useApp } from "@/context/AppContext";
 import AnimatedSegmented from "@/components/AnimatedSegmented";
 import { type Poll } from "@/data/voting";
 import { KEYS, storageGet, storageSet } from "@/lib/storage";
-import { submitVote, getVerifiedUser, usePollState, countsFromState, type PollState, type VerifiedUser } from "@/lib/backend";
+import { submitVote, getVerifiedUser, usePollState, countsFromState, fetchOwnCitizenStatus, type PollState, type VerifiedUser } from "@/lib/backend";
 import { backendConfigured, getSupabase } from "@/lib/supabase";
 import ProtectionNotice from "@/components/ProtectionNotice";
 import { castAnonymousBallot, resumePendingBallot, hasPendingBallot, getReceipt, checkReceipt } from "@/lib/ballot";
@@ -39,7 +39,10 @@ export default function PollBlock({
   const [selected, setSelected] = useState<string | null>(null);
   const [showAbout, setShowAbout] = useState(false);
   const [sending, setSending] = useState(false);
-  const [voteError, setVoteError] = useState<"" | "failed" | "closed">("");
+  const [voteError, setVoteError] = useState<"" | "failed" | "closed" | "taxis">("");
+  // TAXISnet-only referendums (v2.0): is the signed-in account verified?
+  const taxisOnly = backendConfigured && !!poll.protections?.taxisOnly;
+  const [taxisVerified, setTaxisVerified] = useState<boolean | null>(null);
   // Anonymous ballots (v1.8): a ticket this device holds whose ballot is not
   // delivered yet.
   const anonymous = backendConfigured && !!poll.protections?.anonymous;
@@ -64,6 +67,13 @@ export default function PollBlock({
     });
     return () => data.subscription.unsubscribe();
   }, [reload]);
+
+  useEffect(() => {
+    if (!taxisOnly || !vUser) { setTaxisVerified(null); return; }
+    let alive = true;
+    fetchOwnCitizenStatus().then((s) => { if (alive) setTaxisVerified(!!s?.taxis_verified); });
+    return () => { alive = false; };
+  }, [taxisOnly, vUser]);
 
   const keyOf = (id: string) => `${poll.id}:${id}`;
 
@@ -133,7 +143,7 @@ export default function PollBlock({
     setSending(false);
     if (outcome === "ok" && !anonymous) {
       storageSet(KEYS.myVotes, { ...storageGet<MyVotes>(KEYS.myVotes, {}), [voteKey]: selected });
-    } else if (outcome === "failed" || outcome === "closed") {
+    } else if (outcome === "failed" || outcome === "closed" || outcome === "taxis") {
       setVoteError(outcome);
     }
     setMyVotes(storageGet<MyVotes>(KEYS.myVotes, {}));
@@ -228,7 +238,7 @@ export default function PollBlock({
 
           {voteError && !submitted && (
             <p className="text-[12.5px] font-semibold text-red-500 px-1">
-              {t(voteError === "closed" ? "vote_closed_error" : "vote_send_error")}
+              {t(voteError === "closed" ? "vote_closed_error" : voteError === "taxis" ? "vote_taxis_required" : "vote_send_error")}
             </p>
           )}
 
@@ -252,7 +262,8 @@ export default function PollBlock({
           ) : (
             <VotingCard poll={poll} lang={lang} selected={selected} onSelect={setSelected} onSubmit={handleVote}
               busy={sending} busyLabel={anonymous ? t("vote_sending_anon") : t("vote_sending")}
-              signInRequired={backendConfigured && !vUser}
+              signInRequired={backendConfigured && (!vUser || (taxisOnly && taxisVerified === false))}
+              signInLabel={vUser && taxisOnly ? t("vote_taxis_to_vote") : undefined}
               onSignIn={() => window.dispatchEvent(new Event("lefkada:open-profile"))} t={t} />
           )}
         </div>
@@ -320,9 +331,9 @@ export function YouTubeEmbed({ id, title, fill = false }: { id: string; title: s
   return <div className="relative w-full overflow-hidden rounded-2xl bg-black shadow-md" style={{ aspectRatio: "16 / 9" }}>{iframe}</div>;
 }
 
-function VotingCard({ poll, lang, selected, onSelect, onSubmit, busy = false, busyLabel, signInRequired = false, onSignIn, t }: {
+function VotingCard({ poll, lang, selected, onSelect, onSubmit, busy = false, busyLabel, signInRequired = false, signInLabel, onSignIn, t }: {
   poll: Poll; lang: "el" | "en"; selected: string | null; onSelect: (id: string) => void; onSubmit: () => void;
-  busy?: boolean; busyLabel?: string; signInRequired?: boolean; onSignIn?: () => void; t: (k: string) => string;
+  busy?: boolean; busyLabel?: string; signInRequired?: boolean; signInLabel?: string; onSignIn?: () => void; t: (k: string) => string;
 }) {
   // Hold-to-submit: the ring fills over 4s (like the veto). Releasing early
   // cancels — a vote is one shot, so this stands in for the removed "change
@@ -369,7 +380,7 @@ function VotingCard({ poll, lang, selected, onSelect, onSubmit, busy = false, bu
       {signInRequired ? (
         <button onClick={onSignIn}
           className="mt-5 w-full py-3.5 rounded-xl font-bold text-[15px] bg-primary text-white shadow-md shadow-primary/30 transition-all active:scale-[0.98]">
-          {t("vote_signin_to_vote")}
+          {signInLabel ?? t("vote_signin_to_vote")}
         </button>
       ) : (
         <>

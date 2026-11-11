@@ -286,6 +286,7 @@ _/admin ▸ Δημοψηφίσματα with **dummy data** (no real citizens or 
 | **Minimum number of votes** | v1.7 | No results below N ballots; the Δημότες / non-Δημότες split is merged while either group is smaller than N | `poll_state()` |
 | **Anonymous ballots** | v1.8 | The ballot reaches the server **without the voter's account**. The municipality sees _who received a voting ticket_ and a separate count of ballots — never which ballot is whose | RSA blind signatures (RFC 9474) — Edge Functions `ballot-ticket` + `ballot-cast` |
 | **Encrypted ballots** | v1.9 | The phone encrypts the choice to the referendum's public key. The database holds only ciphertext, so **no tally exists anywhere** — for anyone, with any access — until the key holder counts after closing. Afterwards every ballot's one-time key is published and **anyone can recount** | ECDH P-256 → HKDF-SHA256 → AES-256-GCM in the browser; `scripts/tally.mjs` + `publish_tally()` |
+| **TAXISnet-verified voters only** | v2.0 | Only accounts that proved who they are with their TAXISnet codes on gov.gr may vote, and one ΑΦΜ links to **one** account — so nobody votes twice with a second email | `govgr-auth` Edge Function (OAuth 2.0) + `taxis_link()`; needs the municipality's gov.gr access |
 
 ### Anonymous ballots (v1.8)
 
@@ -313,6 +314,29 @@ One tap for the citizen; underneath, two requests the server cannot connect:
 Always on, for every referendum (v1.7): `cast_vote()` refuses a ballot unless the referendum exists, is published, is still open and the option is on the ballot; the ballot options freeze with the first vote; and the app records a choice on the device only after the server confirmed it.
 
 **What this does not protect against** — someone with direct database-owner access (the Supabase dashboard, the service key, the database password) can still read the tally table and watch it change. Closing that gap is what the later protections are for.
+
+### TAXISnet verification (v2.0)
+
+- A signed-in citizen taps **"Verify with TAXISnet codes (gov.gr)"** in their profile, signs in **on gov.gr** (the app never sees the codes) and comes back verified: the app receives only their ΑΦΜ, straight from gov.gr.
+- **One ΑΦΜ ↔ one account.** A second account trying to link the same ΑΦΜ is told it already belongs to another account; a verified account cannot switch to a different ΑΦΜ.
+- **Nobody can fake it from inside:** the "verified" mark can be written only by the gov.gr function — not by the citizen, and not from the mayor's /admin session; an ΑΦΜ typed in by hand is shown as unverified and does not count.
+- A referendum with **"TAXISnet-verified voters only"** refuses everyone else, on both the ordinary and the anonymous-ballot path.
+- **Not live until the municipality has gov.gr access**, which only the municipality can request. Until then the button and the switch stay hidden (`NEXT_PUBLIC_GOVGR_ENABLED`). The flow is tested against a stand-in for gov.gr, never against the real service.
+
+### Known limits — read before using this for a binding vote
+
+These are not solved by any of the switches above:
+
+1. **The app's own code is trusted.** The phone runs whatever JavaScript the site serves. Whoever can change the deployed site (the hosting account, the GitHub repo, a compromised dependency) can make it send choices in the clear or vote differently from what is shown. Nothing here lets a voter check the code they were served.
+2. **Whoever runs the server sees request metadata.** Supabase's logs record the time and IP address of every request. With anonymous ballots the ticket request and the ballot come from the same address seconds apart, so someone with log access could pair them.
+3. **The database owner is all-powerful.** Triggers and policies stop the app's users, including the mayor's session — not someone holding the database password or service key, who can read raw tables, change functions, or rewrite results (for encrypted referendums a rewritten result is caught by "Verify the count"; for the others it is not).
+4. **Ballots can be added in place of people who did not vote** by whoever holds the ticket master key or the database: the total can never exceed the number of tickets, but tickets can be issued to accounts that never asked. Only a public, checkable voter roll would expose that.
+5. **Email accounts are not people.** Without TAXISnet verification, anyone with several email addresses has several votes, and the Δημότης flag is set by hand by the mayor.
+6. **Small numbers leak.** A unanimous result, or a tiny turnout, reveals how people voted whatever the cryptography. The minimum-votes switch only hides results below a threshold.
+7. **A voter cannot prove their own vote was counted as cast.** The receipt shows a ballot arrived, not what it contained (deliberately — a provable receipt enables vote-buying). A count that wrongly marks ballots "invalid" cannot be disproven by the recount.
+8. **No independent audit, no legal basis.** The cryptography uses standard building blocks but this composition has never been reviewed by a specialist, and Greek law does not provide for binding internet referendums. Personal data here (ΑΦΜ, who voted) needs a data-protection assessment by the municipality.
+9. **Availability.** One Supabase project on a small plan: an outage, a rate limit or a denial-of-service attack on voting day stops the vote, and there is no fallback channel.
+10. **Lost keys lose votes.** The ticket master key (open referendums stop issuing tickets) and each encrypted referendum's private key (its ballots can never be counted) have no backup by design.
 
 ## Tech stack
 
@@ -395,6 +419,8 @@ npm run build    # static export → out/
 | `lefkada_cv_filename`     | Uploaded CV filename                      |
 | `lefkada_votes`           | Poll vote counts, keyed `pollId:optionId` |
 | `lefkada_my_votes`        | Own choice per poll, keyed per account    |
+| `lefkada_pending_ballots` | Anonymous-ballot tickets not delivered yet |
+| `lefkada_ballot_receipts` | Receipt codes of delivered anonymous ballots |
 | `lefkada_veto`            | Whether the VETO is active                |
 | `lefkada_health_exams`    | User-edited lab exam results              |
 | `lefkada_mayor_anonymous` | Anonymity preference for Mayor message    |

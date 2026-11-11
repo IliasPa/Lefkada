@@ -180,6 +180,7 @@ export async function castAnonymousBallot(poll: Poll, optionIndex: number): Prom
     }
     if (code === '23505') { setPending(k, null); return 'already'; } // the account's ticket went to another device
     if (code === 'LF001' || code === 'LF004') { setPending(k, null); return 'closed'; }
+    if (code === 'LF008') { setPending(k, null); return 'taxis'; } // TAXISnet-verified voters only
     return 'failed'; // the saved ticket is retried on the next attempt
   }
   return 'failed';

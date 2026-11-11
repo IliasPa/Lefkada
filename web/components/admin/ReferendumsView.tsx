@@ -33,6 +33,10 @@
  * sealed hardware key or an offline file). No tally exists until, after
  * closing, the count file made by scripts/tally.mjs is uploaded here: the page
  * re-opens every ballot with it before calling publish_tally().
+ *
+ * v2.0: «Μόνο ταυτοποιημένοι με TAXISnet» — only accounts whose ΑΦΜ came from
+ * a gov.gr sign-in may vote. Offered once the municipality's gov.gr access is
+ * live (NEXT_PUBLIC_GOVGR_ENABLED=1); the Ψηφοφόροι list marks verified accounts.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -42,7 +46,7 @@ import {
 } from 'lucide-react';
 import { pollsData } from '@/data/voting';
 import { getSupabase } from '@/lib/supabase';
-import { vetoWeek, athensToday, type PollState } from '@/lib/backend';
+import { vetoWeek, athensToday, govgrEnabled, type PollState } from '@/lib/backend';
 import { checkEncryptionKey, keyFingerprint, pemToB64 } from '@/lib/ballotSeal';
 import { fetchBallots, recount } from '@/lib/tally';
 import { maybeNotifyVetoStep } from '@/lib/notify';
@@ -76,6 +80,8 @@ interface RefRow {
   encryption_attestation: string;
   /** Set by publish_tally() when the count was uploaded. */
   tallied_at: string | null;
+  /** Only TAXISnet-verified accounts may vote (v2.0). */
+  taxis_only: boolean;
 }
 
 /** The protections as the mayor sees them: every one, on or off. (Citizens see
@@ -85,6 +91,7 @@ const ADMIN_PROTECTIONS: { label: string; on: (r: RefRow) => boolean; detail?: (
   { label: 'Ελάχιστο όριο ψήφων', on: (r) => r.min_votes > 0, detail: (r) => String(r.min_votes) },
   { label: 'Ανώνυμα ψηφοδέλτια', on: (r) => r.anonymous_ballots },
   { label: 'Κρυπτογραφημένα ψηφοδέλτια', on: (r) => r.encrypted_ballots },
+  { label: 'Ταυτοποίηση TAXISnet', on: (r) => r.taxis_only },
 ];
 
 /** Database refusals the form can explain (see supabase/schema.sql). */
@@ -112,6 +119,8 @@ interface ParticipantRow {
 interface CitizenRow {
   user_id: string; email: string; full_name: string; tax_number: string;
   resident: boolean; resident_set_at: string | null; updated_at: string;
+  /** When the ΑΦΜ was confirmed by a gov.gr (TAXISnet) sign-in — v2.0. */
+  taxis_verified_at?: string | null;
 }
 
 type OptionDef = { id: string; el: string; en: string };
@@ -148,6 +157,7 @@ const EMPTY: Omit<RefRow, 'id' | 'created_at' | 'updated_at' | 'results_publishe
   encrypted_ballots: false,
   encryption_key: '',
   encryption_attestation: '',
+  taxis_only: false,
 };
 
 function toLocalInput(iso: string): string {
@@ -281,6 +291,7 @@ export default function ReferendumsView() {
       encrypted_ballots: encrypted,
       encryption_key: encryptionKey,
       encryption_attestation: encrypted ? (editing.encryption_attestation ?? '').trim() : '',
+      taxis_only: editing.taxis_only ?? false,
     };
     const { data: saved, error } = editing.id
       ? await sb.from('referendums').update(payload).eq('id', editing.id).select('id').single()
@@ -508,6 +519,18 @@ export default function ReferendumsView() {
                 </p>
               </div>
             )}
+            <label className={`flex items-start gap-2 text-sm font-semibold ${locked || (!govgrEnabled && !e.taxis_only) ? 'opacity-60' : ''}`}>
+              <input type="checkbox" className="mt-0.5" disabled={locked || (!govgrEnabled && !e.taxis_only)}
+                checked={e.taxis_only ?? false} onChange={(ev) => set({ taxis_only: ev.target.checked })} />
+              <span>
+                Μόνο ταυτοποιημένοι με κωδικούς TAXISnet
+                <span className="block text-[11.5px] font-medium text-gray-400">
+                  Ψηφίζουν μόνο λογαριασμοί που έχουν αποδείξει την ταυτότητά τους στο gov.gr· ένας ΑΦΜ
+                  αντιστοιχεί σε έναν λογαριασμό, άρα κανείς δεν ψηφίζει δύο φορές με δεύτερο email.
+                  {!govgrEnabled && ' Διαθέσιμο μόλις εγκριθεί η πρόσβαση του δήμου στο gov.gr (SETUP_BACKEND.md §13).'}
+                </span>
+              </span>
+            </label>
             <p className="text-[11px] text-gray-400 leading-relaxed">
               {locked
                 ? 'Το δημοψήφισμα έχει δημοσιευθεί ή έχει ήδη ψήφους — οι προστασίες δεν αλλάζουν πλέον.'
@@ -628,7 +651,10 @@ function VotersView({ rows, onToggle }: { rows: CitizenRow[]; onToggle: (c: Citi
                   {c.full_name || <span className="italic font-medium text-gray-400">Χωρίς όνομα</span>}
                 </p>
                 <p className="text-[11.5px] text-gray-400 mt-0.5">
-                  {c.tax_number ? <>ΑΦΜ <span className="font-mono font-bold text-gray-500 dark:text-gray-300">{c.tax_number}</span> · </> : 'Χωρίς ΑΦΜ · '}
+                  {c.tax_number ? <>ΑΦΜ <span className="font-mono font-bold text-gray-500 dark:text-gray-300">{c.tax_number}</span>
+                    {c.taxis_verified_at
+                      ? <span className="font-bold text-green-600"> ✓ TAXISnet</span>
+                      : <span className="text-amber-600"> (χωρίς ταυτοποίηση)</span>} · </> : 'Χωρίς ΑΦΜ · '}
                   {c.email}
                 </p>
               </div>
