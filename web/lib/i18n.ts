@@ -166,7 +166,23 @@ const el: Record<string, string> = {
   vote_results_hidden: "Τα αποτελέσματα δεν είναι διαθέσιμα ακόμη — θα εμφανιστούν όταν τα δημοσιεύσει ο δήμος.",
   vote_change: "Αλλαγή Ψήφου",
   vote_send_error:
-    "Η ψήφος καταγράφηκε στη συσκευή, αλλά δεν στάλθηκε στον διακομιστή — ελέγξτε τη σύνδεση και ψηφίστε ξανά.",
+    "Η ψήφος δεν έφτασε στον διακομιστή και ΔΕΝ καταχωρήθηκε — ελέγξτε τη σύνδεση και ψηφίστε ξανά.",
+  // v1.7 — protections, server-side poll state
+  vote_sending: "Αποστολή…",
+  vote_closed_error: "Η ψηφοφορία δεν είναι πλέον ανοιχτή — η ψήφος δεν καταχωρήθηκε.",
+  vote_already_title: "Έχετε ήδη ψηφίσει",
+  vote_already_text:
+    "Ο λογαριασμός σας έχει ήδη ψηφίσει σε αυτή την ψηφοφορία. Η επιλογή σας δεν αποθηκεύεται στον διακομιστή — φαίνεται μόνο στη συσκευή από την οποία ψηφίσατε.",
+  vote_results_after_close:
+    "Τα αποτελέσματα θα εμφανιστούν μετά τη λήξη της ψηφοφορίας — μέχρι τότε δεν τα βλέπει κανείς, ούτε ο δήμος.",
+  vote_results_below_min: "Τα αποτελέσματα εμφανίζονται μόνο όταν συγκεντρωθούν τουλάχιστον {n} ψήφοι.",
+  prot_title: "Αυτή η ψηφοφορία ΔΕΝ χρησιμοποιεί:",
+  prot_hide_label: "Απόκρυψη αποτελεσμάτων μέχρι τη λήξη",
+  prot_hide_text:
+    "Τα αποτελέσματα μπορούν να διαβαστούν όσο η ψηφοφορία είναι ακόμη ανοιχτή — άρα μπορούν να επηρεάσουν όσους δεν έχουν ψηφίσει, και όποιος τα παρακολουθεί μπορεί να συμπεράνει τι ψήφισε κάποιος από τη στιγμή που ψήφισε.",
+  prot_min_label: "Ελάχιστο όριο ψήφων",
+  prot_min_text:
+    "Τα αποτελέσματα μπορούν να εμφανιστούν ακόμη και με ελάχιστες ψήφους — όταν ψηφίζουν λίγοι, η επιλογή τους μπορεί να γίνει φανερή.",
   veto_send_error:
     "Το βέτο καταγράφηκε στη συσκευή, αλλά δεν στάλθηκε στον διακομιστή.",
   // v1.3 — verified voting & published results
@@ -751,7 +767,23 @@ const en: Record<string, string> = {
   vote_results_hidden: "Results aren't available yet — they'll appear once the municipality publishes them.",
   vote_change: "Change Vote",
   vote_send_error:
-    "Your vote was saved on this device but did not reach the server — check your connection and vote again.",
+    "Your vote did not reach the server and was NOT recorded — check your connection and vote again.",
+  // v1.7 — protections, server-side poll state
+  vote_sending: "Sending…",
+  vote_closed_error: "This vote is no longer open — your vote was not recorded.",
+  vote_already_title: "You have already voted",
+  vote_already_text:
+    "Your account has already voted in this poll. Your choice is not stored on the server — it is shown only on the device you voted from.",
+  vote_results_after_close:
+    "Results will appear after the vote closes — until then nobody can see them, not even the municipality.",
+  vote_results_below_min: "Results are shown only once at least {n} votes have been cast.",
+  prot_title: "This vote does NOT use:",
+  prot_hide_label: "Results hidden until closing",
+  prot_hide_text:
+    "Results can be read while the vote is still open — so they can influence people who have not voted yet, and anyone watching them can infer what someone chose from the moment they voted.",
+  prot_min_label: "Minimum number of votes",
+  prot_min_text:
+    "Results can be shown even with very few votes — when only a few people vote, their choice can become obvious.",
   // v1.3 — verified voting & published results
   acc_verify_section: "Voter verification",
   acc_verify_intro:

@@ -6,8 +6,9 @@ import { useApp } from "@/context/AppContext";
 import AnimatedSegmented from "@/components/AnimatedSegmented";
 import { type Poll } from "@/data/voting";
 import { KEYS, storageGet, storageSet } from "@/lib/storage";
-import { submitVote, getVerifiedUser, fetchPollLiveResult, useLivePoll, type VerifiedUser } from "@/lib/backend";
-import { backendConfigured } from "@/lib/supabase";
+import { submitVote, getVerifiedUser, usePollState, countsFromState, type PollState, type VerifiedUser } from "@/lib/backend";
+import { backendConfigured, getSupabase } from "@/lib/supabase";
+import ProtectionNotice from "@/components/ProtectionNotice";
 
 /** Holding the vote button this long is the deliberate-intent safeguard —
  *  matching the veto button, and standing in for the removed "change vote". */
@@ -36,58 +37,87 @@ export default function PollBlock({
   const [myVotes, setMyVotes] = useState<MyVotes>({});
   const [selected, setSelected] = useState<string | null>(null);
   const [showAbout, setShowAbout] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [sendError, setSendError] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [voteError, setVoteError] = useState<"" | "failed" | "closed">("");
   const [explainLength, setExplainLength] = useState<"short" | "medium" | "full">("short");
   const [vUser, setVUser] = useState<VerifiedUser | null>(null);
 
-  // Live results, but ONLY when the mayor has toggled them visible for this
-  // poll (else null → the voting section shows just the citizen's own choice).
-  const liveResult = useLivePoll(useCallback(() => fetchPollLiveResult(poll.id), [poll.id]));
+  // The server's view of this poll: has this ACCOUNT voted (on any device), and
+  // the results — only when the referendum's protections allow them.
+  const { state: pollState, reload } = usePollState(poll.id);
 
+  // Follow sign-in / sign-out live, so the ballot always belongs to whoever is
+  // signed in right now (several people may vote in turn on a shared device).
   useEffect(() => {
-    if (!backendConfigured) return;
+    const sb = getSupabase();
+    if (!sb) return;
     getVerifiedUser().then(setVUser);
-  }, [closed, poll.id]);
+    const { data } = sb.auth.onAuthStateChange((_e, session) => {
+      const u = session?.user;
+      setVUser(u ? { id: u.id, email: u.email ?? "" } : null);
+      reload();
+    });
+    return () => data.subscription.unsubscribe();
+  }, [reload]);
 
   const keyOf = (id: string) => `${poll.id}:${id}`;
 
   useEffect(() => {
     const saved = storageGet<VoteCounts>(KEYS.votes, {});
-    const mine = storageGet<MyVotes>(KEYS.myVotes, {});
     const merged: VoteCounts = {};
     poll.options.forEach((o) => {
       merged[o.id] = (saved[`${poll.id}:${o.id}`] ?? 0) + (poll.seedVotes[o.id] ?? 0);
     });
     setVoteCounts(merged);
-    setMyVotes(mine);
-    if (mine[poll.id]) setSelected(mine[poll.id]);
-    if (closed || mine[poll.id]) setSubmitted(true);
-  }, [poll, closed]);
+    setMyVotes(storageGet<MyVotes>(KEYS.myVotes, {}));
+  }, [poll]);
+
+  // The choice is remembered ONLY on the device that cast it, and per account —
+  // the server never stores who chose what. With a backend, a signed-out
+  // device shows nobody's choice.
+  const voteKey = backendConfigured ? (vUser ? `${vUser.id}:${poll.id}` : null) : poll.id;
+  const myVote = voteKey ? myVotes[voteKey] : undefined;
+  const serverVoted = backendConfigured && !!vUser && !!pollState?.voted;
+  const submitted = closed || !!myVote || serverVoted;
 
   const totalVotes = Object.values(voteCounts).reduce((a, b) => a + b, 0);
 
   // One shot — a vote cannot be changed once cast (there is no "change vote").
-  const handleVote = useCallback(() => {
-    if (!selected || closed || myVotes[poll.id]) return;
-    const savedCounts = storageGet<VoteCounts>(KEYS.votes, {});
-    const updated = { ...savedCounts, [keyOf(selected)]: (savedCounts[keyOf(selected)] ?? 0) + 1 };
-    const updatedMyVotes = { ...myVotes, [poll.id]: selected };
-    storageSet(KEYS.votes, updated);
-    storageSet(KEYS.myVotes, updatedMyVotes);
-    const merged: VoteCounts = {};
-    poll.options.forEach((o) => {
-      merged[o.id] = (updated[keyOf(o.id)] ?? 0) + (poll.seedVotes[o.id] ?? 0);
-    });
-    setVoteCounts(merged);
-    setMyVotes(updatedMyVotes);
-    setSubmitted(true);
-    // Record server-side too via cast_vote() (the option is sent as its ballot
-    // index). If it fails we must SAY so — the local tally alone is not
-    // "counted".
-    setSendError(false);
-    submitVote(poll.id, poll.options.findIndex((o) => o.id === selected)).then((ok) => setSendError(!ok));
-  }, [selected, myVotes, poll, closed]);
+  const handleVote = useCallback(async () => {
+    if (!selected || closed || submitted || sending) return;
+    if (!backendConfigured) {
+      // No backend — the on-device demo tally is the whole story.
+      const savedCounts = storageGet<VoteCounts>(KEYS.votes, {});
+      const updated = { ...savedCounts, [keyOf(selected)]: (savedCounts[keyOf(selected)] ?? 0) + 1 };
+      const updatedMyVotes = { ...myVotes, [poll.id]: selected };
+      storageSet(KEYS.votes, updated);
+      storageSet(KEYS.myVotes, updatedMyVotes);
+      const merged: VoteCounts = {};
+      poll.options.forEach((o) => {
+        merged[o.id] = (updated[keyOf(o.id)] ?? 0) + (poll.seedVotes[o.id] ?? 0);
+      });
+      setVoteCounts(merged);
+      setMyVotes(updatedMyVotes);
+      return;
+    }
+    if (!voteKey) return;
+    // The SERVER decides (cast_vote): the choice is remembered on this device
+    // only once the ballot really landed — never on a failure, and never when
+    // the account had already voted elsewhere.
+    setSending(true);
+    setVoteError("");
+    const outcome = await submitVote(poll.id, poll.options.findIndex((o) => o.id === selected));
+    setSending(false);
+    if (outcome === "ok") {
+      const updatedMyVotes = { ...storageGet<MyVotes>(KEYS.myVotes, {}), [voteKey]: selected };
+      storageSet(KEYS.myVotes, updatedMyVotes);
+      setMyVotes(updatedMyVotes);
+    } else if (outcome !== "already") {
+      setVoteError(outcome);
+    }
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, myVotes, poll, closed, submitted, sending, voteKey, reload]);
 
   const explanation = poll.explanations[explainLength][lang];
   const explainNodes = explanation.split("\n").map((line, i) => {
@@ -161,6 +191,8 @@ export default function PollBlock({
             </div>
           )}
 
+          <ProtectionNotice poll={poll} />
+
           {/* When signed out, a deep link into Settings ▸ Personal info where
               email sign-in lives (voting needs an account). */}
           {backendConfigured && !closed && !vUser && (
@@ -171,27 +203,31 @@ export default function PollBlock({
             </button>
           )}
 
+          {voteError && !submitted && (
+            <p className="text-[12.5px] font-semibold text-red-500 px-1">
+              {t(voteError === "closed" ? "vote_closed_error" : "vote_send_error")}
+            </p>
+          )}
+
           {submitted ? (
-            <>
-              {sendError && (
-                <p className="text-[12.5px] font-semibold text-red-500 px-1">{t("vote_send_error")}</p>
-              )}
-              {backendConfigured ? (
-                liveResult ? (
-                  // Results made visible by the mayor — live aggregate counts.
-                  <ResultsCard poll={poll} lang={lang} myVote={myVotes[poll.id]}
-                    voteCounts={Object.fromEntries(liveResult.data.options.map((o) => [o.id, o.all]))}
-                    totalVotes={liveResult.data.total} closed={closed} t={t} />
-                ) : (
-                  // Results hidden — show only what this person voted.
-                  <YourVoteCard poll={poll} lang={lang} myVote={myVotes[poll.id]} t={t} />
-                )
+            backendConfigured ? (
+              pollState?.state === "visible" ? (
+                // Results the referendum's protections allow — live counts.
+                <ResultsCard poll={poll} lang={lang} myVote={myVote}
+                  voteCounts={countsFromState(pollState, poll.options.map((o) => o.id))}
+                  totalVotes={pollState.rows.reduce((a, r) => a + r.v, 0)} closed={closed} t={t} />
               ) : (
-                <ResultsCard poll={poll} lang={lang} myVote={myVotes[poll.id]} voteCounts={voteCounts} totalVotes={totalVotes} closed={closed} t={t} />
-              )}
-            </>
+                // Results withheld — show only what this person voted (if this
+                // is the device they voted from) and why the rest is hidden.
+                <YourVoteCard poll={poll} lang={lang} myVote={myVote} voted={serverVoted}
+                  resultsState={pollState?.state} t={t} />
+              )
+            ) : (
+              <ResultsCard poll={poll} lang={lang} myVote={myVote} voteCounts={voteCounts} totalVotes={totalVotes} closed={closed} t={t} />
+            )
           ) : (
             <VotingCard poll={poll} lang={lang} selected={selected} onSelect={setSelected} onSubmit={handleVote}
+              busy={sending}
               signInRequired={backendConfigured && !vUser}
               onSignIn={() => window.dispatchEvent(new Event("lefkada:open-profile"))} t={t} />
           )}
@@ -260,9 +296,9 @@ export function YouTubeEmbed({ id, title, fill = false }: { id: string; title: s
   return <div className="relative w-full overflow-hidden rounded-2xl bg-black shadow-md" style={{ aspectRatio: "16 / 9" }}>{iframe}</div>;
 }
 
-function VotingCard({ poll, lang, selected, onSelect, onSubmit, signInRequired = false, onSignIn, t }: {
+function VotingCard({ poll, lang, selected, onSelect, onSubmit, busy = false, signInRequired = false, onSignIn, t }: {
   poll: Poll; lang: "el" | "en"; selected: string | null; onSelect: (id: string) => void; onSubmit: () => void;
-  signInRequired?: boolean; onSignIn?: () => void; t: (k: string) => string;
+  busy?: boolean; signInRequired?: boolean; onSignIn?: () => void; t: (k: string) => string;
 }) {
   // Hold-to-submit: the ring fills over 4s (like the veto). Releasing early
   // cancels — a vote is one shot, so this stands in for the removed "change
@@ -275,7 +311,7 @@ function VotingCard({ poll, lang, selected, onSelect, onSubmit, signInRequired =
     setHoldPct(0);
   }, []);
   const beginHold = useCallback(() => {
-    if (!selected || holdRaf.current) return;
+    if (!selected || busy || holdRaf.current) return;
     const start = performance.now();
     const tick = (now: number) => {
       const p = Math.min(1, (now - start) / VOTE_HOLD_MS);
@@ -284,7 +320,7 @@ function VotingCard({ poll, lang, selected, onSelect, onSubmit, signInRequired =
       else holdRaf.current = requestAnimationFrame(tick);
     };
     holdRaf.current = requestAnimationFrame(tick);
-  }, [selected, onSubmit, endHold]);
+  }, [selected, busy, onSubmit, endHold]);
   useEffect(() => () => cancelAnimationFrame(holdRaf.current), []);
 
   return (
@@ -319,7 +355,7 @@ function VotingCard({ poll, lang, selected, onSelect, onSubmit, signInRequired =
             onPointerLeave={endHold}
             onPointerCancel={endHold}
             onContextMenu={(e) => e.preventDefault()}
-            disabled={!selected}
+            disabled={!selected || busy}
             style={{ WebkitTouchCallout: "none", touchAction: "manipulation" } as React.CSSProperties}
             className={`mt-5 w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl font-bold text-[15px] select-none transition-colors ${selected ? "bg-primary text-white shadow-md shadow-primary/30" : "bg-gray-100 dark:bg-[#252A3A] text-gray-300 dark:text-gray-600 cursor-not-allowed"}`}>
             <span className="relative flex items-center justify-center w-6 h-6 flex-shrink-0">
@@ -330,9 +366,9 @@ function VotingCard({ poll, lang, selected, onSelect, onSubmit, signInRequired =
               </svg>
               <CheckCircle2 size={13} />
             </span>
-            {t("vote_submit")}
+            {busy ? t("vote_sending") : t("vote_submit")}
           </button>
-          {selected && (
+          {selected && !busy && (
             <p className="text-center text-[11.5px] font-semibold text-gray-400 dark:text-gray-500 mt-2">
               {t("acc_veto_hold_hint")}
             </p>
@@ -387,30 +423,46 @@ export function ResultsCard({ poll, lang, myVote, voteCounts, totalVotes, closed
   );
 }
 
-/** Shown after voting when the mayor has NOT made the poll's results visible:
- *  the citizen sees only their own recorded choice, never the aggregate. */
-function YourVoteCard({ poll, lang, myVote, t }: {
-  poll: Poll; lang: "el" | "en"; myVote?: string; t: (k: string) => string;
+/** Why a poll's results are not shown — one line per poll_state() state. */
+export function resultsNote(poll: Poll, state: PollState["state"] | undefined, t: (k: string) => string): string {
+  if (state === "until_close") return t("vote_results_after_close");
+  if (state === "below_min") return t("vote_results_below_min").replace("{n}", String(poll.protections?.minVotes ?? 0));
+  return t("vote_results_hidden");
+}
+
+/** Shown after voting while the results are withheld: the citizen sees only
+ *  their own choice — and only on the device they voted from, because the
+ *  server never stores who chose what. On any other device the account is
+ *  simply told it has already voted. */
+function YourVoteCard({ poll, lang, myVote, voted, resultsState, t }: {
+  poll: Poll; lang: "el" | "en"; myVote?: string; voted: boolean;
+  resultsState?: PollState["state"]; t: (k: string) => string;
 }) {
   const chosen = poll.options.find((o) => o.id === myVote);
   return (
     <div className="bg-white dark:bg-[#141929] rounded-2xl p-5 border border-gray-100 dark:border-[#1E2D4E] shadow-sm space-y-3">
       {chosen ? (
-        <>
-          <div className="flex items-start gap-3 bg-green-50 dark:bg-green-900/20 p-3.5 rounded-xl">
-            <CheckCircle2 size={20} className="text-green-500 flex-shrink-0 mt-0.5" />
-            <div className="min-w-0">
-              <p className="font-semibold text-sm text-green-700 dark:text-green-400">{t("vote_submitted_title")}</p>
-              <p className="text-[13px] text-green-700 dark:text-green-300 mt-1">
-                {t("vote_your_vote")} <span className="font-bold">{chosen.text[lang]}</span>
-              </p>
-            </div>
+        <div className="flex items-start gap-3 bg-green-50 dark:bg-green-900/20 p-3.5 rounded-xl">
+          <CheckCircle2 size={20} className="text-green-500 flex-shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            <p className="font-semibold text-sm text-green-700 dark:text-green-400">{t("vote_submitted_title")}</p>
+            <p className="text-[13px] text-green-700 dark:text-green-300 mt-1">
+              {t("vote_your_vote")} <span className="font-bold">{chosen.text[lang]}</span>
+            </p>
           </div>
-          <p className="text-[11.5px] text-gray-400 dark:text-gray-500 text-center">{t("vote_results_hidden")}</p>
-        </>
-      ) : (
-        <p className="text-[13px] text-gray-500 dark:text-gray-400 text-center py-2">{t("vote_results_hidden")}</p>
-      )}
+        </div>
+      ) : voted ? (
+        <div className="flex items-start gap-3 bg-primary-50 dark:bg-primary-900/20 p-3.5 rounded-xl">
+          <CheckCircle2 size={20} className="text-primary dark:text-primary-300 flex-shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            <p className="font-semibold text-sm text-primary dark:text-primary-300">{t("vote_already_title")}</p>
+            <p className="text-[12.5px] text-gray-600 dark:text-gray-300 mt-1 leading-relaxed">{t("vote_already_text")}</p>
+          </div>
+        </div>
+      ) : null}
+      <p className={`text-gray-400 dark:text-gray-500 text-center ${chosen || voted ? "text-[11.5px]" : "text-[13px] py-2"}`}>
+        {resultsNote(poll, resultsState, t)}
+      </p>
     </div>
   );
 }

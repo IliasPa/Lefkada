@@ -15,16 +15,22 @@
  * WHO took part (ΑΦΜ or email). The 🏠 toggle sets referendums.results_published,
  * which reveals a poll's LIVE results inside the voting section. Vetos store
  * only (veto_date, voter_key).
+ *
+ * v1.7: each referendum carries its own PROTECTIONS (results hidden until
+ * closing, a minimum number of votes), set in the form and locked by the
+ * database once the poll is published. Results are read ONLY through
+ * poll_state(), which applies them to the mayor too — while a poll is hidden
+ * this page shows the turnout and nothing else.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  CheckCircle2, ChevronDown, ChevronUp, Eye, EyeOff, FileText, Home, Landmark,
-  Pencil, Plus, ShieldAlert, Trash2, UserCheck, Users, Vote, X,
+  CheckCircle2, ChevronDown, ChevronUp, Eye, EyeOff, FileText, Home, Landmark, Lock,
+  Pencil, Plus, ShieldAlert, ShieldCheck, ShieldOff, Trash2, UserCheck, Users, Vote, X,
 } from 'lucide-react';
 import { pollsData } from '@/data/voting';
 import { getSupabase } from '@/lib/supabase';
-import { vetoWeek, athensToday } from '@/lib/backend';
+import { vetoWeek, athensToday, type PollState } from '@/lib/backend';
 import { maybeNotifyVetoStep } from '@/lib/notify';
 import AnimatedSegmented from '@/components/AnimatedSegmented';
 import { Card, Field, GhostBtn, PrimaryBtn, inputCls } from './AdminShell';
@@ -44,11 +50,29 @@ interface RefRow {
   published: boolean;
   /** The 🏠 toggle: results visible to citizens in the voting section. */
   results_published: boolean;
+  // Protections (v1.7) — locked by the database once the poll is published.
+  hide_until_close: boolean;
+  min_votes: number;
 }
 
+/** The protections as the mayor sees them: every one, on or off. (Citizens see
+ *  only the ones that are off — components/ProtectionNotice.tsx.) */
+const ADMIN_PROTECTIONS: { label: string; on: (r: RefRow) => boolean; detail?: (r: RefRow) => string }[] = [
+  { label: 'Απόκρυψη μέχρι τη λήξη', on: (r) => r.hide_until_close },
+  { label: 'Ελάχιστο όριο ψήφων', on: (r) => r.min_votes > 0, detail: (r) => String(r.min_votes) },
+];
+
+/** Database refusals the form can explain (see supabase/schema.sql). */
+const DB_ERRORS: Record<string, string> = {
+  LF010: 'Οι προστασίες κλειδώνουν μόλις το δημοψήφισμα δημοσιευθεί — δεν αλλάζουν πλέον.',
+  LF011: 'Οι επιλογές ψήφου κλειδώνουν μόλις υπάρξει η πρώτη ψήφος.',
+};
+const dbError = (e: { code?: string; message: string }) => DB_ERRORS[e.code ?? ''] ?? e.message;
+
 /** The choice, aggregated only — never tied to a voter. option_id is the
- *  0-based ballot index. */
-interface TallyRow { poll_id: string; option_id: number; residency: boolean; votes: number; }
+ *  0-based ballot index. residency is null when poll_state() merged the
+ *  Δημότες / non-Δημότες breakdown (a group below the poll's minimum). */
+interface TallyRow { poll_id: string; option_id: number; residency: boolean | null; votes: number; }
 /** Confirmed Δημότες only (no residency column — a non-Δημότης can't insert).
  *  veto_date = the Athens day the veto was cast. */
 interface VetoRow { veto_date: string; voter_key: string; }
@@ -73,7 +97,7 @@ const PALETTE = ['#0D5EAF', '#E4802C', '#16A34A', '#DC2626', '#7C3AED', '#0891B2
 function countsFor(tallies: TallyRow[], index: number) {
   const rows = tallies.filter((t) => t.option_id === index);
   const all = rows.reduce((a, t) => a + t.votes, 0);
-  const resident = rows.filter((t) => t.residency).reduce((a, t) => a + t.votes, 0);
+  const resident = rows.filter((t) => t.residency === true).reduce((a, t) => a + t.votes, 0);
   return { all, resident };
 }
 
@@ -89,6 +113,8 @@ const EMPTY: Omit<RefRow, 'id' | 'created_at' | 'updated_at' | 'results_publishe
   ],
   ends_at: '',
   published: false,
+  hide_until_close: false,
+  min_votes: 0,
 };
 
 function toLocalInput(iso: string): string {
@@ -98,12 +124,18 @@ function toLocalInput(iso: string): string {
   return d.toISOString().slice(0, 16);
 }
 
+/** The bundled (pre-backend) polls — they may still hold old server tallies. */
+const BUNDLED_IDS = pollsData.filter((p) => !p.id.startsWith('ref_')).map((p) => p.id);
+
+const talliesOf = (pid: string, st?: PollState): TallyRow[] =>
+  (st?.rows ?? []).map((r) => ({ poll_id: pid, option_id: r.o, residency: r.r, votes: r.v }));
+
 export default function ReferendumsView() {
   const [rows, setRows] = useState<RefRow[]>([]);
   const [editing, setEditing] = useState<Partial<RefRow> | null>(null);
   const [busy, setBusy] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [tallies, setTallies] = useState<TallyRow[]>([]);
+  const [states, setStates] = useState<Record<string, PollState>>({});
   const [vetoEvents, setVetoEvents] = useState<VetoRow[]>([]);
   const [participants, setParticipants] = useState<ParticipantRow[]>([]);
   const [citizens, setCitizens] = useState<CitizenRow[]>([]);
@@ -113,11 +145,18 @@ export default function ReferendumsView() {
     const sb = getSupabase();
     if (!sb) return;
     const { data } = await sb.from('referendums').select('*').order('created_at', { ascending: false });
-    setRows((data as RefRow[]) ?? []);
-    // Everything stored server-side (mayor-only via RLS). The choice lives only
-    // as aggregate counts — no per-voter ballot exists.
-    const { data: tl } = await sb.from('referendums_results').select('poll_id, option_id, residency, votes').limit(10000);
-    setTallies((tl as TallyRow[]) ?? []);
+    const refs = (data as RefRow[]) ?? [];
+    setRows(refs);
+    // Results come ONLY through poll_state(), which applies each referendum's
+    // protections to the mayor too (hidden until closing / below the minimum
+    // → no counts at all). The choice lives only as aggregate counts — no
+    // per-voter ballot exists.
+    const pollIds = [...refs.map((r) => `ref_${r.id}`), ...BUNDLED_IDS];
+    const fetched = await Promise.all(pollIds.map(async (pid) => {
+      const { data: st } = await sb.rpc('poll_state', { p_poll_id: pid });
+      return [pid, st as PollState | null] as const;
+    }));
+    setStates(Object.fromEntries(fetched.filter((f): f is readonly [string, PollState] => f[1] !== null)));
     const { data: ve } = await sb.from('vetos').select('veto_date, voter_key').order('veto_date').limit(10000);
     setVetoEvents((ve as VetoRow[]) ?? []);
     // Alphabetical on purpose — NOT insertion order.
@@ -181,12 +220,14 @@ export default function ReferendumsView() {
       pdf_url, youtube_id: editing.youtube_id ?? '',
       options, ends_at: new Date(editing.ends_at).toISOString(),
       published: editing.published ?? false,
+      hide_until_close: editing.hide_until_close ?? false,
+      min_votes: Math.max(0, Math.floor(Number(editing.min_votes) || 0)),
     };
     const { error } = editing.id
       ? await sb.from('referendums').update(payload).eq('id', editing.id)
       : await sb.from('referendums').insert(payload);
     setBusy(false);
-    if (error) { alert('Σφάλμα: ' + error.message); return; }
+    if (error) { alert('Σφάλμα: ' + dbError(error)); return; }
     setEditing(null); setPdfFile(null);
     load();
   };
@@ -205,6 +246,11 @@ export default function ReferendumsView() {
   if (editing) {
     const e = editing;
     const set = (patch: Partial<RefRow>) => setEditing({ ...e, ...patch });
+    // Mirrors the database rule (referendums_guard): protections lock while
+    // the poll is published and for good once it has a ballot.
+    const stored = e.id ? rows.find((r) => r.id === e.id) : undefined;
+    const hasVotes = !!e.id && participants.some((p) => p.poll_id === `ref_${e.id}`);
+    const locked = !!stored && (stored.published || hasVotes);
     return (
       <div className="max-w-3xl mx-auto px-4 py-5 space-y-4">
         <div className="flex items-center justify-between">
@@ -269,6 +315,45 @@ export default function ReferendumsView() {
             </div>
           </Field>
 
+          <div className="rounded-xl border border-gray-200 dark:border-[#3A4155] p-3.5 space-y-3">
+            <div className="flex items-center gap-1.5">
+              <ShieldCheck size={15} className="text-primary dark:text-primary-300" />
+              <p className="text-[13px] font-black">Προστασίες ψηφοφορίας</p>
+              {locked && (
+                <span className="ml-auto flex items-center gap-1 text-[10.5px] font-black text-amber-600">
+                  <Lock size={11} /> Κλειδωμένες
+                </span>
+              )}
+            </div>
+            <label className={`flex items-start gap-2 text-sm font-semibold ${locked ? 'opacity-60' : ''}`}>
+              <input type="checkbox" className="mt-0.5" disabled={locked} checked={e.hide_until_close ?? false}
+                onChange={(ev) => set({ hide_until_close: ev.target.checked })} />
+              <span>
+                Απόκρυψη αποτελεσμάτων μέχρι τη λήξη
+                <span className="block text-[11.5px] font-medium text-gray-400">
+                  Κανείς — ούτε εσείς — δεν βλέπει αποτελέσματα όσο η ψηφοφορία είναι ανοιχτή· μόνο τη συμμετοχή.
+                </span>
+              </span>
+            </label>
+            <label className={`flex items-start gap-2 text-sm font-semibold ${locked ? 'opacity-60' : ''}`}>
+              <input type="number" min={0} max={100000} disabled={locked} value={e.min_votes ?? 0}
+                onChange={(ev) => set({ min_votes: Number(ev.target.value) })}
+                className={inputCls + ' !w-24 !py-1.5 flex-shrink-0'} />
+              <span>
+                Ελάχιστο όριο ψήφων (0 = χωρίς όριο)
+                <span className="block text-[11.5px] font-medium text-gray-400">
+                  Κάτω από το όριο δεν εμφανίζονται αποτελέσματα· ο διαχωρισμός δημοτών/λοιπών ενώνεται
+                  όσο μία από τις δύο ομάδες είναι μικρότερη από αυτό.
+                </span>
+              </span>
+            </label>
+            <p className="text-[11px] text-gray-400 leading-relaxed">
+              {locked
+                ? 'Το δημοψήφισμα έχει δημοσιευθεί ή έχει ήδη ψήφους — οι προστασίες δεν αλλάζουν πλέον.'
+                : 'Οι προστασίες κλειδώνουν μόλις το δημοψήφισμα δημοσιευθεί. Όποια προστασία ΔΕΝ ενεργοποιήσετε εμφανίζεται στους πολίτες πάνω στην ψηφοφορία.'}
+            </p>
+          </div>
+
           <label className="flex items-center gap-2 text-sm font-semibold">
             <input type="checkbox" checked={e.published ?? false} onChange={(ev) => set({ published: ev.target.checked })} />
             Δημοσιευμένο (ορατό στην εφαρμογή)
@@ -319,8 +404,8 @@ export default function ReferendumsView() {
               {rows.map((r) => {
                 const pid = `ref_${r.id}`;
                 return (
-                  <RefCard key={r.id} r={r}
-                    tallies={tallies.filter((t) => t.poll_id === pid)}
+                  <RefCard key={r.id} r={r} state={states[pid]}
+                    tallies={talliesOf(pid, states[pid])}
                     participants={participants.filter((p) => p.poll_id === pid)}
                     residentByUser={residentByUser}
                     onPublishToggle={() => setResultsPublished(r.id, !r.results_published)}
@@ -330,7 +415,8 @@ export default function ReferendumsView() {
             </div>
           )}
 
-          <OtherPollResults tallies={tallies} participants={participants}
+          <OtherPollResults tallies={BUNDLED_IDS.flatMap((pid) => talliesOf(pid, states[pid]))}
+            participants={participants}
             residentByUser={residentByUser}
             knownIds={rows.map((r) => `ref_${r.id}`)} />
         </>
@@ -410,16 +496,17 @@ function VotersView({ rows, onToggle }: { rows: CitizenRow[]; onToggle: (c: Citi
 
 // ── Results: one referendum ──────────────────────────────────────────────────
 
-function RefCard({ r, tallies, participants, residentByUser, onPublishToggle, onToggle, onEdit, onRemove }: {
-  r: RefRow; tallies: TallyRow[]; participants: ParticipantRow[];
+function RefCard({ r, state, tallies, participants, residentByUser, onPublishToggle, onToggle, onEdit, onRemove }: {
+  r: RefRow; state?: PollState; tallies: TallyRow[]; participants: ParticipantRow[];
   residentByUser: Map<string, boolean>;
   onPublishToggle: () => void; onToggle: () => void; onEdit: () => void; onRemove: () => void;
 }) {
   const ended = new Date(r.ends_at).getTime() < Date.now();
-  // Turnout is derived from the aggregate results (one vote per voter → the sum
-  // of all option counts is the voter count).
-  const totalVoters = tallies.reduce((a, t) => a + t.votes, 0);
-  const residents = tallies.filter((t) => t.residency).reduce((a, t) => a + t.votes, 0);
+  // Turnout comes from the participation roll (one row per voter) — it is the
+  // only number available while the results themselves are withheld.
+  const totalVoters = participants.length;
+  const residents = participants.filter((p) => residentByUser.get(p.user_id)).length;
+  const withheld = state && state.state !== 'visible';
   return (
     <Card className="p-4">
       <div className="flex items-center gap-3 flex-wrap">
@@ -442,13 +529,46 @@ function RefCard({ r, tallies, participants, residentByUser, onPublishToggle, on
         <GhostBtn danger onClick={onRemove} title="Διαγραφή"><Trash2 size={14} /></GhostBtn>
       </div>
 
+      <ProtectionChips r={r} />
+
       <div className="mt-3 flex items-center gap-1.5 text-[12px] font-bold text-gray-600 dark:text-gray-300">
         <Vote size={13} className="text-primary dark:text-primary-300" />
-        Αποτελέσματα — {totalVoters} ψηφοφόροι ({residents} δημότες)
+        Συμμετοχή — {totalVoters} ψηφοφόροι ({residents} δημότες)
       </div>
-      <Tally options={r.options} tallies={tallies} />
+      {withheld ? (
+        <div className="mt-3 flex items-start gap-2.5 rounded-xl bg-gray-50 dark:bg-[#0F1219] border border-gray-100 dark:border-[#1E2D4E] p-3.5">
+          <Lock size={16} className="text-gray-400 flex-shrink-0 mt-0.5" />
+          <p className="text-[12.5px] font-semibold text-gray-500 dark:text-gray-400 leading-relaxed">
+            {state.state === 'until_close'
+              ? 'Τα αποτελέσματα είναι κλειδωμένα μέχρι τη λήξη της ψηφοφορίας — δεν τα βλέπει κανείς, ούτε ο δήμος.'
+              : `Τα αποτελέσματα εμφανίζονται μόνο όταν συγκεντρωθούν τουλάχιστον ${r.min_votes} ψήφοι.`}
+          </p>
+        </div>
+      ) : (
+        <Tally options={r.options} tallies={tallies} split={state?.split ?? true} />
+      )}
       <Participants rows={participants} residentByUser={residentByUser} />
     </Card>
+  );
+}
+
+/** Every protection of this referendum, on (green) or off (amber) — what the
+ *  citizens are told is missing is exactly the amber ones. */
+function ProtectionChips({ r }: { r: RefRow }) {
+  return (
+    <div className="mt-2.5 flex flex-wrap gap-1.5 text-[10.5px] font-bold">
+      {ADMIN_PROTECTIONS.map((p) => {
+        const on = p.on(r);
+        return (
+          <span key={p.label} className={`flex items-center gap-1 px-2 py-1 rounded-full ${
+            on ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+               : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400'}`}>
+            {on ? <ShieldCheck size={11} /> : <ShieldOff size={11} />}
+            {p.label}{on && p.detail ? `: ${p.detail(r)}` : ''}{!on && ' — ανενεργή'}
+          </span>
+        );
+      })}
+    </div>
   );
 }
 
@@ -471,10 +591,14 @@ function PublishResultBtn({ published, onToggle }: { published: boolean; onToggl
 /** Always-on donut + bars per option from the aggregated tallies. A toggle
  *  picks the MAIN metric — confirmed Δημότες or all accounts — and the thin
  *  grey bar under each option always shows the OTHER one. */
-function Tally({ options, tallies }: {
+function Tally({ options, tallies, split = true }: {
   options: OptionDef[]; tallies: TallyRow[];
+  /** false → the Δημότες breakdown was merged by the poll's minimum-votes
+   *  protection: only the overall counts exist. */
+  split?: boolean;
 }) {
-  const [view, setView] = useState<'residents' | 'all'>('residents');
+  const [chosenView, setView] = useState<'residents' | 'all'>('residents');
+  const view = split ? chosenView : 'all';
   const counts = options.map((_, i) => countsFor(tallies, i));
   const totalAll = counts.reduce((a, c) => a + c.all, 0);
   const totalRes = counts.reduce((a, c) => a + c.resident, 0);
@@ -486,17 +610,23 @@ function Tally({ options, tallies }: {
 
   return (
     <div className="mt-3 space-y-3">
-      <div className="flex items-center justify-end">
-        <AnimatedSegmented
-          size="sm"
-          options={[
-            { key: 'residents', label: `🏛 Δημότες (${totalRes})` },
-            { key: 'all', label: `Όλοι (${totalAll})` },
-          ]}
-          value={view}
-          onChange={(k) => setView(k as 'residents' | 'all')}
-        />
-      </div>
+      {split ? (
+        <div className="flex items-center justify-end">
+          <AnimatedSegmented
+            size="sm"
+            options={[
+              { key: 'residents', label: `🏛 Δημότες (${totalRes})` },
+              { key: 'all', label: `Όλοι (${totalAll})` },
+            ]}
+            value={view}
+            onChange={(k) => setView(k as 'residents' | 'all')}
+          />
+        </div>
+      ) : (
+        <p className="text-[11px] font-semibold text-amber-600">
+          Ο διαχωρισμός δημοτών / λοιπών έχει ενωθεί: μία από τις δύο ομάδες είναι μικρότερη από το ελάχιστο όριο.
+        </p>
+      )}
       <div className="flex items-center gap-4">
         <Donut
           segments={options.map((_, i) => ({ value: mainOf(i), color: PALETTE[i % PALETTE.length] }))}
@@ -518,27 +648,31 @@ function Tally({ options, tallies }: {
                   </span>
                   <span className="font-black flex-shrink-0">
                     {nMain} · {pctMain}%
-                    <span className="font-semibold text-gray-400"> ({nOther})</span>
+                    {split && <span className="font-semibold text-gray-400"> ({nOther})</span>}
                   </span>
                 </div>
                 <div className="h-2 rounded-full bg-gray-100 dark:bg-[#252A3A] overflow-hidden">
                   <div className="h-full rounded-full" style={{ width: `${pctMain}%`, backgroundColor: PALETTE[i % PALETTE.length] }} />
                 </div>
-                <div className="h-1 rounded-full bg-gray-50 dark:bg-[#1A2035] overflow-hidden mt-0.5"
-                  title={`${showResidents ? 'Όλοι οι λογαριασμοί' : 'Δημότες'}: ${nOther} (${pctOther}%)`}>
-                  <div className="h-full rounded-full bg-gray-300 dark:bg-[#3A4155]" style={{ width: `${pctOther}%` }} />
-                </div>
+                {split && (
+                  <div className="h-1 rounded-full bg-gray-50 dark:bg-[#1A2035] overflow-hidden mt-0.5"
+                    title={`${showResidents ? 'Όλοι οι λογαριασμοί' : 'Δημότες'}: ${nOther} (${pctOther}%)`}>
+                    <div className="h-full rounded-full bg-gray-300 dark:bg-[#3A4155]" style={{ width: `${pctOther}%` }} />
+                  </div>
+                )}
               </div>
             );
           })}
-          <p className="text-[10px] text-gray-400">
-            Κύρια μπάρα: {showResidents ? 'επιβεβαιωμένοι δημότες' : 'όλοι οι λογαριασμοί'} · γκρι: {showResidents ? 'όλοι οι λογαριασμοί' : 'δημότες'}.
-          </p>
+          {split && (
+            <p className="text-[10px] text-gray-400">
+              Κύρια μπάρα: {showResidents ? 'επιβεβαιωμένοι δημότες' : 'όλοι οι λογαριασμοί'} · γκρι: {showResidents ? 'όλοι οι λογαριασμοί' : 'δημότες'}.
+            </p>
+          )}
         </div>
       </div>
 
       <div className="flex flex-wrap gap-1.5 text-[10.5px] font-bold">
-        <span className="px-2 py-1 rounded-full bg-primary-50 dark:bg-primary-900/20 text-primary dark:text-primary-300">🏛 Δημότες: {totalRes}</span>
+        {split && <span className="px-2 py-1 rounded-full bg-primary-50 dark:bg-primary-900/20 text-primary dark:text-primary-300">🏛 Δημότες: {totalRes}</span>}
         <span className="px-2 py-1 rounded-full bg-gray-100 dark:bg-[#252A3A] text-gray-500 dark:text-gray-400">Σύνολο ψηφοφόρων: {totalAll}</span>
       </div>
       <p className="text-[10px] text-gray-400">

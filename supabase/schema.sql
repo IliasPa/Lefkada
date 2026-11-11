@@ -135,6 +135,17 @@ create table if not exists public.referendums (
 -- Upgrade older databases in place (poll_results merge).
 alter table public.referendums add column if not exists updated_at timestamptz not null default now();
 alter table public.referendums add column if not exists results_published boolean not null default false;
+-- v1.7 — per-referendum PROTECTIONS (the mayor picks them per poll; the app
+-- shows citizens every protection a poll does NOT use):
+--   hide_until_close — nobody, the mayor included, can read results while the
+--                      poll is open (poll_state() below is the only reader).
+--   min_votes        — results stay hidden below this many ballots, and the
+--                      Δημότες / non-Δημότες split is merged while either
+--                      group is smaller than it (a lone voter is never exposed).
+alter table public.referendums add column if not exists hide_until_close boolean not null default false;
+alter table public.referendums add column if not exists min_votes integer not null default 0;
+alter table public.referendums drop constraint if exists referendums_min_votes_check;
+alter table public.referendums add constraint referendums_min_votes_check check (min_votes between 0 and 100000);
 alter table public.referendums enable row level security;
 drop policy if exists "public reads published referendums" on public.referendums;
 create policy "public reads published referendums" on public.referendums
@@ -257,13 +268,13 @@ create table if not exists public.referendums_results (
   unique (poll_id, option_id, residency)
 );
 alter table public.referendums_results enable row level security;
--- Public read only for referendums whose results the mayor has revealed (the
--- «public reads revealed results» policy is defined after cast_vote below);
--- writes come only from cast_vote(). The mayor may always read.
+-- v1.7: NOBODY reads this table directly any more — not even the mayor. The
+-- only reader is poll_state() (below), which applies each referendum's
+-- protections (hidden until close, minimum votes). Writes come only from
+-- cast_vote().
 drop policy if exists "mayor reads tallies" on public.referendums_results;
 drop policy if exists "mayor reads results" on public.referendums_results;
-create policy "mayor reads results" on public.referendums_results
-  for select using (public.has_role('mayor'));
+drop policy if exists "public reads revealed results" on public.referendums_results;
 drop policy if exists "mayor deletes tallies" on public.referendums_results;
 drop policy if exists "mayor deletes results" on public.referendums_results;
 create policy "mayor deletes results" on public.referendums_results
@@ -436,15 +447,26 @@ $$;
 -- "already voted"). It stamps residency + the (gov.gr-only) ΑΦΜ from the
 -- registry, and records the choice ONLY as an aggregate count — so nothing ever
 -- links a voter to their option. p_option is the 0-based ballot index.
+-- v1.7: the server is the wall, not the app — a ballot is refused unless the
+-- referendum exists, is published, is still open and the option is on the
+-- ballot (custom SQLSTATEs: LF001 = not open, LF002 = invalid option).
 create or replace function public.cast_vote(p_poll_id text, p_option int)
 returns void
 language plpgsql security definer set search_path = public, extensions as $$
 declare
+  r     public.referendums%rowtype;
   v_res boolean;
   v_tax text;
 begin
   if auth.uid() is null then
     raise exception 'sign in to vote' using errcode = '42501';
+  end if;
+  select * into r from public.referendums where 'ref_' || id::text = p_poll_id;
+  if not found or not r.published or now() >= r.ends_at then
+    raise exception 'this referendum is not open for voting' using errcode = 'LF001';
+  end if;
+  if p_option is null or p_option < 0 or p_option >= jsonb_array_length(r.options) then
+    raise exception 'that option is not on the ballot' using errcode = 'LF002';
   end if;
   select coalesce(c.resident, false), coalesce(c.tax_number, '')
     into v_res, v_tax
@@ -462,16 +484,101 @@ end $$;
 revoke all on function public.cast_vote(text, int) from public;
 grant execute on function public.cast_vote(text, int) to authenticated;
 
--- The voting screen may read a poll's results ONLY while the mayor has revealed
--- them (referendums.results_published). poll_id is 'ref_<uuid>'.
-drop policy if exists "public reads revealed results" on public.referendums_results;
-create policy "public reads revealed results" on public.referendums_results
-  for select using (
-    public.has_role('mayor')
-    or exists (select 1 from public.referendums r
-               where 'ref_' || r.id::text = referendums_results.poll_id
-                 and r.results_published)
-  );
+-- ── poll_state(): the ONLY reader of results (v1.7) ──────────────────────────
+-- One call answers everything the voting screen needs, with the referendum's
+-- protections applied on the SERVER:
+--   voted — has THIS account already voted (true on every device, which is how
+--           a second device knows to show «already voted» instead of a ballot;
+--           the choice itself is not stored per voter, so it is never returned)
+--   state — 'visible'     : rows holds the counts
+--           'unpublished' : the mayor has not revealed the results (citizens)
+--           'until_close' : hide_until_close is on and the poll is still open
+--                           — applies to the MAYOR too
+--           'below_min'   : fewer ballots than min_votes — mayor too
+--   split — false when the Δημότες / non-Δημότες breakdown was merged because
+--           one of the two groups is smaller than min_votes (residency = null)
+--   rows  — [{ o: option index, r: residency | null, v: votes }]
+-- Bundled (pre-backend) poll ids have no referendum row: mayor-only, as before.
+create or replace function public.poll_state(p_poll_id text)
+returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare
+  r       public.referendums%rowtype;
+  v_mayor boolean := public.has_role('mayor');
+  v_voted boolean := false;
+  v_state text := 'visible';
+  v_split boolean := true;
+  v_total integer;
+  v_res   integer;
+  v_rows  jsonb;
+begin
+  if auth.uid() is not null then
+    v_voted := exists (select 1 from public.referendums_participants p
+                       where p.poll_id = p_poll_id and p.user_id = auth.uid());
+  end if;
+  select * into r from public.referendums where 'ref_' || id::text = p_poll_id;
+  if r.id is null then
+    if not v_mayor then v_state := 'unpublished'; end if;
+  elsif not (r.published or v_mayor) then
+    v_state := 'unpublished';
+  else
+    select coalesce(sum(votes), 0), coalesce(sum(votes) filter (where residency), 0)
+      into v_total, v_res
+      from public.referendums_results where poll_id = p_poll_id;
+    if not v_mayor and not r.results_published then
+      v_state := 'unpublished';
+    elsif r.hide_until_close and now() < r.ends_at then
+      v_state := 'until_close';
+    elsif r.min_votes > 0 and v_total < r.min_votes then
+      v_state := 'below_min';
+    elsif r.min_votes > 0 and ((v_res > 0 and v_res < r.min_votes)
+           or (v_total - v_res > 0 and v_total - v_res < r.min_votes)) then
+      v_split := false;
+    end if;
+  end if;
+
+  if v_state <> 'visible' then
+    v_rows := '[]'::jsonb;
+  elsif v_split then
+    select coalesce(jsonb_agg(jsonb_build_object('o', option_id, 'r', residency, 'v', votes)
+                              order by option_id, residency), '[]'::jsonb)
+      into v_rows from public.referendums_results where poll_id = p_poll_id;
+  else
+    select coalesce(jsonb_agg(jsonb_build_object('o', t.option_id, 'r', null, 'v', t.v)
+                              order by t.option_id), '[]'::jsonb)
+      into v_rows
+      from (select option_id, sum(votes)::int as v from public.referendums_results
+            where poll_id = p_poll_id group by option_id) t;
+  end if;
+  return jsonb_build_object('voted', v_voted, 'state', v_state, 'split', v_split, 'rows', v_rows);
+end $$;
+revoke all on function public.poll_state(text) from public;
+grant execute on function public.poll_state(text) to anon, authenticated;
+
+-- ── referendums_guard: protections can't be switched off mid-vote (v1.7) ─────
+-- A referendum's protections are LOCKED while it is published and for good
+-- once its first ballot exists — otherwise a protection could be removed after
+-- people voted under it. The ballot options freeze with the first ballot too
+-- (results are stored by option index, so editing them would re-label votes).
+create or replace function public.referendums_guard()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_voted boolean := exists (select 1 from public.referendums_participants p
+                             where p.poll_id = 'ref_' || old.id::text);
+begin
+  if (old.published or v_voted)
+     and (new.hide_until_close, new.min_votes)
+         is distinct from (old.hide_until_close, old.min_votes) then
+    raise exception 'protections are locked once a referendum is published' using errcode = 'LF010';
+  end if;
+  if v_voted and new.options is distinct from old.options then
+    raise exception 'the ballot options are locked once votes exist' using errcode = 'LF011';
+  end if;
+  return new;
+end $$;
+drop trigger if exists referendums_guard on public.referendums;
+create trigger referendums_guard before update on public.referendums
+  for each row execute function public.referendums_guard();
 
 -- ── cast_veto(): the ONLY writer of vetos ────────────────────────────────────
 -- SECURITY DEFINER, mirroring cast_vote(). Confirmed Δημότες only. The

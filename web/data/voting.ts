@@ -7,6 +7,16 @@ export interface PollOption {
   text: BilingualText;
 }
 
+/** The protections a referendum was created with (v1.7). Chosen per poll by
+ *  the mayor and locked once it is published; the app shows citizens every
+ *  protection a poll does NOT use (see lib/protections.ts). */
+export interface PollProtections {
+  /** Results unreadable by anyone — the mayor included — while the poll is open. */
+  hideUntilClose: boolean;
+  /** Results stay hidden below this many ballots (0 = no minimum). */
+  minVotes: number;
+}
+
 export interface Poll {
   id: string;
   title: BilingualText;
@@ -19,6 +29,8 @@ export interface Poll {
   youtubeId?: string;
   /** URL of the official PDF document for this poll. */
   pdfUrl?: string;
+  /** Absent on the bundled demo polls — they use no protection at all. */
+  protections?: PollProtections;
 }
 
 // voting.json = { bundled: [...], baked: [raw referendum rows] } — referendums

@@ -98,6 +98,8 @@
 - **VETO (v1.4):** **only mayor-confirmed Δημότες** can exercise it, it takes the same **4-second press-and-hold**, and it **stays active for 7 days** from the day it was cast — a **rolling window**. Everything runs in `cast_veto()` (`SECURITY DEFINER`): it refuses non-Δημότες, is idempotent while a veto is active, and lets a citizen **renew** once their 7 days lapse. Rows store just **two columns — `veto_date` (YYYY-MM-DD) and `voter_key`** — no primary key, no timestamp. The `voter_key` is hashed with the **week's Monday**, so it **changes on every veto** (archived weeks stay unlinkable) and **one voter cannot veto twice in the same week**; the active count is simply the vetos of the last 7 days, and a daily workflow deletes older rows.
 - **Results visibility (v1.4):** results are **not** shown on the home page. Each poll has a **🏠 toggle in /admin** (`referendums.results_published`) that turns its **live results on/off inside the voting section** — when off, a citizen who has voted sees **only their own recorded choice**, never the aggregate; when on, the tally bars appear and update **live** (RLS opens that poll's `referendums_results` for public reading only while it is toggled on). There is no refresh — the voting screen polls on its own.
 - **Verified votes (v1.4):** citizens **sign in** in Settings ▸ Personal info with an 8-digit **email code** (Supabase Auth OTP); the voter key derives from the **account**, so one account = one vote per poll, from any device. **Sign out** lets several people vote in turn from a shared device. Residency is never self-declared: the mayor maintains a **citizen registry** (/admin ▸ Ψηφοφόροι) matched by hand against the municipal roll, and `residency` is read from it at vote time — making **«ψήφοι δημοτών» the main statistic of every tally**; everyone still votes, only the statistics differ. The designation shows on the citizen's own profile (🏛 chip) with a one-time notice when the municipality changes it. Who participated is stored in a separate **participation registry without timestamps**, so it can never be paired with a vote. _Honest tiers, documented deliberately: email verification raises cheating cost to one-account-per-email; a legally binding referendum still needs state authentication — gov.gr OAuth slots into this exact pipeline (same tables, same keys) once the municipality's ΚΕΔ approval lands._
+- **Protections per referendum (v1.7):** the mayor chooses, per poll, **results hidden until closing** (nobody — the mayor included — can read results while the poll is open) and a **minimum number of votes** (no results below it, and the Δημότες / non-Δημότες split is merged while either group is smaller). The database enforces them and **locks them once the poll is published**. Citizens see, on the poll itself, **only the protections a poll does _not_ use** — a fully protected poll shows nothing. See [Referendum protections](#referendum-protections).
+- **One account, any device (v1.7):** the server tells every device whether the signed-in account has already voted, so a second device shows **"You have already voted"** instead of a ballot. The choice itself is never stored per voter, so it is shown only on the device that cast it.
 - **Older votings archive:** A compact pill button below the ballot toggles the archive of past polls. Closed polls swap the countdown for the date the voting ended and are shown read-only with their final results.
 
 ---
@@ -270,6 +272,23 @@ The app runs on an optional backend on **Supabase** (Postgres + Auth + Storage
 - The notifications toggle **explains why** it can't enable (iOS needs the app installed to the Home Screen first / notifications blocked in browser settings / push registration failed with the actual error) instead of silently snapping off.
 - The `/admin` login surfaces the real Supabase auth error; the Supabase client tolerates whitespace/trailing slashes in env values; the setup guide follows Supabase's **API Keys** dashboard (publishable `sb_publishable_…` key).
 
+## Referendum protections
+
+Not every referendum needs the same level of protection, so each one carries its own switches, set by the mayor when it is created and **locked by the database once it is published** (and for good once the first ballot exists). Citizens are shown, on the poll itself, every protection that poll does **not** use.
+
+![The mayor's /admin ▸ Δημοψηφίσματα page, with dummy data](docs/admin-referendums.png)
+
+_/admin ▸ Δημοψηφίσματα with **dummy data** (no real citizens or votes): green chips are protections in use, amber ones are what citizens are told is missing._
+
+| Protection | Since | What it guarantees | Enforced by |
+| --- | --- | --- | --- |
+| **Results hidden until closing** | v1.7 | Nobody, the mayor included, reads results while the poll is open — only the turnout | `poll_state()` — the only reader of `referendums_results` (no table `SELECT` policy exists) |
+| **Minimum number of votes** | v1.7 | No results below N ballots; the Δημότες / non-Δημότες split is merged while either group is smaller than N | `poll_state()` |
+
+Always on, for every referendum (v1.7): `cast_vote()` refuses a ballot unless the referendum exists, is published, is still open and the option is on the ballot; the ballot options freeze with the first vote; and the app records a choice on the device only after the server confirmed it.
+
+**What this does not protect against** — someone with direct database-owner access (the Supabase dashboard, the service key, the database password) can still read the tally table and watch it change. Closing that gap is what the later protections are for.
+
 ## Tech stack
 
 - **Next.js 14** App Router
@@ -350,7 +369,7 @@ npm run build    # static export → out/
 | `lefkada_me_profile`      | Identity, personal info, skills, doctors  |
 | `lefkada_cv_filename`     | Uploaded CV filename                      |
 | `lefkada_votes`           | Poll vote counts, keyed `pollId:optionId` |
-| `lefkada_my_votes`        | User's own vote per poll                  |
+| `lefkada_my_votes`        | Own choice per poll, keyed per account    |
 | `lefkada_veto`            | Whether the VETO is active                |
 | `lefkada_health_exams`    | User-edited lab exam results              |
 | `lefkada_mayor_anonymous` | Anonymity preference for Mayor message    |

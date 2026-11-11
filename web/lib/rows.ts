@@ -65,6 +65,9 @@ export interface ReferendumRow {
   youtube_id: string;
   options: { id: string; el: string; en?: string }[] | null;
   ends_at: string;
+  // v1.7 protections — absent on rows baked before the columns existed.
+  hide_until_close?: boolean;
+  min_votes?: number;
 }
 
 /** Competitions added from /admin ▸ Παιδεία (any lesson category). */
@@ -221,6 +224,10 @@ export const mapReferendumRows = (rows: ReferendumRow[]): Poll[] =>
     endDate: r.ends_at,
     ...(r.youtube_id ? { youtubeId: r.youtube_id } : {}),
     ...(r.pdf_url ? { pdfUrl: r.pdf_url } : {}),
+    protections: {
+      hideUntilClose: r.hide_until_close ?? false,
+      minVotes: r.min_votes ?? 0,
+    },
   }));
 
 // ── news table → NewsItem + Reporter ─────────────────────────────────────────

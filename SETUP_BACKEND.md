@@ -147,6 +147,7 @@ automatically; the count shows up in `/admin ▸ Ειδοποιήσεις`.
 | Pharmacy duty | `pharmacy_duty` table | pharmacies (own) + mayor | everyone |
 | Push subscriptions | `push_subscriptions` table | anyone (subscribe only) | mayor |
 | Votes (what) | `referendums_results` table — `(poll_id, option_id INT, residency, votes)`, counts only, never tied to a voter | `cast_vote()` only (security definer) | mayor + public for **shown** polls |
+| Results reader | `poll_state(poll_id)` — the only way results leave the database; applies each referendum's protections (v1.7) | everyone (mayor included) | function |
 | Votes (who) | `referendums_participants` table — `(poll_id, user_id, email, tax_number)`; its `unique(poll_id, user_id)` is the one-vote-per-account gate; a filled ΑΦΜ means gov.gr-verified | `cast_vote()` only | mayor |
 | Vetos | `vetos` table — `(veto_date, voter_key)` only, no PK/timestamp; confirmed Δημότες only; each veto stays active 7 days (rolling); voter_key hashed with the week's Monday so it's one veto per week | `cast_veto()` only | mayor |
 | Results visibility | merged into `referendums.results_published` (the 🏠 toggle) — no separate table; counts read live from `referendums_results` | mayor | everyone (shown) |
@@ -252,6 +253,30 @@ One-time setup:
 ⚠️ These files hold personal data (ΑΦΜ, emails, messages, applications). The
 target repo **must stay private**; a private GitHub repo keeps full history
 forever, so treat it as the system of record and control who has access.
+
+## 10. Referendum protections (v1.7)
+
+**Upgrading from v1.6 or earlier:** re-run the whole `supabase/schema.sql` in
+the SQL editor (it is safe to re-run). Do this **before** deploying the new
+app — the app now reads results through a new database function.
+
+What changes in the database:
+
+- `referendums` gains `hide_until_close` and `min_votes` — the per-poll
+  protections, set in /admin ▸ Δημοψηφίσματα ▸ the referendum form.
+- `referendums_results` loses every `SELECT` policy. Results are read only
+  through `poll_state(poll_id)`, which applies the protections to **everyone,
+  the mayor included**, and also tells a device whether the signed-in account
+  has already voted.
+- `cast_vote()` now refuses ballots for a referendum that does not exist, is
+  unpublished or has ended, and options that are not on the ballot. The old
+  bundled demo poll ids are no longer accepted.
+- A trigger (`referendums_guard`) locks a referendum's protections while it is
+  published and permanently once it has a ballot, and freezes the ballot
+  options once votes exist.
+
+Nothing else to configure. Existing referendums keep working with both
+protections off — and say so to citizens on the poll.
 
 ## 9. Citizen verification — email sign-in (v1.3)
 

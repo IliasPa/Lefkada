@@ -5,7 +5,10 @@ import { Zap, Clock3, BookOpen, BarChart3, Youtube, FileText, CalendarDays, Vote
 import { useApp } from "@/context/AppContext";
 import { type Poll } from "@/data/voting";
 import { KEYS, storageGet } from "@/lib/storage";
-import { YouTubeEmbed, ResultsCard } from "@/components/PollBlock";
+import { YouTubeEmbed, ResultsCard, resultsNote } from "@/components/PollBlock";
+import ProtectionNotice from "@/components/ProtectionNotice";
+import { usePollState, countsFromState } from "@/lib/backend";
+import { backendConfigured } from "@/lib/supabase";
 
 type Panel = "short" | "medium" | "full" | "results" | "youtube";
 const ACCENT = "#A61E34"; // Consultations accent
@@ -30,6 +33,10 @@ export default function ReferendumCard({ poll }: { poll: Poll }) {
   const [open, setOpen] = useState<Panel | null>(null);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [myVote, setMyVote] = useState<string | undefined>();
+  // A referendum's real results live on the server and come back only when its
+  // protections allow them; the bundled demo polls keep their on-device tally.
+  const serverPoll = backendConfigured && poll.id.startsWith("ref_");
+  const { state: pollState } = usePollState(poll.id, 60000);
 
   useEffect(() => {
     const saved = storageGet<Record<string, number>>(KEYS.votes, {});
@@ -37,8 +44,10 @@ export default function ReferendumCard({ poll }: { poll: Poll }) {
     const merged: Record<string, number> = {};
     poll.options.forEach((o) => { merged[o.id] = (saved[`${poll.id}:${o.id}`] ?? 0) + (poll.seedVotes[o.id] ?? 0); });
     setCounts(merged);
-    setMyVote(mine[poll.id]);
-  }, [poll]);
+    // Server polls key the remembered choice per account (see PollBlock); on
+    // this read-only history card the aggregate is what matters.
+    setMyVote(serverPoll ? undefined : mine[poll.id]);
+  }, [poll, serverPoll]);
 
   const total = useMemo(() => Object.values(counts).reduce((a, b) => a + b, 0), [counts]);
   const ended = new Date(poll.endDate).toLocaleDateString(lang === "el" ? "el-GR" : "en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -70,6 +79,8 @@ export default function ReferendumCard({ poll }: { poll: Poll }) {
 
         <h2 className="font-bold text-[15px] text-gray-900 dark:text-white leading-snug mb-3">{poll.title[lang]}</h2>
 
+        <div className="mb-3 empty:hidden"><ProtectionNotice poll={poll} /></div>
+
         {/* Inline open/close buttons */}
         <div className="flex flex-wrap gap-2">
           {btn("short", <Zap size={12} />, t("vote_explain_short"))}
@@ -93,7 +104,17 @@ export default function ReferendumCard({ poll }: { poll: Poll }) {
               <Explanation text={poll.explanations[open][lang]} />
             )}
             {open === "results" && (
-              <ResultsCard poll={poll} lang={lang} myVote={myVote} voteCounts={counts} totalVotes={total} closed t={t} />
+              !serverPoll ? (
+                <ResultsCard poll={poll} lang={lang} myVote={myVote} voteCounts={counts} totalVotes={total} closed t={t} />
+              ) : pollState?.state === "visible" ? (
+                <ResultsCard poll={poll} lang={lang}
+                  voteCounts={countsFromState(pollState, poll.options.map((o) => o.id))}
+                  totalVotes={pollState.rows.reduce((a, r) => a + r.v, 0)} closed t={t} />
+              ) : (
+                <p className="text-[13px] text-gray-500 dark:text-gray-400 text-center py-3">
+                  {resultsNote(poll, pollState?.state, t)}
+                </p>
+              )
             )}
             {open === "youtube" && poll.youtubeId && (
               <YouTubeEmbed id={poll.youtubeId} title={poll.title[lang]} />
