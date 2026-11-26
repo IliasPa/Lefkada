@@ -147,6 +147,11 @@ automatically; the count shows up in `/admin ▸ Ειδοποιήσεις`.
 | Pharmacy duty | `pharmacy_duty` table | pharmacies (own) + mayor | everyone |
 | Push subscriptions | `push_subscriptions` table | anyone (subscribe only) | mayor |
 | Votes (what) | `referendums_results` table — `(poll_id, option_id INT, residency, votes)`, counts only, never tied to a voter | `cast_vote()` only (security definer) | mayor + public for **shown** polls |
+| Results reader | `poll_state(poll_id)` — the only way results leave the database; applies each referendum's protections (v1.7) | everyone (mayor included) | function |
+| Ticket keys (private) | `referendum_ticket_keys` — wrapped with the `TICKET_MASTER_KEY` secret; no API access at all (v1.8) | Edge Functions only | function |
+| Sealed ballots | `referendums_ballots` — `(id, poll_id, ciphertext, opening, option_id)`; no voter, no time; opening + option filled in by the count (v1.9) | everyone once the results are public (unopened ciphertexts: always) | `ballot-cast`, `publish_tally()` |
+| Ballot → Δημότης flag | `referendums_ballot_groups` — used only inside `publish_tally()` (v1.9) | nobody | `ballot-cast` |
+| Used tickets / receipts | `referendums_tickets` — `(poll_id, serial_hash)`, no voter, no time, no option (v1.8) | everyone (public receipt list) | `ballot-cast` only |
 | Votes (who) | `referendums_participants` table — `(poll_id, user_id, email, tax_number)`; its `unique(poll_id, user_id)` is the one-vote-per-account gate; a filled ΑΦΜ means gov.gr-verified | `cast_vote()` only | mayor |
 | Vetos | `vetos` table — `(veto_date, voter_key)` only, no PK/timestamp; confirmed Δημότες only; each veto stays active 7 days (rolling); voter_key hashed with the week's Monday so it's one veto per week | `cast_veto()` only | mayor |
 | Results visibility | merged into `referendums.results_published` (the 🏠 toggle) — no separate table; counts read live from `referendums_results` | mayor | everyone (shown) |
@@ -252,6 +257,306 @@ One-time setup:
 ⚠️ These files hold personal data (ΑΦΜ, emails, messages, applications). The
 target repo **must stay private**; a private GitHub repo keeps full history
 forever, so treat it as the system of record and control who has access.
+
+## 10. Referendum protections (v1.7)
+
+**Upgrading from v1.6 or earlier:** re-run the whole `supabase/schema.sql` in
+the SQL editor (it is safe to re-run). Do this **before** deploying the new
+app — the app now reads results through a new database function.
+
+What changes in the database:
+
+- `referendums` gains `hide_until_close` and `min_votes` — the per-poll
+  protections, set in /admin ▸ Δημοψηφίσματα ▸ the referendum form.
+- `referendums_results` loses every `SELECT` policy. Results are read only
+  through `poll_state(poll_id)`, which applies the protections to **everyone,
+  the mayor included**, and also tells a device whether the signed-in account
+  has already voted.
+- `cast_vote()` now refuses ballots for a referendum that does not exist, is
+  unpublished or has ended, and options that are not on the ballot. The old
+  bundled demo poll ids are no longer accepted.
+- A trigger (`referendums_guard`) locks a referendum's protections while it is
+  published and permanently once it has a ballot, and freezes the ballot
+  options once votes exist.
+
+Nothing else to configure. Existing referendums keep working with both
+protections off — and say so to citizens on the poll.
+
+## 11. Anonymous ballots (v1.8)
+
+Needed only if you want to switch **«Ανώνυμα ψηφοδέλτια»** on for a
+referendum. Referendums without it keep working with no setup.
+
+1. **Re-run `supabase/schema.sql`** (adds the ticket tables and functions).
+2. **Set the master key — once, and never change it.** It unlocks the stored
+   ticket keys; if it is lost or replaced, referendums that are still open can
+   no longer issue tickets.
+
+   ```bash
+   supabase secrets set TICKET_MASTER_KEY="$(openssl rand -base64 32)"
+   ```
+
+   Do not write it anywhere else: it should exist only as the Supabase secret.
+3. **Deploy the two functions.** `ballot-cast` MUST be deployed with JWT
+   verification off — a ballot arrives without any account, by design:
+
+   ```bash
+   supabase functions deploy ballot-ticket
+   supabase functions deploy ballot-cast --no-verify-jwt
+   ```
+
+4. In /admin ▸ Δημοψηφίσματα, create a referendum with **Ανώνυμα
+   ψηφοδέλτια** ticked and save. The page asks `ballot-ticket` to create that
+   referendum's keys; if the functions are missing it says so and leaves the
+   referendum as a draft.
+
+How to read the admin card of an anonymous referendum:
+
+- **Εισιτήρια ψήφου** — accounts that received a ticket (the participation
+  roll, as before).
+- **Ψηφοδέλτια που παραλήφθηκαν** — ballots counted. A few fewer than tickets
+  is normal (someone's phone has not delivered yet, or never did). **More
+  ballots than tickets cannot happen** — the database refuses them; if the page
+  ever shows it, a ticket key has leaked and the referendum must be cancelled.
+
+What it does not hide: the function logs of your Supabase project record the
+time and IP address of every request. The app waits a few random seconds
+between the ticket and the ballot, but someone with access to those logs could
+still try to pair requests by time and address.
+
+## 12. Encrypted ballots (v1.9)
+
+Needed only for referendums with **«Κρυπτογραφημένα ψηφοδέλτια»** on. It
+builds on §11 (anonymous ballots must be set up), needs **no new secret and no
+new function to deploy** — only a re-run of `supabase/schema.sql` and a
+redeploy of `ballot-cast` (it now also accepts sealed ballots):
+
+```bash
+supabase functions deploy ballot-cast --no-verify-jwt
+```
+
+Every encrypted referendum has a key pair. The **public** half goes into the
+referendum form; the **private** half opens the ballots and must stay out of
+reach until the referendum has closed.
+
+### Option A — a key file (to try it out, or for low-stakes polls)
+
+```bash
+node scripts/tally.mjs keygen --out referendum-key.pem
+```
+
+Prints the public key (paste it into the form) and its fingerprint. The file
+IS the private key: anyone who copies it can read the ballots as they come in.
+Keep it off the internet (a USB stick in a drawer), and treat this option as
+"encrypted against outsiders", not "encrypted against whoever holds the file".
+
+### Option B — a hardware security key (the real thing) — NOT TESTED YET
+
+A PIV security key (for example a YubiKey 5) generates the key **inside
+itself** and cannot give it out, so sealing the device in public really does
+mean nobody can open ballots early. **This path was written without a device
+and has never been run** — the self-test below is how you find out whether it
+works with yours, before any real referendum depends on it.
+
+```bash
+brew install ykman opensc yubico-piv-tool
+
+# 1. Generate a P-256 key INSIDE the device, in the key-management slot (9d).
+ykman piv keys generate --algorithm ECCP256 9d referendum-public.pem
+# 2. Optional: the device's certificate that the key was born inside it.
+ykman piv keys attest 9d referendum-attestation.pem
+# 3. Prove the device opens ballots sealed to it (asks for the PIV PIN).
+node scripts/tally.mjs selftest --piv --pub referendum-public.pem
+```
+
+(The two `ykman` lines follow Yubico's documented syntax but were not run
+here either — check them against `ykman piv keys --help`.) If step 3 prints
+✓, paste `referendum-public.pem` (and the attestation) into the referendum
+form. If it fails, use option A and tell the developer what it printed.
+
+### The procedure around it
+
+1. Create the referendum with the public key; note the **fingerprint** the
+   form shows (8 groups of 4 characters).
+2. Seal the key (device or USB stick) in a tamper-evident envelope, write the
+   fingerprint on it, and put it somewhere visible and locked. If someone else
+   created the key and you never held it, so much the better.
+3. After closing, open the envelope in public, compare the fingerprint, and
+   count:
+
+   ```bash
+   node scripts/tally.mjs count --poll <referendum id> --key-file referendum-key.pem
+   # or:                               --piv --pub referendum-public.pem
+   ```
+
+   The referendum id is shown in /admin under the closed referendum. The
+   script refuses to run before closing and refuses a key that is not this
+   referendum's.
+4. Upload the resulting `tally-<id>.json` in /admin ▸ Δημοψηφίσματα. The page
+   re-opens every ballot, shows the totals and asks before publishing. It
+   cannot be undone.
+5. Anyone can now press **Επαλήθευση καταμέτρησης** on the referendum.
+
+**One key per referendum, or one key for all?** A file key: make a new one
+per referendum. A hardware key can serve several referendums, but opening its
+envelope for one ends the seal for all of them — so never let two encrypted
+referendums overlap on one device, and reseal it in public after each count.
+
+**If the key is lost or the device breaks, the votes of that referendum
+cannot be counted.** There is no back door, by design.
+
+## 13. TAXISnet verification through gov.gr (v2.0) — NOT TESTED AGAINST THE REAL SERVICE
+
+Lets a citizen prove who they are with their TAXISnet codes, links their ΑΦΜ
+to exactly one account, and enables the **«Μόνο ταυτοποιημένοι με κωδικούς
+TAXISnet»** switch on referendums. Everything else works without it.
+
+**It cannot be switched on by the developer.** The sign-in service (ΓΓΠΣΨΔ
+«Υπηρεσία Αυθεντικοποίησης Χρηστών oAuth2.0») is provided to organisations
+through the Κέντρο Διαλειτουργικότητας. The **municipality** applies (through
+the ΕΔΑ application, by its representative or its appointed web-services
+administrators) describing this system; on approval it receives the service's
+addresses and a client id + secret — first for the test environment, then for
+production. Confirm the current procedure with ΓΓΠΣΨΔ; the code below assumes
+only a standard OAuth 2.0 authorization-code flow whose user-info answer
+contains the tax number, and has only ever been run against a stand-in.
+
+1. **Re-run `supabase/schema.sql`.** If it stops at
+   `citizens_tax_number_key`, two registry rows hold the same ΑΦΜ — clear one
+   of them in /admin ▸ Ψηφοφόροι and run it again.
+2. In the application to ΓΓΠΣΨΔ, give this as the **redirect URI**:
+   `https://<project-ref>.supabase.co/functions/v1/govgr-auth`
+3. **Set the secrets** with the values from the approval:
+
+   ```bash
+   supabase secrets set \
+     GOVGR_AUTHORIZE_URL="…" GOVGR_TOKEN_URL="…" GOVGR_USERINFO_URL="…" \
+     GOVGR_CLIENT_ID="…" GOVGR_CLIENT_SECRET="…" \
+     GOVGR_REDIRECT_URI="https://<project-ref>.supabase.co/functions/v1/govgr-auth" \
+     GOVGR_APP_URL="https://<the app's public address>/" \
+     GOVGR_STATE_SECRET="$(openssl rand -base64 32)"
+   # optional: GOVGR_SCOPE (default "read"), GOVGR_CLIENT_AUTH=basic
+   ```
+
+4. **Deploy** — without JWT verification, because gov.gr sends the browser
+   back with no Supabase session (a signed `state` carries the account):
+
+   ```bash
+   supabase functions deploy govgr-auth --no-verify-jwt
+   ```
+
+5. **Try it in the test environment** with a test account: sign in to the app
+   by email, open the profile, add `NEXT_PUBLIC_GOVGR_ENABLED=1` (next step)
+   and press the TAXISnet button. If the app comes back with "did not
+   complete", the function's log (`supabase functions logs govgr-auth`) says
+   which step failed; the two settings most likely to need changing are
+   `GOVGR_CLIENT_AUTH` (how the secret is sent) and `GOVGR_SCOPE`.
+6. **Show it to citizens:** set `NEXT_PUBLIC_GOVGR_ENABLED=1` in
+   `web/.env.local` and in the hosting provider's environment variables, and
+   redeploy the app. Only now do the button and the referendum switch appear.
+
+What is stored: the ΑΦΜ and the time it was verified, in `citizens`. The
+TAXISnet codes never reach the app — they are typed on gov.gr. The "verified"
+mark can be written only by this function: an ΑΦΜ typed into the registry by
+hand shows as «χωρίς ταυτοποίηση» and does not let the account vote in a
+TAXISnet-only referendum.
+
+## 14. Checking the live site against the published code (v2.1)
+
+Nothing to deploy — one variable to set, and one habit to adopt.
+
+**What changed in the app (automatic):** every page now carries a
+Content-Security-Policy (the browser refuses connections outside a short
+allow-list) and the commit it was built from (Settings ▸ «Έκδοση κώδικα»).
+
+**If an image stops showing after this update** it is hosted somewhere the
+policy does not list. Images may come from this site, `lefkada.gov.gr`,
+Wikimedia, the Supabase project's storage and the map tiles; anything else
+(for example an e-book cover pasted from another website) must be uploaded to
+one of those or its host added to `contentSecurityPolicy()` in
+`web/lib/build.ts`.
+
+**Switch the scheduled check on:**
+
+1. GitHub ▸ the repository ▸ Settings ▸ Secrets and variables ▸ Actions ▸
+   **Variables** ▸ New variable: `LIVE_URL` = the app's public address
+   (e.g. `https://lefkada.example`).
+2. If the hosting provider has any of these set, add each as a variable with
+   the **same name and value** — they are compiled into the files, so the
+   check must build with them: `NEXT_PUBLIC_VAPID_PUBLIC_KEY`,
+   `NEXT_PUBLIC_GOVGR_ENABLED`,
+   `NEXT_PUBLIC_BALLOT_DELAY_MAX_S`. (None is a secret.)
+3. Actions ▸ «Verify the live site against the published code» ▸ Run
+   workflow, once, to see it pass.
+
+From then on it runs four times a day and opens an issue (GitHub emails it)
+if the site serves anything other than what the published commit builds to.
+
+**The first run is a real test.** The comparison was verified on one
+computer: the same commit built in different folders gives identical files,
+an honest site passes, and a changed script, an added script tag or a
+tampered runtime file are each caught. Whether the hosting provider's build
+(Linux, its own Node version) and GitHub's build of the same commit come out
+identical has **not** been tested — if the first run reports differences on
+an honest deployment, send the developer the list it prints, and try setting
+the `NODE_VERSION` variable to the Node version the host builds with. (One
+difference is already known and allowed: the order of entries in webpack's
+runtime file varies between builds.)
+
+**Do not rely on this workflow alone.** It lives in the same repository as
+the code, so whoever can change the code can change the check. For a real
+vote, ask someone independent to run it from their own computer (it needs
+git, Node and no passwords), ideally on a schedule:
+
+```bash
+git clone https://github.com/IliasPa/Lefkada.git && cd Lefkada
+NEXT_PUBLIC_SUPABASE_URL=… NEXT_PUBLIC_SUPABASE_ANON_KEY=… \
+  node scripts/verify-live.mjs --url https://<the app's public address>
+```
+
+Also worth doing now, outside the code: two-factor sign-in on GitHub, the
+hosting provider and Supabase, and a rule that changes reach `main` only
+after a second person has looked at them.
+
+## 15. Non-binding opinion polls (v2.1)
+
+**Upgrade order matters.** The new database refuses votes from the old app
+(no consent recorded), and the new app cannot record consent on the old
+database. So do this **while no poll is open**, in one sitting:
+
+1. Back up the database.
+2. Re-run the whole `supabase/schema.sql`.
+3. Redeploy both functions (`ballot-cast` with JWT verification off):
+
+   ```bash
+   supabase functions deploy ballot-ticket
+   supabase functions deploy ballot-cast --no-verify-jwt
+   ```
+
+4. Merge to `main` and deploy the web app.
+5. **Retention job.** `participation-purge.yml` uses the existing
+   `SUPABASE_DB_URL` secret and runs only from `main`. **Its first run
+   permanently deletes the voter lists of every poll closed more than 90 days
+   ago** (encrypted polls only if counted). To keep any of them, export it
+   before step 4. The 90 days appear in two places that must agree:
+   `RETENTION_DAYS` in the workflow and `PARTICIPATION_RETENTION_DAYS` in
+   `web/lib/backend.ts`. Run the workflow once by hand and check it succeeds.
+6. Run one trial poll of each kind you will use, on a real phone, from sign-in
+   to published result.
+
+**Optional relay** (only matters for anonymous polls):
+
+```bash
+node scripts/tally.mjs keygen --out box-key.pem   # the public key it prints is not needed
+supabase secrets set BALLOT_BOX_KEY="$(cat box-key.pem)"
+rm box-key.pem
+```
+
+Have someone else host `relay/relay.mjs` or `relay/worker.js` (settings are in
+the comment at the top of `relay.mjs`; request logging off). Then set
+`NEXT_PUBLIC_BALLOT_RELAY_URL` on the web host **and** as a GitHub repository
+variable (the live-site check needs it), and redeploy. Do not remove or change
+it while an anonymous poll is open.
 
 ## 9. Citizen verification — email sign-in (v1.3)
 

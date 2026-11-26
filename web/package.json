@@ -8,6 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@cloudflare/blindrsa-ts": "^0.4.6",
     "@supabase/supabase-js": "^2.110.3",
     "animejs": "^4.5.0",
     "leaflet": "^1.9.4",

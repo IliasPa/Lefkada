@@ -7,7 +7,8 @@ import { KEYS, storageGet, storageSet, storageRemove } from "@/lib/storage";
 import { backendConfigured, getSupabase } from "@/lib/supabase";
 import {
   getVerifiedUser, sendVerifyCode, confirmVerifyCode, signOutVerified, syncCitizenProfile,
-  fetchOwnCitizenStatus, type VerifiedUser, type CitizenStatus,
+  fetchOwnCitizenStatus, govgrEnabled, startGovgrVerification, takeGovgrResult,
+  type VerifiedUser, type CitizenStatus, type GovgrResult,
 } from "@/lib/backend";
 import { showCitizenStatusNotification } from "@/lib/notify";
 
@@ -231,6 +232,15 @@ function VerifySection({ t, lang }: { t: (k: string) => string; lang: "el" | "en
   const [error, setError] = useState("");
   const [status, setStatus] = useState<CitizenStatus | null>(null);
   const [changedTo, setChangedTo] = useState<boolean | null>(null);
+  // TAXISnet verification (v2.0): the result gov.gr's round trip brought back.
+  const [govgr, setGovgr] = useState<GovgrResult | null>(null);
+  const [govgrBusy, setGovgrBusy] = useState(false);
+  useEffect(() => { setGovgr(takeGovgrResult()); }, []);
+  const verifyTaxis = async () => {
+    setGovgrBusy(true); setGovgr(null);
+    const r = await startGovgrVerification(); // on success the browser leaves for gov.gr
+    if (!r.ok) { setGovgrBusy(false); setGovgr('error'); }
+  };
 
   // Municipal-roll designation: fetch own registry row, and when it differs
   // from the last-seen value show the notice once (banner + notification).
@@ -328,6 +338,26 @@ function VerifySection({ t, lang }: { t: (k: string) => string; lang: "el" | "en
               )}
             </div>
           </div>
+          {govgr && (
+            <div className={`p-3 rounded-xl text-[12px] font-semibold border ${govgr === "ok"
+              ? "bg-green-50 dark:bg-green-900/20 border-green-100 dark:border-green-800/30 text-green-700 dark:text-green-300"
+              : "bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-800/30 text-red-600 dark:text-red-300"}`}>
+              {t(`acc_taxis_result_${govgr}`)}
+            </div>
+          )}
+          {status?.taxis_verified ? (
+            <p className="flex items-center gap-1.5 text-[12px] font-bold text-green-700 dark:text-green-300">
+              <BadgeCheck size={14} /> {t("acc_taxis_verified")}
+            </p>
+          ) : govgrEnabled && (
+            <div className="space-y-1.5">
+              <button onClick={verifyTaxis} disabled={govgrBusy}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-white text-sm font-bold shadow-md shadow-primary/30 active:scale-[0.98] transition-transform disabled:opacity-50">
+                <BadgeCheck size={15} />{govgrBusy ? "…" : t("acc_taxis_verify")}
+              </button>
+              <p className="text-[10px] text-gray-400 dark:text-gray-500">{t("acc_taxis_hint")}</p>
+            </div>
+          )}
           <p className="text-[10px] text-gray-400 dark:text-gray-500">{t("acc_sync_note")}</p>
           <button onClick={signOut}
             className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-gray-200 dark:border-[#3A4155] text-gray-500 dark:text-gray-400 text-sm font-bold hover:border-primary hover:text-primary dark:hover:text-primary-300 transition-colors active:scale-[0.98]">

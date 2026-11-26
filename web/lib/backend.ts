@@ -7,7 +7,7 @@
  * the caller keeps the bundled static data.
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { getSupabase, backendConfigured } from './supabase';
 import {
   mapAlertRows, mapJobRows, mapEventRows, mapGovRows, mapLessonRows,
@@ -168,6 +168,35 @@ export async function fetchLiveReferendums(): Promise<Poll[] | null> {
   return mapReferendumRows(data as ReferendumRow[]);
 }
 
+/** The OFFICIAL municipal referendum (Law 5314/2026) as the municipality
+ *  announced it in /admin. The app only informs about it — the vote itself is
+ *  held through ΕΔΥΤΕ's ballot box, not here. */
+export interface OfficialReferendum {
+  id: string;
+  question: { el: string; en: string };
+  answerA: { el: string; en: string };
+  answerB: { el: string; en: string };
+  info?: { el: string; en: string };
+  /** 'YYYY-MM-DD' — by law a Sunday, 07:00–19:00. */
+  voteDate: string;
+  /** 'YYYY-MM-DD' — last day to be registered in the Ε.Μ.Επ. to be able to vote. */
+  emepDeadline?: string;
+  decisionPdf?: string;
+  voteUrl?: string;
+  // Filled in after the vote:
+  votesA?: number; votesB?: number; blank?: number;
+  registered?: number; lastElectionVoters?: number;
+}
+
+export async function fetchLiveOfficialReferendums(): Promise<OfficialReferendum[] | null> {
+  const rows = await fetchContent('official_referendum');
+  if (rows === null) return null;
+  return rows
+    .map((r) => ({ id: r.id, ...(r.data as Omit<OfficialReferendum, 'id'>) }))
+    .filter((r) => r.question?.el && r.voteDate)
+    .sort((a, b) => b.voteDate.localeCompare(a.voteDate));
+}
+
 export async function fetchLiveLessons(): Promise<Lesson[] | null> {
   const rows = await fetchContent('lesson');
   return rows === null ? null : mapLessonRows(rows);
@@ -251,7 +280,9 @@ export async function fetchPharmacyDuty(): Promise<DutyRow[] | null> {
 // records WHO in `referendums_participants` (its unique(poll_id, user_id) is the
 // one-vote gate) and the choice in `referendums_results` (counts only, no
 // voter). The function stamps residency from the citizens registry server-side,
-// so it is always correct. There is no per-voter ballot anywhere.
+// so it is always correct. There is no per-voter ballot anywhere. Results are
+// read back only through public.poll_state() (v1.7), which applies each
+// referendum's protections.
 // For the veto, voter_key = SHA-256(seed ‖ auth-user-id ‖ 'veto' ‖ week-Monday),
 // so it differs every week. The seed is a CONSTANT on purpose: it must equal
 // the literal inside supabase/schema.sql (secrecy adds nothing — the user id is
@@ -322,6 +353,29 @@ export interface CitizenStatus {
   resident: boolean;
   full_name: string;
   tax_number: string;
+  /** Identity proved with TAXISnet codes on gov.gr (v2.0). */
+  taxis_verified: boolean;
+  /** Version of the voting privacy notice this account accepted, if any (v2.1). */
+  consent_version: string | null;
+}
+
+/** The current voting privacy notice (components/VotingPrivacy.tsx). Bump it
+ *  when the notice changes in substance: everyone is then asked again. */
+export const VOTING_NOTICE_VERSION = '2026-11';
+/** How long after closing the list of who voted is kept — must match the
+ *  schedule in .github/workflows/participation-purge.yml. */
+export const PARTICIPATION_RETENTION_DAYS = 90;
+
+/** Record that the signed-in citizen accepted the voting privacy notice. */
+export async function acceptVotingTerms(): Promise<boolean> {
+  const sb = getSupabase();
+  if (!sb) return false;
+  try {
+    const { error } = await sb.rpc('accept_voting_terms', { p_version: VOTING_NOTICE_VERSION });
+    return !error;
+  } catch {
+    return false;
+  }
 }
 
 /** Own registry row, or null when signed out / never synced. */
@@ -330,12 +384,53 @@ export async function fetchOwnCitizenStatus(): Promise<CitizenStatus | null> {
   if (!sb) return null;
   const user = await getVerifiedUser();
   if (!user) return null;
-  const { data } = await sb
-    .from('citizens')
-    .select('resident, full_name, tax_number')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  return (data as CitizenStatus) ?? null;
+  const own = (cols: string) => sb.from('citizens').select(cols).eq('user_id', user.id).maybeSingle();
+  let { data, error } = await own('resident, full_name, tax_number, taxis_verified_at, consent_version');
+  // A database whose schema.sql has not been re-run yet lacks the newer columns.
+  if (error) ({ data, error } = await own('resident, full_name, tax_number, taxis_verified_at'));
+  if (error) ({ data } = await own('resident, full_name, tax_number'));
+  if (!data) return null;
+  const row = data as unknown as Pick<CitizenStatus, 'resident' | 'full_name' | 'tax_number'>
+    & { taxis_verified_at?: string | null; consent_version?: string | null };
+  return {
+    resident: row.resident, full_name: row.full_name, tax_number: row.tax_number,
+    taxis_verified: !!row.tax_number && !!row.taxis_verified_at,
+    consent_version: row.consent_version ?? null,
+  };
+}
+
+/** TAXISnet verification is offered only where the municipality's gov.gr
+ *  access is live (NEXT_PUBLIC_GOVGR_ENABLED=1 — see SETUP_BACKEND.md §13). */
+export const govgrEnabled = process.env.NEXT_PUBLIC_GOVGR_ENABLED === '1';
+
+/** Send the signed-in citizen to the gov.gr sign-in to prove who they are with
+ *  their TAXISnet codes (typed on gov.gr — never in this app). The browser
+ *  leaves the app and comes back with ?govgr=ok|taken|mismatch|error. */
+export async function startGovgrVerification(): Promise<{ ok: boolean }> {
+  const sb = getSupabase();
+  if (!sb) return { ok: false };
+  try {
+    const { data, error } = await sb.functions.invoke('govgr-auth', { body: { action: 'start' } });
+    const url = (data as { url?: string } | null)?.url;
+    if (error || !url) return { ok: false };
+    window.location.assign(url);
+    return { ok: true };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/** The ?govgr= result gov.gr's round trip left in the address, read ONCE and
+ *  removed from it. */
+export type GovgrResult = 'ok' | 'taken' | 'mismatch' | 'error';
+export function takeGovgrResult(): GovgrResult | null {
+  if (typeof window === 'undefined') return null;
+  const url = new URL(window.location.href);
+  const v = url.searchParams.get('govgr');
+  if (!v) return null;
+  url.searchParams.delete('govgr');
+  window.history.replaceState(null, '', url);
+  return v === 'ok' || v === 'taken' || v === 'mismatch' ? v : 'error';
 }
 
 /** Push the profile's NAME into the registry so the mayor can match the account
@@ -356,26 +451,39 @@ export async function syncCitizenProfile(): Promise<void> {
   });
 }
 
+/** How a vote attempt ended:
+ *  'ok'      — the ballot was recorded
+ *  'already' — this ACCOUNT had already voted (e.g. from another device); the
+ *              choice just picked was NOT recorded and must not be shown as theirs
+ *  'closed'  — the server refused: the referendum is not open (or the option is
+ *              not on the ballot)
+ *  'taxis'   — the referendum takes TAXISnet-verified voters only (v2.0)
+ *  'consent' — the voting privacy notice has not been accepted yet (v2.1)
+ *  'failed'  — a configured backend genuinely failed; the citizen may retry */
+export type VoteOutcome = 'ok' | 'already' | 'closed' | 'taxis' | 'consent' | 'failed';
+
 /** Record a vote — signed-in citizens only, ONE shot (there is no changing a
- *  cast vote). Everything happens inside public.cast_vote(): it enforces one
- *  ballot per account per poll, stamps residency from the registry, and writes
- *  the choice only as an anonymous tally, so who-voted and what-was-chosen are
- *  never linkable. `optionIndex` is the 0-based position of the option on the
- *  ballot. Resolves true when the vote landed OR the account had already voted
- *  (23505); false only when a configured backend genuinely failed — the caller
- *  must SAY so, never pretend. */
-export async function submitVote(pollId: string, optionIndex: number): Promise<boolean> {
+ *  cast vote). Everything happens inside public.cast_vote(): it checks the
+ *  referendum is open, enforces one ballot per account per poll, stamps
+ *  residency from the registry, and writes the choice only as an anonymous
+ *  tally, so who-voted and what-was-chosen are never linkable. `optionIndex` is
+ *  the 0-based position of the option on the ballot. */
+export async function submitVote(pollId: string, optionIndex: number): Promise<VoteOutcome> {
   const sb = getSupabase();
-  if (!sb) return true; // no backend — the on-device demo tally is the whole story
+  if (!sb) return 'ok'; // no backend — the on-device demo tally is the whole story
   try {
     const user = await getVerifiedUser();
-    if (!user) return false; // the UI asks for sign-in before ever calling this
+    if (!user) return 'failed'; // the UI asks for sign-in before ever calling this
     const { error } = await sb.rpc('cast_vote', { p_poll_id: pollId, p_option: optionIndex });
-    // 23505 = already voted (one ballot per account) — treat as success.
-    if (error && (error as { code?: string }).code !== '23505') return false;
-    return true;
+    if (!error) return 'ok';
+    const code = (error as { code?: string }).code;
+    if (code === '23505') return 'already'; // one ballot per account
+    if (code === 'LF001' || code === 'LF002') return 'closed';
+    if (code === 'LF008') return 'taxis';
+    if (code === 'LF009') return 'consent';
+    return 'failed';
   } catch {
-    return false;
+    return 'failed';
   }
 }
 
@@ -425,73 +533,54 @@ export async function submitVeto(): Promise<boolean> {
   }
 }
 
-// ── Published results (v1.3) ─────────────────────────────────────────────────
+// ── Poll state (v1.7) ────────────────────────────────────────────────────────
+// public.poll_state() is the ONLY reader of results. It applies the
+// referendum's protections on the server and also says whether this ACCOUNT
+// has already voted — on any device.
 
-export interface PublishedResultOption {
-  id: string;
-  label_el: string;
-  label_en: string;
-  all: number;
-  /** Votes from confirmed Δημότες — the MAIN statistic. */
-  resident?: number;
-  /** Legacy snapshots only (pre account-only voting). */
-  verified?: number;
+/** 'visible' — counts are in `rows`; otherwise why they are withheld:
+ *  'unpublished' (the mayor has not revealed them), 'until_close' (hidden
+ *  while the poll is open — for the mayor too), 'below_min' (too few ballots),
+ *  'awaiting_count' (encrypted ballots: closed, the key holder has not counted yet). */
+export type ResultsState = 'visible' | 'unpublished' | 'until_close' | 'below_min' | 'awaiting_count';
+
+export interface PollState {
+  /** This account has voted in this poll (never WHAT — that is not stored).
+   *  null once the participation roll was deleted (retention, v2.1). */
+  voted: boolean | null;
+  /** v2.1 — how many accounts voted, out of how many could. Public even while
+   *  the results are hidden. Absent on a database not yet upgraded. */
+  turnout?: number | null;
+  eligible?: number | null;
+  state: ResultsState;
+  /** false when the Δημότες / non-Δημότες breakdown was merged because one of
+   *  the groups is smaller than the poll's minimum (rows then carry r = null). */
+  split: boolean;
+  /** o = 0-based option index, r = residency (null when merged), v = votes. */
+  rows: { o: number; r: boolean | null; v: number }[];
 }
 
-export interface PublishedResult {
-  poll_id: string;
-  updated_at: string;
-  data: {
-    title_el: string;
-    title_en: string;
-    total: number;
-    resident_total?: number;
-    /** Legacy snapshots only. */
-    verified_total?: number;
-    options: PublishedResultOption[];
-  };
-}
-
-interface RefResultRow { option_id: number; residency: boolean; votes: number }
-
-/** A single referendum's LIVE results, but ONLY when the mayor has revealed
- *  them (referendums.results_published) — otherwise null, so the voting section
- *  hides the aggregate and shows just the citizen's own choice. Labels come
- *  from the referendum row, counts live from referendums_results; call it from
- *  a polling hook so the mayor's toggle and fresh votes appear on their own. */
-export async function fetchPollLiveResult(pollId: string): Promise<PublishedResult | null> {
+/** null when there is no backend or the call failed (the caller keeps whatever
+ *  it was showing). */
+export async function fetchPollState(pollId: string): Promise<PollState | null> {
   const sb = getSupabase();
-  if (!sb || !pollId.startsWith('ref_')) return null; // only referendums have results
-  const { data: ref, error } = await sb
-    .from('referendums')
-    .select('updated_at, title_el, title_en, options, results_published')
-    .eq('id', pollId.slice(4))
-    .eq('results_published', true)
-    .maybeSingle();
-  if (error || !ref) return null;
-  const opts = ((ref.options as { id: string; el: string; en: string }[]) ?? []);
-  const { data: t } = await sb
-    .from('referendums_results')
-    .select('option_id, residency, votes')
-    .eq('poll_id', pollId);
-  const rows = (t as RefResultRow[]) ?? [];
-  const options = opts.map((o, i) => {
-    const forOpt = rows.filter((r) => r.option_id === i);
-    const all = forOpt.reduce((a, r) => a + r.votes, 0);
-    const resident = forOpt.filter((r) => r.residency).reduce((a, r) => a + r.votes, 0);
-    return { id: o.id, label_el: o.el, label_en: o.en || o.el, all, resident };
+  if (!sb) return null;
+  try {
+    const { data, error } = await sb.rpc('poll_state', { p_poll_id: pollId });
+    if (error || !data) return null;
+    return data as PollState;
+  } catch {
+    return null;
+  }
+}
+
+/** Per-option totals (keyed by option id) from a visible poll state. */
+export function countsFromState(state: PollState, optionIds: string[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  optionIds.forEach((id, i) => {
+    out[id] = state.rows.filter((r) => r.o === i).reduce((a, r) => a + r.v, 0);
   });
-  return {
-    poll_id: pollId,
-    updated_at: (ref.updated_at as string) ?? '',
-    data: {
-      title_el: ref.title_el as string,
-      title_en: (ref.title_en as string) || (ref.title_el as string),
-      total: options.reduce((a, o) => a + o.all, 0),
-      resident_total: options.reduce((a, o) => a + o.resident, 0),
-      options,
-    },
-  };
+  return out;
 }
 
 // ── Web push ─────────────────────────────────────────────────────────────────
@@ -584,27 +673,27 @@ export function useLive<T>(fetcher: () => Promise<T | null>): T | null {
   return value;
 }
 
-/** Like useLive but re-fetches on an interval (default 15s) AND when the tab
- *  regains focus — so published results reflect new votes and the mayor's
- *  publish/hide toggle without any refresh button. `null` stays only until the
- *  first successful fetch; a later fetch that returns null (e.g. results
- *  hidden) clears it. */
-export function useLivePoll<T>(fetcher: () => Promise<T | null>, intervalMs = 15000): T | null {
-  const [value, setValue] = useState<T | null>(null);
+/** A poll's server state, re-fetched on an interval (default 15s) and when the
+ *  tab regains focus — so the mayor's publish toggle, fresh votes and the
+ *  closing time take effect without a refresh button. `reload` re-fetches at
+ *  once (after casting a vote, signing in…). `state` stays null until the
+ *  first successful fetch. */
+export function usePollState(pollId: string | null, intervalMs = 15000): { state: PollState | null; reload: () => void } {
+  const [state, setState] = useState<PollState | null>(null);
+  const [tick, setTick] = useState(0);
   useEffect(() => {
-    if (!backendConfigured) return;
+    if (!backendConfigured || pollId === null) return;
     let alive = true;
-    const run = () => fetcher().then((v) => { if (alive) setValue(v); });
+    const run = () => fetchPollState(pollId).then((v) => { if (alive && v) setState(v); });
     run();
     const id = setInterval(run, intervalMs);
-    const onFocus = () => run();
-    window.addEventListener('focus', onFocus);
+    window.addEventListener('focus', run);
     return () => {
       alive = false;
       clearInterval(id);
-      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('focus', run);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  return value;
+  }, [pollId, intervalMs, tick]);
+  const reload = useCallback(() => setTick((n) => n + 1), []);
+  return { state, reload };
 }

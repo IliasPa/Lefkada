@@ -20,7 +20,7 @@ import { Card, Field, GhostBtn, PrimaryBtn, inputCls } from './AdminShell';
 export type Kind =
   | 'alert' | 'job' | 'event' | 'decision' | 'tender' | 'bylaw'
   | 'consultation' | 'council' | 'budget' | 'water' | 'lesson' | 'competition'
-  | 'meeting' | 'ebook' | 'contact' | 'community';
+  | 'meeting' | 'ebook' | 'contact' | 'community' | 'official_referendum';
 
 interface ContentRow {
   id: string;
@@ -104,6 +104,35 @@ export const ALERT_KIND: KindSpec = {
     { key: 'time', label: 'Πότε ισχύει', type: 'bi' },
     { key: 'message', label: 'Μήνυμα', type: 'bi-ta' },
   ],
+};
+
+/** v2.1 — the OFFICIAL municipal referendum (Law 5314/2026). The app only
+ *  announces it and reminds citizens of the Ε.Μ.Επ. deadline; the vote itself
+ *  is held by the municipality through ΕΔΥΤΕ's ballot box. The result fields
+ *  are filled in afterwards. */
+export const OFFICIAL_REFERENDUM_KIND: KindSpec = {
+  kind: 'official_referendum', label: 'Επίσημο δημοτικό δημοψήφισμα (ν. 5314/2026)',
+  fields: [
+    { key: 'question', label: 'Ερώτημα', type: 'bi' },
+    { key: 'answerA', label: 'Απάντηση Α (π.χ. ΝΑΙ)', type: 'bi' },
+    { key: 'answerB', label: 'Απάντηση Β (π.χ. ΟΧΙ)', type: 'bi' },
+    { key: 'voteDate', label: 'Ημέρα ψηφοφορίας (Κυριακή)', type: 'date', half: true },
+    { key: 'emepDeadline', label: 'Προθεσμία εγγραφής στο Ε.Μ.Επ.', type: 'date', half: true, optional: true },
+    { key: 'info', label: 'Ενημέρωση — δημόσιος διάλογος (ισόρροπη παρουσίαση)', type: 'bi-ta', optional: true },
+    { key: 'decisionPdf', label: 'Απόφαση δημοτικού συμβουλίου / προκήρυξη (PDF)', type: 'pdf', optional: true },
+    { key: 'voteUrl', label: 'Σύνδεσμος για περισσότερα (προαιρετικό)', type: 'url', optional: true },
+    { key: 'votesA', label: 'ΑΠΟΤΕΛΕΣΜΑ — ψήφοι Α', type: 'number', half: true, optional: true },
+    { key: 'votesB', label: 'ΑΠΟΤΕΛΕΣΜΑ — ψήφοι Β', type: 'number', half: true, optional: true },
+    { key: 'blank', label: 'Λευκά', type: 'number', half: true, optional: true },
+    { key: 'registered', label: 'Εγγεγραμμένοι εκλογείς', type: 'number', half: true, optional: true },
+    { key: 'lastElectionVoters', label: 'Ψηφίσαντες στις τελευταίες δημοτικές εκλογές', type: 'number', optional: true },
+  ],
+  beforeSave: (data) => {
+    const d = String(data.voteDate ?? '');
+    if (!d) return 'Συμπληρώστε την ημέρα της ψηφοφορίας.';
+    if (new Date(d + 'T12:00:00').getDay() !== 0) return 'Ο νόμος ορίζει ότι η ψηφοφορία γίνεται πάντα Κυριακή.';
+    return null;
+  },
 };
 
 export const JOB_KIND: KindSpec = {

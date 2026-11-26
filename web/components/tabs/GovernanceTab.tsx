@@ -74,7 +74,7 @@ function fmtDate(s: string, lang: Lang) {
 
 /** Lazy-loaded published decisions (2021-2026) from /public/decisions.json. */
 type RawDecision = { t: string; n: string; d: string; b: string; f: string };
-function decisionToItem(r: RawDecision, i: number, lang: Lang): GovItem {
+function decisionToItem(r: RawDecision, i: number): GovItem {
   return {
     id: `dec-${i}`,
     type: "Decision",
@@ -113,7 +113,7 @@ export default function GovernanceTab() {
         const liveIds = new Set((live ?? []).map((d) => d._id).filter(Boolean));
         const bundledOnly = raw.filter((d) => !(d as Record<string, string>)._id || !liveIds.has((d as Record<string, string>)._id));
         const all = [...((live as unknown as RawDecision[]) ?? []), ...bundledOnly];
-        setDecisions(all.map((r, i) => decisionToItem(r, i, lang)));
+        setDecisions(all.map((r, i) => decisionToItem(r, i)));
       })
       .catch(() => setDecisions([]))
       .finally(() => setDecLoading(false));

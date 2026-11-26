@@ -1,0 +1,50 @@
+name: Delete old participation rolls (retention)
+
+# Who voted in a poll is needed while it is open (one vote per account) and
+# for a while after it (so citizens can check «the records say I voted / did
+# not»). After that it is only a list of who took part in what. This job runs
+# daily and has the database delete the roll of every poll that closed more
+# than RETENTION_DAYS ago, keeping just the turnout totals
+# (public.purge_participation in supabase/schema.sql).
+#
+# RETENTION_DAYS must equal PARTICIPATION_RETENTION_DAYS in web/lib/backend.ts —
+# that number is what the app's privacy notice promises citizens.
+#
+# Needs the SUPABASE_DB_URL secret (already used by the other workflows).
+
+on:
+  schedule:
+    - cron: '50 2 * * *' # daily, ~04:50/05:50 Athens
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write # the failure alarm
+
+env:
+  RETENTION_DAYS: '90'
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete participation rolls older than the retention period
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "SUPABASE_DB_URL secret is missing" >&2
+            exit 1
+          fi
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -c "select public.purge_participation(${RETENTION_DAYS}) as polls_purged;"
+
+      - name: Open a can't-miss issue (GitHub emails it) on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          BODY=$'# 🔴 Η διαγραφή των παλιών λιστών συμμετοχής απέτυχε\n\n## Οι λίστες του ποιος ψήφισε ενδέχεται να τηρούνται περισσότερο από όσο υπόσχεται η ενημέρωση προς τους πολίτες.\n\n**Τι να κάνετε:** δείτε το [αποτυχημένο run]('"$RUN_URL"$'). Συνηθέστερες αιτίες: το secret `SUPABASE_DB_URL` λείπει ή άλλαξε, ή το `supabase/schema.sql` δεν έχει τρέξει ξανά μετά την v2.1 (λείπει η συνάρτηση `purge_participation`). Μετά τη διόρθωση τρέξτε το workflow χειροκίνητα.\n\n*Αυτόματο issue από το workflow «Delete old participation rolls (retention)».*'
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "🔴 PARTICIPATION PURGE FAILED — $(date -u +%Y-%m-%d)" \
+            --body "$BODY"

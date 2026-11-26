@@ -18,7 +18,6 @@ import {
   Gavel,
   CalendarDays,
   UserRound,
-  Users,
   Landmark,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";

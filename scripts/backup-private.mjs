@@ -64,7 +64,9 @@ const TABLES = [
   { name: 'citizens',                 key: 'user_id' },
   { name: 'folders',                  key: 'id' },
   { name: 'messages',                 key: 'id' },
-  { name: 'referendums_participants', key: 'id' },
+  // v2.1 retention: purge_participation() deletes the roll some weeks after a
+  // poll closes — so this archive must NOT keep the deleted rows either.
+  { name: 'referendums_participants', key: 'id', forget: true },
   { name: 'referendums',              key: 'id' },
 ];
 
@@ -73,7 +75,7 @@ for (const t of TABLES) {
   const current = rowsOf(`select * from public.${t.name}`);
   const old = existsSync(path) ? readJson(path) : { rows: [] };
   const liveKeys = new Set(current.map((r) => r[t.key]));
-  const kept = (old.rows ?? []).filter((r) => !liveKeys.has(r[t.key]));
+  const kept = t.forget ? [] : (old.rows ?? []).filter((r) => !liveKeys.has(r[t.key]));
   const rows = [...current, ...kept].sort((a, b) =>
     String(a[t.key]).localeCompare(String(b[t.key])));
   writeJson(path, { table: t.name, key: t.key, rows });

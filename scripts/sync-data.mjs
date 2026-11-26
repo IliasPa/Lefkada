@@ -143,11 +143,22 @@ function syncNews() {
   console.log(`✓ data/news.json: ${current.length} live + ${kept.length} kept`);
 }
 
+/** The per-referendum protection columns (v1.7+). They are baked so a poll
+ *  served from the bundle still tells citizens which protections it lacks.
+ *  Only the ones the database actually has are selected, so the sync keeps
+ *  working against a database whose schema.sql has not been re-run yet. */
+const PROTECTION_COLUMNS = ['hide_until_close', 'min_votes', 'anonymous_ballots', 'encrypted_ballots', 'encryption_key', 'taxis_only'];
+
 function syncReferendums() {
   const path = join(DATA, 'voting.json');
+  const present = new Set(queryRows(
+    `select column_name from information_schema.columns
+     where table_schema = 'public' and table_name = 'referendums'`,
+  ).map((r) => r.column_name));
+  const extra = PROTECTION_COLUMNS.filter((c) => present.has(c)).map((c) => `, ${c}`).join('');
   const current = rowsOf(
     `select id, created_at, title_el, title_en, small_el, small_en, medium_el, medium_en,
-            large_el, large_en, pdf_url, youtube_id, options, ends_at
+            large_el, large_en, pdf_url, youtube_id, options, ends_at${extra}
      from public.referendums where published order by ends_at desc`,
   );
   const allIds = idsOf('select id::text as id from public.referendums');

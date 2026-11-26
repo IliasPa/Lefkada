@@ -4,6 +4,7 @@ import './globals.css';
 // package, not a vendored copy) so the stylesheet is always in <head> before
 // the lazily-loaded map mounts. The map JS itself stays lazy-loaded.
 import 'leaflet/dist/leaflet.css';
+import { BUILD_COMMIT, contentSecurityPolicy } from '@/lib/build';
 
 export const metadata: Metadata = {
   title: 'Λευκάδα',
@@ -41,9 +42,16 @@ const FIRST_BG =
   'https://commons.wikimedia.org/wiki/Special:FilePath/Porto_Katsiki_6108.JPG?width=1600';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const csp = contentSecurityPolicy();
   return (
     <html lang="el" suppressHydrationWarning>
       <head>
+        {/* v2.1 — FIRST in <head>: the browser refuses connections to anything
+            outside this list (see lib/build.ts). */}
+        {csp && <meta httpEquiv="Content-Security-Policy" content={csp} />}
+        {/* The commit this build was made from — scripts/verify-live.mjs reads
+            it to check the live site against the published code. */}
+        <meta name="build-commit" content={BUILD_COMMIT} />
         <link rel="apple-touch-icon" href="/PegasusFlag.png" />
         <link rel="icon" type="image/png" href="/PegasusFlag.png" />
         {/* Preload only the first slideshow image (LCP); the rest load lazily */}

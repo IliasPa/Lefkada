@@ -98,6 +98,9 @@
 - **VETO (v1.4):** **only mayor-confirmed Δημότες** can exercise it, it takes the same **4-second press-and-hold**, and it **stays active for 7 days** from the day it was cast — a **rolling window**. Everything runs in `cast_veto()` (`SECURITY DEFINER`): it refuses non-Δημότες, is idempotent while a veto is active, and lets a citizen **renew** once their 7 days lapse. Rows store just **two columns — `veto_date` (YYYY-MM-DD) and `voter_key`** — no primary key, no timestamp. The `voter_key` is hashed with the **week's Monday**, so it **changes on every veto** (archived weeks stay unlinkable) and **one voter cannot veto twice in the same week**; the active count is simply the vetos of the last 7 days, and a daily workflow deletes older rows.
 - **Results visibility (v1.4):** results are **not** shown on the home page. Each poll has a **🏠 toggle in /admin** (`referendums.results_published`) that turns its **live results on/off inside the voting section** — when off, a citizen who has voted sees **only their own recorded choice**, never the aggregate; when on, the tally bars appear and update **live** (RLS opens that poll's `referendums_results` for public reading only while it is toggled on). There is no refresh — the voting screen polls on its own.
 - **Verified votes (v1.4):** citizens **sign in** in Settings ▸ Personal info with an 8-digit **email code** (Supabase Auth OTP); the voter key derives from the **account**, so one account = one vote per poll, from any device. **Sign out** lets several people vote in turn from a shared device. Residency is never self-declared: the mayor maintains a **citizen registry** (/admin ▸ Ψηφοφόροι) matched by hand against the municipal roll, and `residency` is read from it at vote time — making **«ψήφοι δημοτών» the main statistic of every tally**; everyone still votes, only the statistics differ. The designation shows on the citizen's own profile (🏛 chip) with a one-time notice when the municipality changes it. Who participated is stored in a separate **participation registry without timestamps**, so it can never be paired with a vote. _Honest tiers, documented deliberately: email verification raises cheating cost to one-account-per-email; a legally binding referendum still needs state authentication — gov.gr OAuth slots into this exact pipeline (same tables, same keys) once the municipality's ΚΕΔ approval lands._
+- **Protections per referendum (v1.7):** the mayor chooses, per poll, **results hidden until closing** (nobody — the mayor included — can read results while the poll is open) and a **minimum number of votes** (no results below it, and the Δημότες / non-Δημότες split is merged while either group is smaller). The database enforces them and **locks them once the poll is published**. Citizens see, on the poll itself, **only the protections a poll does _not_ use** — a fully protected poll shows nothing. See [Referendum protections](#referendum-protections).
+- **One account, any device (v1.7):** the server tells every device whether the signed-in account has already voted, so a second device shows **"You have already voted"** instead of a ballot. The choice itself is never stored per voter, so it is shown only on the device that cast it.
+- **Demo votings (v2.1.1):** three built-in example polls, in their own «Δοκιμαστικές ψηφοφορίες» section under the real ones, so anyone can try voting without an account. They are always open, their starting numbers are **invented** and labelled so, a vote stays in the device's `localStorage` and nothing about it is sent to the server, and they never appear among past polls. Their content is the `bundled` list in `web/data/voting.json`.
 - **Older votings archive:** A compact pill button below the ballot toggles the archive of past polls. Closed polls swap the countdown for the date the voting ended and are shown read-only with their final results.
 
 ---
@@ -270,6 +273,92 @@ The app runs on an optional backend on **Supabase** (Postgres + Auth + Storage
 - The notifications toggle **explains why** it can't enable (iOS needs the app installed to the Home Screen first / notifications blocked in browser settings / push registration failed with the actual error) instead of silently snapping off.
 - The `/admin` login surfaces the real Supabase auth error; the Supabase client tolerates whitespace/trailing slashes in env values; the setup guide follows Supabase's **API Keys** dashboard (publishable `sb_publishable_…` key).
 
+## Referendum protections
+
+Not every referendum needs the same level of protection, so each one carries its own switches, set by the mayor when it is created and **locked by the database once it is published** (and for good once the first ballot exists). Citizens are shown, on the poll itself, every protection that poll does **not** use.
+
+![The mayor's /admin ▸ Δημοψηφίσματα page, with dummy data](docs/admin-referendums.png)
+
+_/admin ▸ Δημοψηφίσματα with **dummy data** (no real citizens or votes): green chips are protections in use, amber ones are what citizens are told is missing._
+
+| Protection | Since | What it guarantees | Enforced by |
+| --- | --- | --- | --- |
+| **Results hidden until closing** | v1.7 | Nobody, the mayor included, reads results while the poll is open — only the turnout | `poll_state()` — the only reader of `referendums_results` (no table `SELECT` policy exists) |
+| **Minimum number of votes** | v1.7 | No results below N ballots; the Δημότες / non-Δημότες split is merged while either group is smaller than N | `poll_state()` |
+| **Anonymous ballots** | v1.8 | The ballot reaches the server **without the voter's account**. The municipality sees _who received a voting ticket_ and a separate count of ballots — never which ballot is whose | RSA blind signatures (RFC 9474) — Edge Functions `ballot-ticket` + `ballot-cast` |
+| **Encrypted ballots** | v1.9 | The phone encrypts the choice to the referendum's public key. The database holds only ciphertext, so **no tally exists anywhere** — for anyone, with any access — until the key holder counts after closing. Afterwards every ballot's one-time key is published and **anyone can recount** | ECDH P-256 → HKDF-SHA256 → AES-256-GCM in the browser; `scripts/tally.mjs` + `publish_tally()` |
+| **TAXISnet-verified voters only** | v2.0 | Only accounts that proved who they are with their TAXISnet codes on gov.gr may vote, and one ΑΦΜ links to **one** account — so nobody votes twice with a second email | `govgr-auth` Edge Function (OAuth 2.0) + `taxis_link()`; needs the municipality's gov.gr access |
+
+### Anonymous ballots (v1.8)
+
+One tap for the citizen; underneath, two requests the server cannot connect:
+
+1. **Ticket** — the phone invents a random serial number, _blinds_ it and asks `ballot-ticket` (with the account) to sign it. The function checks the account has not had a ticket for this referendum and signs **without being able to see the serial**.
+2. **Ballot** — a few seconds later the phone sends the chosen option with the unblinded serial + signature to `ballot-cast`, **with no account attached**. A valid signature proves "an eligible citizen"; each serial is accepted once.
+
+- **One person, one vote** still holds: one ticket per account per referendum, from any device.
+- **Δημότες statistic without names:** each referendum has two ticket keys (Δημότες / everyone else), so a ballot counts in the right group without identifying its voter.
+- **Receipt code:** after voting the citizen sees a code and whether it is in the public list of counted tickets (`referendums_tickets`) — proof the ballot arrived, without revealing its option to anyone.
+- **Nothing is lost on a bad connection:** the ticket is saved on the device before each request; reopening the app delivers a ballot that was interrupted.
+- **Ballots can never outnumber tickets:** the database refuses a ballot beyond the number of tickets issued, and /admin shows both numbers.
+- Requires **results hidden until closing** (watching live results would undo it), so the switch turns that on too.
+
+### Encrypted ballots (v1.9)
+
+- **Sealed on the phone:** the choice is encrypted to the referendum's **public key** before it leaves the device; every sealed ballot is the same length and two votes for the same option look unrelated. The server stores it without being able to read it.
+- **The private key never touches the server.** It is created outside the app — ideally **inside a hardware security key** that cannot release it, sealed in public until closing — and only its public half is pasted into the referendum form. Its fingerprint is shown in /admin and to citizens.
+- **The count** happens after closing, on the mayor's computer: `node scripts/tally.mjs count --poll <id>` asks the key to open each ballot and writes a count file. /admin re-opens every ballot with that file before publishing — a file that doesn't open the ballots to what it claims is refused.
+- **Anyone can verify:** once counted, each ballot's one-time key is public. The **"Verify the count"** button on the referendum decrypts every ballot on the citizen's own device and compares the recount with the published result.
+- **Built on anonymous ballots:** the ballots are opened one by one, so they must carry no voter — the switch turns anonymous ballots (and hidden results) on. The Δημότες flag of each ballot is kept in a table nobody can read and is used only for the aggregated statistic.
+- **Trade-offs:** if the private key is lost, that referendum's votes cannot be counted; whoever does the count sees the result even when it is below the minimum-votes threshold; and a count that marks ballots as "invalid" cannot be proven honest by the recount alone (a wrong _option_ can).
+
+Always on, for every referendum (v1.7): `cast_vote()` refuses a ballot unless the referendum exists, is published, is still open and the option is on the ballot; the ballot options freeze with the first vote; and the app records a choice on the device only after the server confirmed it.
+
+**What this does not protect against** — someone with direct database-owner access (the Supabase dashboard, the service key, the database password) can still read the tally table and watch it change. Closing that gap is what the later protections are for.
+
+### TAXISnet verification (v2.0)
+
+- A signed-in citizen taps **"Verify with TAXISnet codes (gov.gr)"** in their profile, signs in **on gov.gr** (the app never sees the codes) and comes back verified: the app receives only their ΑΦΜ, straight from gov.gr.
+- **One ΑΦΜ ↔ one account.** A second account trying to link the same ΑΦΜ is told it already belongs to another account; a verified account cannot switch to a different ΑΦΜ.
+- **Nobody can fake it from inside:** the "verified" mark can be written only by the gov.gr function — not by the citizen, and not from the mayor's /admin session; an ΑΦΜ typed in by hand is shown as unverified and does not count.
+- A referendum with **"TAXISnet-verified voters only"** refuses everyone else, on both the ordinary and the anonymous-ballot path.
+- **Not live until the municipality has gov.gr access**, which only the municipality can request. Until then the button and the switch stay hidden (`NEXT_PUBLIC_GOVGR_ENABLED`). The flow is tested against a stand-in for gov.gr, never against the real service.
+
+### Hardening that is always on (v2.1)
+
+- **The page can only talk to its own backend.** A Content-Security-Policy in every page makes the browser itself refuse connections, images and frames to anything outside a short list (this site, the Supabase project, the image and map hosts the app uses, YouTube's no-cookie player). A compromised dependency cannot quietly send a vote somewhere else.
+- **The live site can be checked against this repository.** Every page carries the commit it was built from (Settings shows it). `scripts/verify-live.mjs` rebuilds that commit from scratch and compares every file with what the site serves; a scheduled workflow runs it four times a day and opens an issue on any difference. Anyone can run it from their own machine — it needs no credentials.
+- **Anonymous ballots are sent after a random delay** (one to ten minutes by default), so a ballot does not arrive right behind its ticket request. If the citizen leaves the app first, the ballot goes at that moment — a vote is never left stranded for the sake of the delay.
+- **The ballot box is checked on every citizen's device:** the number of ballots received must equal the number counted (and, for encrypted referendums, the number of tickets used must equal the number of ballots in the box).
+- **Every account sees what the roll says about it** on a finished referendum — "you voted" / "you did not vote" — with one tap to report a wrong record. A ballot cast in someone's name without them shows up there.
+
+### Non-binding opinion polls (v2.1)
+
+The app's own votes are **unofficial opinion polls**, and every one says so. They are not the municipal referendum of Law 5314/2026.
+
+- **Official referendum, information only.** The mayor can announce it in /admin ▸ Ψηφοφορίες ▸ Επίσημο δημοψήφισμα (question, two answers, voting day, Ε.Μ.Επ. registration deadline, later the result and whether turnout reached the legal threshold). Nobody votes on it in the app.
+- **Turnout on every poll:** how many accounts voted, out of how many registered accounts, even while results are hidden. The second number is the count *today*, so the percentage of an old poll falls as new accounts register.
+- **Consent first.** Before an account's first vote the app shows what is stored and for how long. The database refuses a vote or a voting ticket without that acceptance. The notice is a plain description, **not a reviewed legal text**.
+- **Retention.** 90 days after a poll closes (encrypted ones: once also counted), a daily job deletes the list of who took part and keeps the totals. A purged poll's closing date is locked, so it can never be reopened. The private backup stops carrying deleted rows forward, but **its git history still contains earlier copies**.
+- **Optional relay** (`relay/`): anonymous ballots travel sealed through a second server, so the backend never sees the voter's network address. It protects most when someone else runs it. If the relay is down, ballots wait on the device.
+
+Tests: `cd tests && npm install && npm test` (database rules, server functions, relay, and the main voting screens in a browser against a fake backend; needs `web/node_modules` and a Chromium, whose path can be given in `CHROMIUM_PATH`). The /admin screens are not covered.
+
+### Known limits — read before using this for a binding vote
+
+These are not solved by any of the switches above:
+
+1. **The app's own code is trusted.** The phone runs whatever JavaScript the site serves. Whoever can change the deployed site (the hosting account, the GitHub repo, a compromised dependency) can make it send choices in the clear or vote differently from what is shown. _Since v2.1 this is detectable, not prevented:_ the live-site check catches a site that differs from the published code, but only when it runs, only if someone independent runs it too, and nobody reviews every published commit. A malicious commit that is published openly passes the check.
+2. **Whoever runs the server sees request metadata.** Supabase's logs record the time and IP address of every request. With anonymous ballots the ticket request and the ballot come from the same address, so someone with log access could pair them. _Since v2.1_ they are minutes apart instead of seconds while the app stays open — which helps only when several people vote in the same minutes, and not at all for a citizen who closes the app at once. Hiding the address itself needs a relay run by someone else (supported since v2.1, off until configured; the ticket request still goes directly, and relay and server operators together could still match by time), or voting from a shared connection.
+3. **The database owner is all-powerful.** Triggers and policies stop the app's users, including the mayor's session — not someone holding the database password or service key, who can read raw tables, change functions, or rewrite results (for encrypted referendums a rewritten result is caught by "Verify the count"; for the others it is not).
+4. **Ballots can be added in place of people who did not vote** by whoever holds the ticket master key or the database: the total can never exceed the number of tickets, but tickets can be issued to accounts that never asked. _Since v2.1_ each such account sees "you voted" on the finished referendum and can report it — which exposes it only if those people look. Independent observers with read access to the roll would be the real check.
+5. **Email accounts are not people.** Without TAXISnet verification, anyone with several email addresses has several votes, and the Δημότης flag is set by hand by the mayor.
+6. **Small numbers leak.** A unanimous result, or a tiny turnout, reveals how people voted whatever the cryptography. The minimum-votes switch only hides results below a threshold.
+7. **A voter cannot prove their own vote was counted as cast.** The receipt shows a ballot arrived, not what it contained (deliberately — a provable receipt enables vote-buying). A count that wrongly marks ballots "invalid" cannot be disproven by the recount.
+8. **No independent audit, no legal basis.** The cryptography uses standard building blocks but this composition has never been reviewed by a specialist, and Greek law does not provide for binding internet referendums. Personal data here (ΑΦΜ, who voted) needs a data-protection assessment by the municipality.
+9. **Availability.** One Supabase project on a small plan: an outage, a rate limit or a denial-of-service attack on voting day stops the vote, and there is no fallback channel.
+10. **Lost keys lose votes.** The ticket master key (open referendums stop issuing tickets) and each encrypted referendum's private key (its ballots can never be counted) have no backup by design.
+
 ## Tech stack
 
 - **Next.js 14** App Router
@@ -350,7 +439,9 @@ npm run build    # static export → out/
 | `lefkada_me_profile`      | Identity, personal info, skills, doctors  |
 | `lefkada_cv_filename`     | Uploaded CV filename                      |
 | `lefkada_votes`           | Poll vote counts, keyed `pollId:optionId` |
-| `lefkada_my_votes`        | User's own vote per poll                  |
+| `lefkada_my_votes`        | Own choice per poll, keyed per account    |
+| `lefkada_pending_ballots` | Anonymous-ballot tickets not delivered yet |
+| `lefkada_ballot_receipts` | Receipt codes of delivered anonymous ballots |
 | `lefkada_veto`            | Whether the VETO is active                |
 | `lefkada_health_exams`    | User-edited lab exam results              |
 | `lefkada_mayor_anonymous` | Anonymity preference for Mayor message    |

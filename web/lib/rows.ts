@@ -65,6 +65,17 @@ export interface ReferendumRow {
   youtube_id: string;
   options: { id: string; el: string; en?: string }[] | null;
   ends_at: string;
+  // v1.7 protections — absent on rows baked before the columns existed.
+  hide_until_close?: boolean;
+  min_votes?: number;
+  // v1.8 anonymous ballots
+  anonymous_ballots?: boolean;
+  ticket_keys?: { resident: string; other: string } | null;
+  // v1.9 encrypted ballots
+  encrypted_ballots?: boolean;
+  encryption_key?: string;
+  // v2.0 TAXISnet-verified voters only
+  taxis_only?: boolean;
 }
 
 /** Competitions added from /admin ▸ Παιδεία (any lesson category). */
@@ -221,6 +232,15 @@ export const mapReferendumRows = (rows: ReferendumRow[]): Poll[] =>
     endDate: r.ends_at,
     ...(r.youtube_id ? { youtubeId: r.youtube_id } : {}),
     ...(r.pdf_url ? { pdfUrl: r.pdf_url } : {}),
+    protections: {
+      hideUntilClose: r.hide_until_close ?? false,
+      minVotes: r.min_votes ?? 0,
+      anonymous: r.anonymous_ballots ?? false,
+      encrypted: r.encrypted_ballots ?? false,
+      taxisOnly: r.taxis_only ?? false,
+    },
+    ...(r.ticket_keys ? { ticketKeys: r.ticket_keys } : {}),
+    ...(r.encryption_key ? { encryptionKey: r.encryption_key } : {}),
   }));
 
 // ── news table → NewsItem + Reporter ─────────────────────────────────────────

@@ -1,5 +1,6 @@
 "use client";
 
+import { BUILD_COMMIT, buildCommitUrl, buildIsPublished } from "@/lib/build";
 import { useEffect, useRef, useState } from "react";
 import {
   Settings,
@@ -94,6 +95,9 @@ export default function SettingsMenu() {
   useEffect(() => {
     const openProfile = () => { setOpen(true); setProfileOpen(true); };
     window.addEventListener("lefkada:open-profile", openProfile);
+    // Coming back from the gov.gr sign-in (?govgr=…): open straight onto the
+    // verification card, which shows how it went.
+    if (new URLSearchParams(window.location.search).has("govgr")) openProfile();
     return () => window.removeEventListener("lefkada:open-profile", openProfile);
   }, []);
 
@@ -254,6 +258,21 @@ export default function SettingsMenu() {
           >
             <Check size={13} className="flex-shrink-0" />
             {t("a11y_wcag")}
+            <ExternalLink size={11} className="flex-shrink-0" />
+          </a>
+
+          {/* v2.1 — which published commit this copy of the app was built from */}
+          <a
+            href={buildCommitUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={BUILD_COMMIT}
+            className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-400 dark:text-gray-500 hover:underline"
+          >
+            {t("settings_build")}{" "}
+            <span className={`font-mono ${buildIsPublished ? "" : "text-amber-600"}`}>
+              {buildIsPublished ? BUILD_COMMIT.slice(0, 7) : t("settings_build_unpublished")}
+            </span>
             <ExternalLink size={11} className="flex-shrink-0" />
           </a>
         </div>

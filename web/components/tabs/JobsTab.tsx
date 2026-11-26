@@ -165,7 +165,6 @@ export default function JobsTab() {
         <ApplyModal
           notif={notif}
           t={t}
-          lang={lang}
           onClose={() => setNotif(null)}
           onSettings={() => { setNotif(null); setActiveTab('account'); }}
         />
@@ -286,13 +285,11 @@ function Badge({ color, children }: { color: string; children: React.ReactNode }
 function ApplyModal({
   notif,
   t,
-  lang,
   onClose,
   onSettings,
 }: {
   notif: ApplyNotif;
   t: (k: string) => string;
-  lang: 'el' | 'en';
   onClose: () => void;
   onSettings: () => void;
 }) {

@@ -7,6 +7,11 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim().replace(/\/+$/, '');
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
 
+/** The project URL and its PUBLIC key — for the few requests that must go out
+ *  without the signed-in session attached (lib/ballot.ts). */
+export const supabaseUrl = url;
+export const supabaseAnonKey = anonKey;
+
 /** True when the Supabase env vars are set. When false the app runs fully
  *  offline on the bundled data (exactly the pre-v1.0 behaviour). */
 export const backendConfigured = Boolean(url && anonKey);
