@@ -37,6 +37,13 @@
  * v2.0: «Μόνο ταυτοποιημένοι με TAXISnet» — only accounts whose ΑΦΜ came from
  * a gov.gr sign-in may vote. Offered once the municipality's gov.gr access is
  * live (NEXT_PUBLIC_GOVGR_ENABLED=1); the Ψηφοφόροι list marks verified accounts.
+ *
+ * v2.1: what this page manages is called «ψηφοφορίες γνώμης» — the app's own,
+ * UNOFFICIAL polls. The official municipal referendum of Law 5314/2026 is held
+ * through ΕΔΥΤΕ and only announced here (the «Επίσημο δημοψήφισμα» sub-tab).
+ * The database tables keep their historical `referendums*` names. Every card
+ * shows the turnout against the registered accounts, and the participation
+ * roll is deleted some weeks after closing (purge_participation()).
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -44,13 +51,13 @@ import {
   CheckCircle2, ChevronDown, ChevronUp, Eye, EyeOff, FileText, Home, Landmark, Lock,
   Pencil, Plus, ShieldAlert, ShieldCheck, ShieldOff, Trash2, UserCheck, Users, Vote, X,
 } from 'lucide-react';
-import { pollsData } from '@/data/voting';
 import { getSupabase } from '@/lib/supabase';
 import { vetoWeek, athensToday, govgrEnabled, type PollState } from '@/lib/backend';
 import { checkEncryptionKey, keyFingerprint, pemToB64 } from '@/lib/ballotSeal';
 import { fetchBallots, recount } from '@/lib/tally';
 import { maybeNotifyVetoStep } from '@/lib/notify';
 import AnimatedSegmented from '@/components/AnimatedSegmented';
+import KindManager, { OFFICIAL_REFERENDUM_KIND } from '@/components/admin/ContentView';
 import { Card, Field, GhostBtn, PrimaryBtn, inputCls } from './AdminShell';
 
 interface RefRow {
@@ -82,6 +89,10 @@ interface RefRow {
   tallied_at: string | null;
   /** Only TAXISnet-verified accounts may vote (v2.0). */
   taxis_only: boolean;
+  /** v2.1 retention: when the participation roll was deleted, and its totals. */
+  participation_purged_at?: string | null;
+  turnout_final?: number | null;
+  turnout_residents_final?: number | null;
 }
 
 /** The protections as the mayor sees them: every one, on or off. (Citizens see
@@ -96,11 +107,12 @@ const ADMIN_PROTECTIONS: { label: string; on: (r: RefRow) => boolean; detail?: (
 
 /** Database refusals the form can explain (see supabase/schema.sql). */
 const DB_ERRORS: Record<string, string> = {
-  LF010: 'Οι προστασίες κλειδώνουν μόλις το δημοψήφισμα δημοσιευθεί — δεν αλλάζουν πλέον.',
+  LF010: 'Οι προστασίες κλειδώνουν μόλις η ψηφοφορία δημοσιευθεί — δεν αλλάζουν πλέον.',
   LF011: 'Οι επιλογές ψήφου κλειδώνουν μόλις υπάρξει η πρώτη ψήφος.',
   LF012: 'Τα ανώνυμα ψηφοδέλτια χρειάζονται πρώτα τα κλειδιά εισιτηρίων (λειτουργία ballot-ticket).',
+  LF016: 'Η λίστα συμμετοχής αυτής της ψηφοφορίας έχει διαγραφεί — η ημερομηνία λήξης δεν αλλάζει (αλλιώς θα μπορούσαν όλοι να ξαναψηφίσουν).',
   LF020: 'Η καταμέτρηση δημοσιεύεται μόνο μετά τη λήξη της ψηφοφορίας.',
-  LF021: 'Το δημοψήφισμα έχει ήδη καταμετρηθεί.',
+  LF021: 'Η ψηφοφορία έχει ήδη καταμετρηθεί.',
   LF022: 'Το αρχείο καταμέτρησης δεν καλύπτει όλα τα ψηφοδέλτια — τρέξτε ξανά το scripts/tally.mjs.',
 };
 const dbError = (e: { code?: string; message: string }) => DB_ERRORS[e.code ?? ''] ?? e.message;
@@ -167,9 +179,6 @@ function toLocalInput(iso: string): string {
   return d.toISOString().slice(0, 16);
 }
 
-/** The bundled (pre-backend) polls — they may still hold old server tallies. */
-const BUNDLED_IDS = pollsData.filter((p) => !p.id.startsWith('ref_')).map((p) => p.id);
-
 const talliesOf = (pid: string, st?: PollState): TallyRow[] =>
   (st?.rows ?? []).map((r) => ({ poll_id: pid, option_id: r.o, residency: r.r, votes: r.v }));
 
@@ -184,7 +193,7 @@ export default function ReferendumsView() {
   const [vetoEvents, setVetoEvents] = useState<VetoRow[]>([]);
   const [participants, setParticipants] = useState<ParticipantRow[]>([]);
   const [citizens, setCitizens] = useState<CitizenRow[]>([]);
-  const [sub, setSub] = useState<'polls' | 'voters'>('polls');
+  const [sub, setSub] = useState<'polls' | 'official' | 'voters'>('polls');
 
   const load = useCallback(async () => {
     const sb = getSupabase();
@@ -196,7 +205,7 @@ export default function ReferendumsView() {
     // protections to the mayor too (hidden until closing / below the minimum
     // → no counts at all). The choice lives only as aggregate counts — no
     // per-voter ballot exists.
-    const pollIds = [...refs.map((r) => `ref_${r.id}`), ...BUNDLED_IDS];
+    const pollIds = refs.map((r) => `ref_${r.id}`);
     const fetched = await Promise.all(pollIds.map(async (pid) => {
       const { data: st } = await sb.rpc('poll_state', { p_poll_id: pid });
       return [pid, st as PollState | null] as const;
@@ -305,7 +314,7 @@ export default function ReferendumsView() {
       });
       if (fnErr || !(made as { keys?: unknown } | null)?.keys) {
         setBusy(false);
-        alert('Το δημοψήφισμα αποθηκεύτηκε ως ΠΡΟΧΕΙΡΟ, αλλά τα κλειδιά για τα ανώνυμα ψηφοδέλτια δεν δημιουργήθηκαν.\n\n'
+        alert('Η ψηφοφορία αποθηκεύτηκε ως ΠΡΟΧΕΙΡΟ, αλλά τα κλειδιά για τα ανώνυμα ψηφοδέλτια δεν δημιουργήθηκαν.\n\n'
           + 'Ελέγξτε ότι οι λειτουργίες ballot-ticket / ballot-cast έχουν εγκατασταθεί και ότι έχει οριστεί το TICKET_MASTER_KEY '
           + '(SETUP_BACKEND.md §11), και αποθηκεύστε ξανά.');
         setEditing(null); setPdfFile(null);
@@ -323,7 +332,7 @@ export default function ReferendumsView() {
   };
 
   const remove = async (r: RefRow) => {
-    if (!confirm(`Διαγραφή δημοψηφίσματος «${r.title_el}»;`)) return;
+    if (!confirm(`Διαγραφή ψηφοφορίας «${r.title_el}»;`)) return;
     await getSupabase()?.from('referendums').delete().eq('id', r.id);
     load();
   };
@@ -339,13 +348,13 @@ export default function ReferendumsView() {
     let parsed: { poll_id?: string; ballots?: Record<string, { k: string; o: number | null }> };
     try { parsed = JSON.parse(await file.text()); }
     catch { alert('Το αρχείο δεν είναι έγκυρο αρχείο καταμέτρησης (JSON).'); return; }
-    if (parsed.poll_id !== pid || !parsed.ballots) { alert('Το αρχείο καταμέτρησης είναι άλλου δημοψηφίσματος.'); return; }
+    if (parsed.poll_id !== pid || !parsed.ballots) { alert('Το αρχείο καταμέτρησης είναι άλλης ψηφοφορίας.'); return; }
     setBusy(true);
     const rows = await fetchBallots(pid);
     if (!rows) { setBusy(false); alert('Δεν ήταν δυνατή η ανάγνωση των ψηφοδελτίων.'); return; }
     if (rows.length !== Object.keys(parsed.ballots).length || rows.some((b) => !parsed.ballots![b.id])) {
       setBusy(false);
-      alert('Το αρχείο δεν καλύπτει ακριβώς τα ψηφοδέλτια του δημοψηφίσματος — τρέξτε ξανά το scripts/tally.mjs.');
+      alert('Το αρχείο δεν καλύπτει ακριβώς τα ψηφοδέλτια της ψηφοφορίας — τρέξτε ξανά το scripts/tally.mjs.');
       return;
     }
     const rc = await recount(pid, rows, r.options.length, parsed.ballots);
@@ -379,7 +388,7 @@ export default function ReferendumsView() {
     return (
       <div className="max-w-3xl mx-auto px-4 py-5 space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="font-black text-lg">{e.id ? 'Επεξεργασία' : 'Νέο'} δημοψήφισμα</h2>
+          <h2 className="font-black text-lg">{e.id ? 'Επεξεργασία ψηφοφορίας γνώμης' : 'Νέα ψηφοφορία γνώμης'}</h2>
           <GhostBtn onClick={() => { setEditing(null); setPdfFile(null); }}><X size={16} /></GhostBtn>
         </div>
         <Card className="p-4 space-y-4">
@@ -492,7 +501,7 @@ export default function ReferendumsView() {
               <span>
                 Κρυπτογραφημένα ψηφοδέλτια (σφραγισμένο κλειδί)
                 <span className="block text-[11.5px] font-medium text-gray-400">
-                  Το κινητό κρυπτογραφεί την επιλογή με το δημόσιο κλειδί του δημοψηφίσματος. Η βάση δεδομένων
+                  Το κινητό κρυπτογραφεί την επιλογή με το δημόσιο κλειδί της ψηφοφορίας. Η βάση δεδομένων
                   κρατά μόνο ακατανόητα ψηφοδέλτια — αποτέλεσμα δεν υπάρχει πουθενά μέχρι να γίνει η καταμέτρηση
                   με το ιδιωτικό κλειδί, μετά τη λήξη. Ενεργοποιεί υποχρεωτικά τα ανώνυμα ψηφοδέλτια.
                 </span>
@@ -500,7 +509,7 @@ export default function ReferendumsView() {
             </label>
             {e.encrypted_ballots && (
               <div className="pl-6 space-y-2.5">
-                <Field label="Δημόσιο κλειδί δημοψηφίσματος (PEM)">
+                <Field label="Δημόσιο κλειδί ψηφοφορίας (PEM)">
                   <textarea rows={4} disabled={locked} value={e.encryption_key ?? ''} spellCheck={false}
                     onChange={(ev) => set({ encryption_key: ev.target.value })}
                     placeholder={'-----BEGIN PUBLIC KEY-----\n…\n-----END PUBLIC KEY-----'}
@@ -515,7 +524,7 @@ export default function ReferendumsView() {
                 <p className="text-[11px] text-gray-400 leading-relaxed">
                   Το κλειδί φτιάχνεται ΕΚΤΟΣ εφαρμογής (<span className="font-mono">scripts/tally.mjs</span> ή
                   συσκευή ασφαλείας — SETUP_BACKEND.md §12). Εδώ μπαίνει μόνο το δημόσιο μισό του· το ιδιωτικό δεν
-                  ανεβαίνει ποτέ. Αν χαθεί, οι ψήφοι αυτού του δημοψηφίσματος δεν μπορούν να μετρηθούν.
+                  ανεβαίνει ποτέ. Αν χαθεί, οι ψήφοι αυτής της ψηφοφορίας δεν μπορούν να μετρηθούν.
                 </p>
               </div>
             )}
@@ -533,8 +542,8 @@ export default function ReferendumsView() {
             </label>
             <p className="text-[11px] text-gray-400 leading-relaxed">
               {locked
-                ? 'Το δημοψήφισμα έχει δημοσιευθεί ή έχει ήδη ψήφους — οι προστασίες δεν αλλάζουν πλέον.'
-                : 'Οι προστασίες κλειδώνουν μόλις το δημοψήφισμα δημοσιευθεί. Όποια προστασία ΔΕΝ ενεργοποιήσετε εμφανίζεται στους πολίτες πάνω στην ψηφοφορία.'}
+                ? 'Η ψηφοφορία έχει δημοσιευθεί ή έχει ήδη ψήφους — οι προστασίες δεν αλλάζουν πλέον.'
+                : 'Οι προστασίες κλειδώνουν μόλις η ψηφοφορία δημοσιευθεί. Όποια προστασία ΔΕΝ ενεργοποιήσετε εμφανίζεται στους πολίτες πάνω στην ψηφοφορία.'}
             </p>
           </div>
 
@@ -557,17 +566,18 @@ export default function ReferendumsView() {
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <Vote size={18} className="text-primary dark:text-primary-300" />
-          <h2 className="font-black text-lg">Δημοψηφίσματα</h2>
+          <h2 className="font-black text-lg">Ψηφοφορίες</h2>
         </div>
         <div className="flex items-center gap-2">
           <AnimatedSegmented
             size="sm"
             options={[
-              { key: 'polls', label: 'Ψηφοφορίες', icon: <Vote size={13} /> },
+              { key: 'polls', label: 'Ψηφοφορίες γνώμης', icon: <Vote size={13} /> },
+              { key: 'official', label: 'Επίσημο δημοψήφισμα', icon: <Landmark size={13} /> },
               { key: 'voters', label: `Ψηφοφόροι (${citizens.length})`, icon: <Users size={13} /> },
             ]}
             value={sub}
-            onChange={(k) => setSub(k as 'polls' | 'voters')}
+            onChange={(k) => setSub(k as 'polls' | 'official' | 'voters')}
           />
           {sub === 'polls' && (
             <PrimaryBtn onClick={() => setEditing({ ...EMPTY })}><Plus size={13} className="inline mr-1" />Νέο</PrimaryBtn>
@@ -577,18 +587,27 @@ export default function ReferendumsView() {
 
       {sub === 'voters' ? (
         <VotersView rows={citizens} onToggle={toggleResident} />
+      ) : sub === 'official' ? (
+        <div className="-mx-4">
+          <KindManager kinds={[OFFICIAL_REFERENDUM_KIND]}
+            intro={'Το επίσημο δημοτικό δημοψήφισμα (ν. 5314/2026) ΔΕΝ διεξάγεται από την εφαρμογή: το προκηρύσσει το δημοτικό '
+              + 'συμβούλιο και η ψηφοφορία γίνεται μέσω της ψηφιακής κάλπης της ΕΔΥΤΕ. Εδώ το ΑΝΑΚΟΙΝΩΝΕΤΕ στους πολίτες — ερώτημα, '
+              + 'δύο απαντήσεις, ημέρα, προθεσμία εγγραφής στο Ε.Μ.Επ. — και μετά καταχωρείτε το αποτέλεσμα. Για υπενθύμιση της '
+              + 'προθεσμίας στείλτε ειδοποίηση από την καρτέλα «Ειδοποιήσεις».'} />
+        </div>
       ) : (
         <>
           <VetoCard vetos={vetoEvents} confirmedCitizens={citizens.filter((c) => c.resident).length} />
 
           {rows.length === 0 ? (
-            <p className="text-center text-gray-400 py-10 text-sm">Δεν υπάρχουν δημοψηφίσματα ακόμη.</p>
+            <p className="text-center text-gray-400 py-10 text-sm">Δεν υπάρχουν ψηφοφορίες γνώμης ακόμη.</p>
           ) : (
             <div className="space-y-2.5">
               {rows.map((r) => {
                 const pid = `ref_${r.id}`;
                 return (
                   <RefCard key={r.id} r={r} state={states[pid]} ballots={ballots[pid]}
+                    registered={states[pid]?.eligible ?? citizens.length}
                     tallies={talliesOf(pid, states[pid])}
                     participants={participants.filter((p) => p.poll_id === pid)}
                     residentByUser={residentByUser}
@@ -599,11 +618,6 @@ export default function ReferendumsView() {
               })}
             </div>
           )}
-
-          <OtherPollResults tallies={BUNDLED_IDS.flatMap((pid) => talliesOf(pid, states[pid]))}
-            participants={participants}
-            residentByUser={residentByUser}
-            knownIds={rows.map((r) => `ref_${r.id}`)} />
         </>
       )}
     </div>
@@ -684,20 +698,25 @@ function VotersView({ rows, onToggle }: { rows: CitizenRow[]; onToggle: (c: Citi
 
 // ── Results: one referendum ──────────────────────────────────────────────────
 
-function RefCard({ r, state, ballots, tallies, participants, residentByUser, onTally, busy, onPublishToggle, onToggle, onEdit, onRemove }: {
+function RefCard({ r, state, ballots, registered, tallies, participants, residentByUser, onTally, busy, onPublishToggle, onToggle, onEdit, onRemove }: {
   r: RefRow; state?: PollState; tallies: TallyRow[]; participants: ParticipantRow[];
   /** Anonymous-ballot polls: ballots received (used tickets). */
   ballots?: number;
   /** Encrypted polls: upload the count file made by scripts/tally.mjs. */
   onTally: (file: File) => void; busy: boolean;
+  /** Accounts that could vote in this poll (v2.1 turnout). */
+  registered: number;
   residentByUser: Map<string, boolean>;
   onPublishToggle: () => void; onToggle: () => void; onEdit: () => void; onRemove: () => void;
 }) {
   const ended = new Date(r.ends_at).getTime() < Date.now();
   // Turnout comes from the participation roll (one row per voter) — it is the
   // only number available while the results themselves are withheld.
-  const totalVoters = participants.length;
-  const residents = participants.filter((p) => residentByUser.get(p.user_id)).length;
+  // (After the roll is purged — retention — the totals saved at that moment are used.)
+  const purged = !!r.participation_purged_at;
+  const totalVoters = purged ? r.turnout_final ?? 0 : participants.length;
+  const residents = purged ? r.turnout_residents_final ?? 0 : participants.filter((p) => residentByUser.get(p.user_id)).length;
+  const turnoutPct = registered > 0 ? Math.round((totalVoters / registered) * 100) : 0;
   const withheld = state && state.state !== 'visible';
   return (
     <Card className="p-4">
@@ -731,8 +750,14 @@ function RefCard({ r, state, ballots, tallies, participants, residentByUser, onT
 
       <div className="mt-3 flex items-center gap-1.5 text-[12px] font-bold text-gray-600 dark:text-gray-300">
         <Vote size={13} className="text-primary dark:text-primary-300" />
-        Συμμετοχή — {totalVoters} ψηφοφόροι ({residents} δημότες)
+        Συμμετοχή — {totalVoters} ψηφοφόροι ({residents} δημότες) από {registered} εγγεγραμμένους λογαριασμούς · {turnoutPct}%
       </div>
+      {purged && (
+        <p className="mt-1.5 text-[11.5px] text-gray-400">
+          Η λίστα συμμετεχόντων διαγράφηκε στις {new Date(r.participation_purged_at!).toLocaleDateString('el-GR')} (κανόνας
+          διατήρησης)· έχουν μείνει μόνο τα σύνολα.
+        </p>
+      )}
       {r.anonymous_ballots && ballots !== undefined && (
         <p className={`mt-1.5 text-[11.5px] font-semibold ${ballots > totalVoters ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'}`}>
           Εισιτήρια ψήφου: {totalVoters} · Ψηφοδέλτια που παραλήφθηκαν: {ballots}
@@ -751,7 +776,7 @@ function RefCard({ r, state, ballots, tallies, participants, residentByUser, onT
               : state.state === 'awaiting_count'
                 ? <>
                     Η ψηφοφορία έληξε. Τρέξτε <span className="font-mono">node scripts/tally.mjs count --poll {r.id}</span> με
-                    το κλειδί του δημοψηφίσματος και ανεβάστε εδώ το αρχείο καταμέτρησης:
+                    το κλειδί της ψηφοφορίας και ανεβάστε εδώ το αρχείο καταμέτρησης:
                     <input type="file" accept="application/json,.json" disabled={busy}
                       onChange={(ev) => { const f = ev.target.files?.[0]; ev.target.value = ''; if (f) onTally(f); }}
                       className="block mt-2 text-xs" />
@@ -1169,36 +1194,6 @@ function VetoGraph({ days }: { days: VetoDay[] }) {
           ιδιωτικό αποθετήριο (επόμενη έκδοση) — προς το παρόν υπάρχουν μόνο οι τελευταίες 7 ημέρες.
         </p>
       )}
-    </div>
-  );
-}
-
-// ── Results for the bundled (pre-backend) polls — read-only ──────────────────
-
-function OtherPollResults({ tallies, participants, residentByUser, knownIds }: {
-  tallies: TallyRow[]; participants: ParticipantRow[];
-  residentByUser: Map<string, boolean>; knownIds: string[];
-}) {
-  const pollIds = Array.from(new Set(tallies.map((t) => t.poll_id).filter((pid) => !knownIds.includes(pid))));
-  if (pollIds.length === 0) return null;
-  return (
-    <div className="space-y-2.5">
-      <h3 className="font-black text-[14px] text-gray-500 dark:text-gray-400 mt-2">Ενσωματωμένες ψηφοφορίες</h3>
-      {pollIds.map((pid) => {
-        const pollTallies = tallies.filter((t) => t.poll_id === pid);
-        const bundled = pollsData.find((p) => p.id === pid);
-        const options: OptionDef[] = bundled
-          ? bundled.options.map((o) => ({ id: o.id, el: o.text.el, en: o.text.en }))
-          : Array.from(new Set(pollTallies.map((t) => t.option_id))).sort((a, b) => a - b)
-              .map((i) => ({ id: String(i), el: `Επιλογή ${i + 1}`, en: `Option ${i + 1}` }));
-        return (
-          <Card key={pid} className="p-4">
-            <p className="font-bold text-[13.5px]">{bundled ? bundled.title.el : pid}</p>
-            <Tally options={options} tallies={pollTallies} />
-            <Participants rows={participants.filter((p) => p.poll_id === pid)} residentByUser={residentByUser} />
-          </Card>
-        );
-      })}
     </div>
   );
 }

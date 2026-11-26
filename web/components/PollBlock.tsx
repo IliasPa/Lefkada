@@ -6,7 +6,11 @@ import { useApp } from "@/context/AppContext";
 import AnimatedSegmented from "@/components/AnimatedSegmented";
 import { type Poll } from "@/data/voting";
 import { KEYS, storageGet, storageSet } from "@/lib/storage";
-import { submitVote, getVerifiedUser, usePollState, countsFromState, fetchOwnCitizenStatus, type PollState, type VerifiedUser } from "@/lib/backend";
+import {
+  submitVote, getVerifiedUser, usePollState, countsFromState, fetchOwnCitizenStatus, acceptVotingTerms,
+  VOTING_NOTICE_VERSION, type PollState, type VerifiedUser,
+} from "@/lib/backend";
+import { ConsentDialog, PrivacyLink } from "@/components/VotingPrivacy";
 import { backendConfigured, getSupabase } from "@/lib/supabase";
 import ProtectionNotice from "@/components/ProtectionNotice";
 import { castAnonymousBallot, resumePendingBallot, pendingBallotInfo, installBallotFlush, getReceipt, checkReceipt } from "@/lib/ballot";
@@ -23,6 +27,8 @@ export function isPollClosed(poll: Poll, now: number) {
 }
 
 // ── A single poll: countdown/ended + about + video + ballot/results ──────────
+const CONSENT_EVENT = "lefkada:voting-consent";
+
 export default function PollBlock({
   poll,
   closed,
@@ -40,9 +46,14 @@ export default function PollBlock({
   const [showAbout, setShowAbout] = useState(false);
   const [sending, setSending] = useState(false);
   const [voteError, setVoteError] = useState<"" | "failed" | "closed" | "taxis">("");
-  // TAXISnet-only referendums (v2.0): is the signed-in account verified?
+  // TAXISnet-only polls (v2.0): is the signed-in account verified?
   const taxisOnly = backendConfigured && !!poll.protections?.taxisOnly;
   const [taxisVerified, setTaxisVerified] = useState<boolean | null>(null);
+  // v2.1 — the voting privacy notice must be accepted before a first vote.
+  const [consented, setConsented] = useState<boolean | null>(null);
+  const [consentOpen, setConsentOpen] = useState(false);
+  const [consentBusy, setConsentBusy] = useState(false);
+  const [consentFailed, setConsentFailed] = useState(false);
   // Anonymous ballots (v1.8): a ticket this device holds whose ballot is not
   // delivered yet — v2.1: either waiting out its random delay ("scheduled") or
   // due / failed once ("overdue").
@@ -51,9 +62,14 @@ export default function PollBlock({
   const [explainLength, setExplainLength] = useState<"short" | "medium" | "full">("short");
   const [vUser, setVUser] = useState<VerifiedUser | null>(null);
 
+  // A demo poll (v2.1.1) stays on the device: no sign-in, no consent, nothing
+  // sent. `live` = this poll's votes go to the server.
+  const demo = !!poll.demo;
+  const live = backendConfigured && !demo;
+
   // The server's view of this poll: has this ACCOUNT voted (on any device), and
   // the results — only when the referendum's protections allow them.
-  const { state: pollState, reload } = usePollState(poll.id);
+  const { state: pollState, reload } = usePollState(live ? poll.id : null);
 
   // Follow sign-in / sign-out live, so the ballot always belongs to whoever is
   // signed in right now (several people may vote in turn on a shared device).
@@ -70,11 +86,28 @@ export default function PollBlock({
   }, [reload]);
 
   useEffect(() => {
-    if (!taxisOnly || !vUser) { setTaxisVerified(null); return; }
+    if (!live || !vUser) { setTaxisVerified(null); setConsented(null); return; }
     let alive = true;
-    fetchOwnCitizenStatus().then((s) => { if (alive) setTaxisVerified(!!s?.taxis_verified); });
+    fetchOwnCitizenStatus().then((s) => {
+      if (!alive) return;
+      setTaxisVerified(!!s?.taxis_verified);
+      setConsented(s?.consent_version === VOTING_NOTICE_VERSION);
+    });
     return () => { alive = false; };
-  }, [taxisOnly, vUser]);
+  }, [live, vUser]);
+
+  const acceptConsent = useCallback(async () => {
+    setConsentBusy(true); setConsentFailed(false);
+    const ok = await acceptVotingTerms();
+    setConsentBusy(false);
+    if (ok) { setConsentOpen(false); window.dispatchEvent(new Event(CONSENT_EVENT)); } else setConsentFailed(true);
+  }, []);
+  // One acceptance covers every poll on the screen, not only the one it was given on.
+  useEffect(() => {
+    const onConsent = () => setConsented(true);
+    window.addEventListener(CONSENT_EVENT, onConsent);
+    return () => window.removeEventListener(CONSENT_EVENT, onConsent);
+  }, []);
 
   const keyOf = (id: string) => `${poll.id}:${id}`;
 
@@ -91,9 +124,9 @@ export default function PollBlock({
   // The choice is remembered ONLY on the device that cast it, and per account —
   // the server never stores who chose what. With a backend, a signed-out
   // device shows nobody's choice.
-  const voteKey = backendConfigured ? (vUser ? `${vUser.id}:${poll.id}` : null) : poll.id;
+  const voteKey = live ? (vUser ? `${vUser.id}:${poll.id}` : null) : poll.id;
   const myVote = voteKey ? myVotes[voteKey] : undefined;
-  const serverVoted = backendConfigured && !!vUser && !!pollState?.voted;
+  const serverVoted = live && !!vUser && !!pollState?.voted;
   const submitted = closed || !!myVote || serverVoted || !!pending;
   const receipt = anonymous && vUser ? getReceipt(vUser.id, poll.id) : undefined;
 
@@ -127,8 +160,8 @@ export default function PollBlock({
   // One shot — a vote cannot be changed once cast (there is no "change vote").
   const handleVote = useCallback(async () => {
     if (!selected || closed || submitted || sending) return;
-    if (!backendConfigured) {
-      // No backend — the on-device demo tally is the whole story.
+    if (!live) {
+      // A demo poll, or no backend: the on-device tally is the whole story.
       const savedCounts = storageGet<VoteCounts>(KEYS.votes, {});
       const updated = { ...savedCounts, [keyOf(selected)]: (savedCounts[keyOf(selected)] ?? 0) + 1 };
       const updatedMyVotes = { ...myVotes, [poll.id]: selected };
@@ -157,12 +190,14 @@ export default function PollBlock({
       storageSet(KEYS.myVotes, { ...storageGet<MyVotes>(KEYS.myVotes, {}), [voteKey]: selected });
     } else if (outcome === "failed" || outcome === "closed" || outcome === "taxis") {
       setVoteError(outcome);
+    } else if (outcome === "consent") {
+      setConsented(false); setConsentOpen(true); // the server says the notice was not accepted
     }
     setMyVotes(storageGet<MyVotes>(KEYS.myVotes, {}));
     setPending(anonymous && vUser ? pendingBallotInfo(vUser.id, poll.id) : null);
     reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, myVotes, poll, closed, submitted, sending, voteKey, anonymous, vUser, reload]);
+  }, [selected, myVotes, poll, closed, submitted, sending, voteKey, anonymous, vUser, reload, live]);
 
   const explanation = poll.explanations[explainLength][lang];
   const explainNodes = explanation.split("\n").map((line, i) => {
@@ -185,9 +220,11 @@ export default function PollBlock({
           <div className="bg-primary rounded-2xl overflow-hidden shadow-md shadow-primary/20">
             <div className="p-5">
               <span className="text-[10px] font-black tracking-[0.22em] text-blue-200 block mb-2">
-                {closed ? t("vote_results_title") : t("vote_active_badge")}
+                {closed ? t("vote_results_title") : t(demo ? "vote_demo_badge" : "vote_active_badge")}
               </span>
               <h2 className="font-bold text-[17px] text-white leading-snug">{poll.title[lang]}</h2>
+              {/* v2.1 — never to be mistaken for the official municipal referendum */}
+              <p className="text-[11px] font-semibold text-blue-200 mt-2 leading-snug">{t(demo ? "vote_demo_note" : "vote_unofficial_note")}</p>
             </div>
 
             <div className="border-t border-white/15">
@@ -236,11 +273,13 @@ export default function PollBlock({
             </div>
           )}
 
-          <ProtectionNotice poll={poll} />
+          {!demo && <ProtectionNotice poll={poll} />}
+
+          {live && <TurnoutLine state={pollState} t={t} />}
 
           {/* When signed out, a deep link into Settings ▸ Personal info where
               email sign-in lives (voting needs an account). */}
-          {backendConfigured && !closed && !vUser && (
+          {live && !closed && !vUser && (
             <button onClick={() => window.dispatchEvent(new Event("lefkada:open-profile"))}
               className="flex items-center gap-1.5 text-[12px] font-semibold text-primary dark:text-primary-300 px-1 active:scale-[0.98] transition-transform">
               <BadgeCheck size={14} className="flex-shrink-0" />
@@ -255,7 +294,7 @@ export default function PollBlock({
           )}
 
           {submitted ? (
-            backendConfigured ? (
+            live ? (
               pollState?.state === "visible" ? (
                 // Results the referendum's protections allow — live counts.
                 <ResultsCard poll={poll} lang={lang} myVote={myVote}
@@ -276,9 +315,19 @@ export default function PollBlock({
           ) : (
             <VotingCard poll={poll} lang={lang} selected={selected} onSelect={setSelected} onSubmit={handleVote}
               busy={sending} busyLabel={anonymous ? t("vote_sending_anon") : t("vote_sending")}
-              signInRequired={backendConfigured && (!vUser || (taxisOnly && taxisVerified === false))}
-              signInLabel={vUser && taxisOnly ? t("vote_taxis_to_vote") : undefined}
-              onSignIn={() => window.dispatchEvent(new Event("lefkada:open-profile"))} t={t} />
+              signInRequired={live && (!vUser || (taxisOnly && taxisVerified === false) || consented === false)}
+              signInLabel={!vUser ? undefined
+                : taxisOnly && taxisVerified === false ? t("vote_taxis_to_vote")
+                : t("vote_consent_to_vote")}
+              onSignIn={() => {
+                if (vUser && !(taxisOnly && taxisVerified === false)) setConsentOpen(true);
+                else window.dispatchEvent(new Event("lefkada:open-profile"));
+              }} t={t} />
+          )}
+
+          {live && <div className="text-center"><PrivacyLink /></div>}
+          {consentOpen && (
+            <ConsentDialog onAccept={acceptConsent} onClose={() => setConsentOpen(false)} busy={consentBusy} failed={consentFailed} />
           )}
         </div>
 
@@ -289,6 +338,19 @@ export default function PollBlock({
         )}
       </div>
     </div>
+  );
+}
+
+/** v2.1 — how many accounts have voted, out of how many could. Shown to
+ *  everyone, also while the results themselves are hidden: a poll answered by
+ *  40 people must not read as the opinion of the town. */
+export function TurnoutLine({ state, t }: { state: PollState | null; t: (k: string) => string }) {
+  if (!state || state.turnout == null || state.eligible == null) return null;
+  const pct = state.eligible > 0 ? Math.round((state.turnout / state.eligible) * 100) : 0;
+  return (
+    <p className="text-[12px] font-semibold text-gray-500 dark:text-gray-400 px-1">
+      {t("vote_turnout").replace("{n}", state.turnout.toLocaleString()).replace("{m}", state.eligible.toLocaleString()).replace("{p}", String(pct))}
+    </p>
   );
 }
 
@@ -437,8 +499,8 @@ export function ResultsCard({ poll, lang, myVote, voteCounts, totalVotes, closed
         <div className="flex items-start gap-3 bg-green-50 dark:bg-green-900/20 p-3.5 rounded-xl">
           <CheckCircle2 size={20} className="text-green-500 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="font-semibold text-sm text-green-700 dark:text-green-400">{t("vote_submitted_title")}</p>
-            <p className="text-xs text-green-600 dark:text-green-500 mt-0.5">{t("vote_submitted_text")}</p>
+            <p className="font-semibold text-sm text-green-700 dark:text-green-400">{t(poll.demo ? "vote_demo_done_title" : "vote_submitted_title")}</p>
+            <p className="text-xs text-green-600 dark:text-green-500 mt-0.5">{t(poll.demo ? "vote_demo_done_text" : "vote_submitted_text")}</p>
           </div>
         </div>
       )}
@@ -447,6 +509,7 @@ export function ResultsCard({ poll, lang, myVote, voteCounts, totalVotes, closed
           <p className="text-xs font-bold tracking-wide uppercase text-gray-400 dark:text-gray-500">{t("vote_results_title")}</p>
           <p className="text-xs text-gray-400 dark:text-gray-500">{totalVotes.toLocaleString()} {t("vote_total_votes")}</p>
         </div>
+        {poll.demo && <p className="text-[11.5px] font-semibold text-amber-700 dark:text-amber-400 mb-3">{t("vote_demo_numbers")}</p>}
         <div className="space-y-3">
           {poll.options.map((opt) => {
             const count = voteCounts[opt.id] ?? 0;

@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- Lefkada civic app — Supabase schema (v1.0 → v2.0)
+-- Lefkada civic app — Supabase schema (v1.0 → v2.1)
 -- Run this whole file once in the Supabase dashboard: SQL Editor → New query.
 -- Safe to re-run: everything is IF NOT EXISTS / OR REPLACE / DROP POLICY first.
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -178,6 +178,11 @@ alter table public.referendums add column if not exists encrypted_ballots boolea
 alter table public.referendums add column if not exists encryption_key text not null default '';
 alter table public.referendums add column if not exists encryption_attestation text not null default '';
 alter table public.referendums add column if not exists tallied_at timestamptz;
+-- v2.1 — RETENTION of the participation roll (who voted): purge_participation()
+-- deletes it some weeks after closing and leaves only these totals behind.
+alter table public.referendums add column if not exists participation_purged_at timestamptz;
+alter table public.referendums add column if not exists turnout_final integer;
+alter table public.referendums add column if not exists turnout_residents_final integer;
 -- v2.0 — TAXISnet-VERIFIED VOTERS ONLY
 --   taxis_only — only accounts that proved who they are with their TAXISnet
 --                codes (gov.gr sign-in; see «TAXISnet verification» below) may
@@ -214,7 +219,10 @@ alter table public.content drop constraint if exists content_kind_check;
 alter table public.content add constraint content_kind_check check (kind in
   ('alert', 'job', 'event', 'decision', 'tender', 'bylaw',
    'consultation', 'council', 'budget', 'water', 'lesson', 'competition',
-   'meeting', 'ebook', 'contact', 'community'));
+   'meeting', 'ebook', 'contact', 'community',
+   -- v2.1: the OFFICIAL municipal referendum (Law 5314/2026, held through
+   -- ΕΔΥΤΕ's ballot box) — the app only INFORMS about it; see README.
+   'official_referendum'));
 create index if not exists content_kind_idx on public.content (kind, published);
 alter table public.content enable row level security;
 drop policy if exists "public reads published content" on public.content;
@@ -417,6 +425,10 @@ create table if not exists public.citizens (
 -- v2.0 — when (and only when) the ΑΦΜ came from a TAXISnet sign-in. Set by
 -- taxis_link() alone; a tax number typed in by hand never counts as verified.
 alter table public.citizens add column if not exists taxis_verified_at timestamptz;
+-- v2.1 — consent to the voting privacy notice (which version, and when).
+-- Written only by accept_voting_terms(); voting is refused without it.
+alter table public.citizens add column if not exists consent_version text;
+alter table public.citizens add column if not exists consent_at timestamptz;
 -- One ΑΦΜ ↔ one account: the wall against a second account per person.
 create unique index if not exists citizens_tax_number_key
   on public.citizens (tax_number) where tax_number <> '';
@@ -436,6 +448,14 @@ begin
     -- even the mayor's — and editing the ΑΦΜ by hand clears it.
     if tg_op = 'INSERT' and new.taxis_verified_at is not null then
       raise exception 'TAXISnet verification comes from gov.gr only';
+    end if;
+    -- v2.1: consent is recorded by accept_voting_terms() alone (it stamps the
+    -- time itself), never set directly from a session.
+    if coalesce(current_setting('lefkada.consent', true), '') <> 'on'
+       and ((tg_op = 'INSERT' and (new.consent_version is not null or new.consent_at is not null))
+         or (tg_op = 'UPDATE' and (new.consent_version, new.consent_at)
+                                   is distinct from (old.consent_version, old.consent_at))) then
+      raise exception 'consent is recorded through accept_voting_terms()';
     end if;
     if tg_op = 'UPDATE' then
       if new.tax_number is distinct from old.tax_number then
@@ -504,6 +524,38 @@ returns date language sql stable set search_path = public as $$
           - ((extract(isodow from public.athens_today(at))::int - 1)))::date;
 $$;
 
+-- ── Consent to the voting privacy notice (v2.1) ──────────────────────────────
+-- How someone votes is political-opinion data. Before an account's first vote
+-- the app shows what is stored and for how long, and the citizen accepts;
+-- this records WHICH version of that notice and WHEN. cast_vote() and the
+-- ticket functions refuse an account without it (LF009).
+create or replace function public.accept_voting_terms(p_version text)
+returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then
+    raise exception 'sign in first' using errcode = '42501';
+  end if;
+  if p_version is null or p_version !~ '^[0-9A-Za-z._-]{1,20}$' then
+    raise exception 'bad notice version' using errcode = 'LF002';
+  end if;
+  perform set_config('lefkada.consent', 'on', true);
+  insert into public.citizens (user_id, email, consent_version, consent_at)
+    values (auth.uid(), coalesce(auth.email(), ''), p_version, now())
+    on conflict (user_id) do update set consent_version = excluded.consent_version, consent_at = now();
+  perform set_config('lefkada.consent', '', true);
+end $$;
+revoke all on function public.accept_voting_terms(text) from public, anon;
+grant execute on function public.accept_voting_terms(text) to authenticated;
+
+create or replace function public.voting_consent_given(p_user uuid)
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.citizens c where c.user_id = p_user and c.consent_version is not null);
+$$;
+revoke all on function public.voting_consent_given(uuid) from public, anon, authenticated;
+grant execute on function public.voting_consent_given(uuid) to service_role;
+
 -- Has this account proved its identity with TAXISnet codes (v2.0)?
 create or replace function public.taxis_verified(p_user uuid)
 returns boolean
@@ -526,7 +578,8 @@ grant execute on function public.taxis_verified(uuid) to service_role;
 -- referendum exists, is published, is still open and the option is on the
 -- ballot (custom SQLSTATEs: LF001 = not open, LF002 = invalid option,
 -- LF003 = the referendum takes anonymous ballots only, LF008 = it takes
--- TAXISnet-verified voters only).
+-- TAXISnet-verified voters only, LF009 = the voting privacy notice has not
+-- been accepted).
 create or replace function public.cast_vote(p_poll_id text, p_option int)
 returns void
 language plpgsql security definer set search_path = public, extensions as $$
@@ -557,6 +610,10 @@ begin
     -- v2.0: this referendum takes TAXISnet-verified voters only.
     raise exception 'verify with TAXISnet to vote in this referendum' using errcode = 'LF008';
   end if;
+  if not public.voting_consent_given(auth.uid()) then
+    -- v2.1: the voting privacy notice has to be accepted first.
+    raise exception 'accept the voting privacy notice first' using errcode = 'LF009';
+  end if;
   -- one ballot per account per poll — a second call raises unique_violation
   insert into public.referendums_participants (poll_id, user_id, email, tax_number)
     values (p_poll_id, auth.uid(), coalesce(auth.email(), ''), coalesce(v_tax, ''));
@@ -574,7 +631,10 @@ grant execute on function public.cast_vote(text, int) to authenticated;
 -- protections applied on the SERVER:
 --   voted — has THIS account already voted (true on every device, which is how
 --           a second device knows to show «already voted» instead of a ballot;
---           the choice itself is not stored per voter, so it is never returned)
+--           the choice itself is not stored per voter, so it is never returned).
+--           null once the roll was deleted by purge_participation() (v2.1).
+--   turnout / eligible — how many accounts voted, out of how many could
+--           (v2.1; public even while the results themselves are hidden)
 --   state — 'visible'     : rows holds the counts
 --           'unpublished' : the mayor has not revealed the results (citizens)
 --           'until_close' : hide_until_close is on and the poll is still open
@@ -598,12 +658,23 @@ declare
   v_total integer;
   v_res   integer;
   v_rows  jsonb;
+  v_turnout  integer;
+  v_eligible integer;
 begin
-  if auth.uid() is not null then
+  select * into r from public.referendums where 'ref_' || id::text = p_poll_id;
+  if r.participation_purged_at is not null then
+    v_voted := null; -- the roll was deleted (retention): nobody's participation is known any more
+  elsif auth.uid() is not null then
     v_voted := exists (select 1 from public.referendums_participants p
                        where p.poll_id = p_poll_id and p.user_id = auth.uid());
   end if;
-  select * into r from public.referendums where 'ref_' || id::text = p_poll_id;
+  -- v2.1: turnout is public — how many voted, out of how many accounts could.
+  if r.id is not null and (r.published or v_mayor) then
+    v_turnout := coalesce(r.turnout_final,
+      (select count(*) from public.referendums_participants where poll_id = p_poll_id)::int);
+    v_eligible := (select count(*) from public.citizens c
+                   where not r.taxis_only or (c.tax_number <> '' and c.taxis_verified_at is not null))::int;
+  end if;
   if r.id is null then
     if not v_mayor then v_state := 'unpublished'; end if;
   elsif not (r.published or v_mayor) then
@@ -639,7 +710,8 @@ begin
       from (select option_id, sum(votes)::int as v from public.referendums_results
             where poll_id = p_poll_id group by option_id) t;
   end if;
-  return jsonb_build_object('voted', v_voted, 'state', v_state, 'split', v_split, 'rows', v_rows);
+  return jsonb_build_object('voted', v_voted, 'state', v_state, 'split', v_split, 'rows', v_rows,
+                            'turnout', v_turnout, 'eligible', v_eligible);
 end $$;
 revoke all on function public.poll_state(text) from public;
 grant execute on function public.poll_state(text) to anon, authenticated;
@@ -660,14 +732,27 @@ declare
   v_role  text := coalesce(nullif(current_setting('request.jwt.claims', true), '')::json->>'role', '');
 begin
   if tg_op = 'UPDATE' then
-    v_voted := exists (select 1 from public.referendums_participants p
-                       where p.poll_id = 'ref_' || old.id::text);
+    -- (v2.1: a purged poll had voters even though its roll is gone.)
+    v_voted := old.participation_purged_at is not null
+      or exists (select 1 from public.referendums_participants p
+                 where p.poll_id = 'ref_' || old.id::text);
+    -- v2.1: with the roll deleted, «one vote per account» can no longer be
+    -- enforced — so a purged poll can never be reopened.
+    if old.participation_purged_at is not null and new.ends_at is distinct from old.ends_at then
+      raise exception 'the closing date is locked once the participation roll is deleted' using errcode = 'LF016';
+    end if;
     if (old.published or v_voted)
        and (new.hide_until_close, new.min_votes, new.anonymous_ballots,
             new.encrypted_ballots, new.encryption_key, new.encryption_attestation, new.taxis_only)
            is distinct from (old.hide_until_close, old.min_votes, old.anonymous_ballots,
             old.encrypted_ballots, old.encryption_key, old.encryption_attestation, old.taxis_only) then
       raise exception 'protections are locked once a referendum is published' using errcode = 'LF010';
+    end if;
+    -- v2.1: the retention snapshot is written by purge_participation() only.
+    if (new.participation_purged_at, new.turnout_final, new.turnout_residents_final)
+         is distinct from (old.participation_purged_at, old.turnout_final, old.turnout_residents_final)
+       and coalesce(current_setting('lefkada.purge', true), '') <> 'on' then
+      raise exception 'the participation snapshot is written by purge_participation() only' using errcode = 'LF015';
     end if;
     -- v1.9: «counted» is stamped by publish_tally() only.
     if new.tallied_at is distinct from old.tallied_at
@@ -805,6 +890,9 @@ begin
   if r.taxis_only and not public.taxis_verified(p_user) then
     raise exception 'verify with TAXISnet to vote in this referendum' using errcode = 'LF008';
   end if;
+  if not public.voting_consent_given(p_user) then
+    raise exception 'accept the voting privacy notice first' using errcode = 'LF009';
+  end if;
   return jsonb_build_object(
     'resident', coalesce((select c.resident from public.citizens c where c.user_id = p_user), false),
     'resident_key', k.resident_key, 'other_key', k.other_key);
@@ -830,6 +918,9 @@ begin
     into v_res, v_tax, v_mail from public.citizens c where c.user_id = p_user;
   if r.taxis_only and not public.taxis_verified(p_user) then
     raise exception 'verify with TAXISnet to vote in this referendum' using errcode = 'LF008';
+  end if;
+  if not public.voting_consent_given(p_user) then
+    raise exception 'accept the voting privacy notice first' using errcode = 'LF009';
   end if;
   if coalesce(v_res, false) is distinct from p_resident then
     raise exception 'the registry designation changed — request the ticket again' using errcode = 'LF005';
@@ -1084,6 +1175,48 @@ begin
 end $$;
 revoke all on function public.taxis_link(uuid, text, text) from public, anon, authenticated;
 grant execute on function public.taxis_link(uuid, text, text) to service_role;
+
+-- ── Retention of the participation roll (v2.1) ───────────────────────────────
+-- WHO voted is needed while a poll is open (one vote per account) and for a
+-- while after it (so anyone can check «the records say I voted / did not»).
+-- After that it is only a list of who took part in what. This deletes it
+-- p_days after closing — once the poll is counted, for encrypted ones — and
+-- keeps just the totals. Run daily by .github/workflows/participation-purge.yml
+-- (as the database owner; it is not callable through the API). Returns the
+-- number of polls purged.
+create or replace function public.purge_participation(p_days integer default 90)
+returns integer
+language plpgsql security definer set search_path = public as $$
+declare
+  r public.referendums%rowtype;
+  n integer := 0;
+begin
+  if p_days is null or p_days < 7 then
+    raise exception 'retention must be at least 7 days' using errcode = 'LF002';
+  end if;
+  perform set_config('lefkada.purge', 'on', true);
+  for r in
+    select * from public.referendums
+     where participation_purged_at is null
+       and ends_at < now() - make_interval(days => p_days)
+       and (not encrypted_ballots or tallied_at is not null)
+     for update
+  loop
+    update public.referendums set
+      turnout_final = (select count(*) from public.referendums_participants p
+                       where p.poll_id = 'ref_' || r.id::text),
+      turnout_residents_final = (select count(*) from public.referendums_participants p
+                                 join public.citizens c on c.user_id = p.user_id and c.resident
+                                 where p.poll_id = 'ref_' || r.id::text),
+      participation_purged_at = now()
+     where id = r.id;
+    delete from public.referendums_participants where poll_id = 'ref_' || r.id::text;
+    n := n + 1;
+  end loop;
+  perform set_config('lefkada.purge', '', true);
+  return n;
+end $$;
+revoke all on function public.purge_participation(integer) from public, anon, authenticated;
 
 -- ── cast_veto(): the ONLY writer of vetos ────────────────────────────────────
 -- SECURITY DEFINER, mirroring cast_vote(). Confirmed Δημότες only. The

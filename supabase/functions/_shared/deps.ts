@@ -10,6 +10,7 @@ export function supabaseDeps(): Deps {
   );
   return {
     masterKey: Deno.env.get("TICKET_MASTER_KEY") ?? "",
+    boxKey: Deno.env.get("BALLOT_BOX_KEY") ?? "",
     async getUser(jwt) {
       const { data, error } = await admin.auth.getUser(jwt);
       return error || !data?.user ? null : { id: data.user.id };

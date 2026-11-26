@@ -9,7 +9,7 @@ import type { Poll, PollProtections } from '@/data/voting';
  * `label` / `text` are i18n keys; `text` explains what the ABSENCE means.
  */
 export interface ProtectionDef {
-  key: keyof PollProtections;
+  key: keyof PollProtections | 'relay';
   label: string;
   text: string;
   active: (p: PollProtections) => boolean;
@@ -28,7 +28,17 @@ export const NO_PROTECTIONS: PollProtections = {
   hideUntilClose: false, minVotes: 0, anonymous: false, encrypted: false, taxisOnly: false,
 };
 
+/** v2.1 — not a per-poll switch but a property of the deployment: are ballots
+ *  sent through an independent relay, so the server never sees the voter's
+ *  network address? It only means something for anonymous ballots (otherwise
+ *  the ballot arrives with the account anyway, and «anonymous» is already
+ *  listed as missing). */
+const RELAY: ProtectionDef = { key: 'relay', label: 'prot_relay_label', text: 'prot_relay_text', active: () => false };
+const relayConfigured = (process.env.NEXT_PUBLIC_BALLOT_RELAY_URL ?? '').trim() !== '';
+
 export function inactiveProtections(poll: Poll): ProtectionDef[] {
   const p = poll.protections ?? NO_PROTECTIONS;
-  return PROTECTIONS.filter((d) => !d.active(p));
+  const missing = PROTECTIONS.filter((d) => !d.active(p));
+  if (p.anonymous && !relayConfigured) missing.push(RELAY);
+  return missing;
 }

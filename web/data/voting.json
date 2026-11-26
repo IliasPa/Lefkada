@@ -42,7 +42,6 @@
         "c": 89,
         "d": 267
       },
-      "endDate": "2026-06-30T20:00:00",
       "youtubeId": "zJ-m32h3HC8",
       "pdfUrl": "/docs/poll-bridge-2025.pdf",
       "explanations": {
@@ -94,7 +93,6 @@
         "b": 233,
         "c": 388
       },
-      "endDate": "2026-05-10T20:00:00",
       "youtubeId": "zJ-m32h3HC8",
       "pdfUrl": "/docs/poll-bridge-2025.pdf",
       "explanations": {
@@ -146,7 +144,6 @@
         "b": 344,
         "c": 121
       },
-      "endDate": "2026-04-01T18:00:00",
       "pdfUrl": "/docs/poll-bridge-2025.pdf",
       "explanations": {
         "short": {
@@ -164,33 +161,5 @@
       }
     }
   ],
-  "baked": [
-    {
-      "created_at": "2026-07-13T17:37:03.256157+00:00",
-      "ends_at": "2026-07-19T17:36:00+00:00",
-      "id": "f0c4b081-f960-40e2-9be6-d666a5c48fd5",
-      "large_el": "γιατί",
-      "large_en": "",
-      "medium_el": "σδφ",
-      "medium_en": "",
-      "options": [
-        {
-          "el": "φφφ",
-          "en": "",
-          "id": "a"
-        },
-        {
-          "el": "δδδ",
-          "en": "",
-          "id": "b"
-        }
-      ],
-      "pdf_url": "",
-      "small_el": "δσφω",
-      "small_en": "",
-      "title_el": "χφωβ",
-      "title_en": "",
-      "youtube_id": ""
-    }
-  ]
+  "baked": []
 }

@@ -38,16 +38,34 @@ export interface Poll {
   pdfUrl?: string;
   /** Absent on the bundled demo polls — they use no protection at all. */
   protections?: PollProtections;
+  /** v2.1.1 — a built-in example, so people can try voting. Its numbers are
+   *  invented, and a vote on it never leaves the device. */
+  demo?: boolean;
   /** The referendum's two public ticket keys (anonymous ballots only). */
   ticketKeys?: { resident: string; other: string };
   /** The referendum's public encryption key, SPKI base64 (encrypted ballots only). */
   encryptionKey?: string;
 }
 
-// voting.json = { bundled: [...], baked: [raw referendum rows] } — referendums
-// created in /admin (synced weekly) map onto the Poll shape and come first;
+// voting.json = { bundled: [the demo polls], baked: [raw referendum rows] }.
+// Referendums created in /admin (synced weekly) map onto the Poll shape;
 // finished ones surface in Governance ▸ Consultations as history.
-export const pollsData: Poll[] = [
-  ...mapReferendumRows(raw.baked as unknown as ReferendumRow[]),
-  ...(raw.bundled as unknown as Poll[]),
-];
+export const pollsData: Poll[] = mapReferendumRows(raw.baked as unknown as ReferendumRow[]);
+
+/** Days each demo poll shows on its countdown. The closing date moves forward
+ *  with today, so the demos are always open. */
+const DEMO_DAYS_LEFT = [10, 17, 24];
+const demoEndDate = (days: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  d.setHours(20, 0, 0, 0);
+  return d.toISOString();
+};
+
+/** v2.1.1 — kept apart from pollsData: they are never listed among real polls
+ *  or in the history. */
+export const demoPolls: Poll[] = (raw.bundled as unknown as Omit<Poll, 'endDate' | 'demo'>[]).map((p, i) => ({
+  ...p,
+  demo: true,
+  endDate: demoEndDate(DEMO_DAYS_LEFT[i % DEMO_DAYS_LEFT.length]),
+}));

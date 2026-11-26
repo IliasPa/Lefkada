@@ -89,3 +89,37 @@ export async function openBallot(pollId: string, ciphertextB64: string, openingB
     return null;
   }
 }
+
+// ── Sealed envelopes for the relay (v2.1) ────────────────────────────────────
+// When ballots go through an independent relay (lib/ballot.ts), the whole
+// request is sealed to the ballot box's public key, so the relay — which sees
+// the voter's network address — sees nothing but a blob of a standard size.
+// Same construction as above with its own label; mirrored by openEnvelope() in
+// supabase/functions/_shared/ballot.ts.
+const ENVELOPE_INFO = new TextEncoder().encode('lefkada-relay-v1');
+
+/** Seal a JSON string to the ballot box. Returns base64. */
+export async function sealEnvelope(recipientSpkiB64: string, jsonText: string): Promise<string> {
+  const recipient = await importRecipient(recipientSpkiB64);
+  const eph = await crypto.subtle.generateKey(P256, true, ['deriveBits']);
+  const ephRaw = new Uint8Array(await crypto.subtle.exportKey('raw', eph.publicKey));
+  const shared = await crypto.subtle.deriveBits({ name: 'ECDH', public: recipient.key }, eph.privateKey, 256);
+  const salt = new Uint8Array(ephRaw.length + recipient.raw.length);
+  salt.set(ephRaw); salt.set(recipient.raw, ephRaw.length);
+  const ikm = await crypto.subtle.importKey('raw', shared, 'HKDF', false, ['deriveBits']);
+  const key = await crypto.subtle.importKey('raw',
+    await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt: buf(salt), info: buf(ENVELOPE_INFO) }, ikm, 256),
+    'AES-GCM', false, ['encrypt']);
+  const data = enc.encode(jsonText);
+  if (data.length > 0xffff) throw new Error('too large to seal');
+  // [2-byte length ‖ data ‖ zeros] padded to a multiple of 1024 bytes, so the
+  // size of a sealed ballot says nothing about its content.
+  const plain = new Uint8Array(Math.ceil((data.length + 2) / 1024) * 1024);
+  plain[0] = data.length >> 8; plain[1] = data.length & 0xff;
+  plain.set(data, 2);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: buf(iv) }, key, buf(plain)));
+  const out = new Uint8Array(65 + 12 + ct.length);
+  out.set(ephRaw); out.set(iv, 65); out.set(ct, 77);
+  return toB64(out);
+}

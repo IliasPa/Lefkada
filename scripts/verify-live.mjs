@@ -25,8 +25,9 @@
  *
  * The build must use the SAME public settings as the live one, because they
  * are compiled into the files: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY
- * and, when set on the host, NEXT_PUBLIC_VAPID_PUBLIC_KEY, NEXT_PUBLIC_VOTE_SEED,
- * NEXT_PUBLIC_GOVGR_ENABLED, NEXT_PUBLIC_BALLOT_DELAY_MAX_S. They are read from
+ * and, when set on the host, NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+ * NEXT_PUBLIC_GOVGR_ENABLED, NEXT_PUBLIC_BALLOT_DELAY_MAX_S,
+ * NEXT_PUBLIC_BALLOT_RELAY_URL. They are read from
  * the environment, or from web/.env.local when run on a developer machine.
  * None of them is a secret.
  *
@@ -48,7 +49,7 @@ import { fileURLToPath } from 'node:url';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PUBLIC_SETTINGS = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY', 'NEXT_PUBLIC_VAPID_PUBLIC_KEY',
-  'NEXT_PUBLIC_VOTE_SEED', 'NEXT_PUBLIC_GOVGR_ENABLED', 'NEXT_PUBLIC_BALLOT_DELAY_MAX_S'];
+  'NEXT_PUBLIC_GOVGR_ENABLED', 'NEXT_PUBLIC_BALLOT_DELAY_MAX_S', 'NEXT_PUBLIC_BALLOT_RELAY_URL'];
 
 function args() {
   const a = process.argv.slice(2); const out = {};

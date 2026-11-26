@@ -1,0 +1,17 @@
+{
+  "name": "lefkada-tests",
+  "private": true,
+  "type": "module",
+  "description": "Checks for the voting system: database rules on a local Postgres, the server functions end to end, and the real screens in a browser against a fake backend. Nothing here touches a real Supabase project.",
+  "scripts": {
+    "test": "node run.mjs all",
+    "test:db": "node run.mjs db",
+    "test:browser": "node run.mjs browser",
+    "screenshot": "node run.mjs screenshot"
+  },
+  "devDependencies": {
+    "@cloudflare/blindrsa-ts": "0.4.6",
+    "@electric-sql/pglite": "0.5.16",
+    "playwright-core": "1.65.0"
+  }
+}

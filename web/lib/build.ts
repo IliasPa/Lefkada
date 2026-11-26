@@ -28,11 +28,17 @@ export function contentSecurityPolicy(): string | null {
   if (process.env.NODE_ENV !== 'production') return null;
   const supabase = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').trim().replace(/\/+$/, '');
   const backend = /^https:\/\/[a-z0-9.-]+$/i.test(supabase) ? ` ${supabase}` : '';
+  // v2.1: the independent relay ballots are sent through, when one is configured.
+  let relay = '';
+  try {
+    const r = (process.env.NEXT_PUBLIC_BALLOT_RELAY_URL ?? '').trim();
+    if (r) relay = ` ${new URL(r).origin}`;
+  } catch { /* not a URL — the relay simply stays unreachable */ }
   return [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline'",
     "style-src 'self' 'unsafe-inline'",
-    `connect-src 'self'${backend}`,
+    `connect-src 'self'${backend}${relay}`,
     "img-src 'self' data: blob: https://lefkada.gov.gr https://www.lefkada.gov.gr"
       + ` https://commons.wikimedia.org https://upload.wikimedia.org https://*.tile.openstreetmap.org${backend}`,
     'frame-src https://www.youtube-nocookie.com',

@@ -168,6 +168,35 @@ export async function fetchLiveReferendums(): Promise<Poll[] | null> {
   return mapReferendumRows(data as ReferendumRow[]);
 }
 
+/** The OFFICIAL municipal referendum (Law 5314/2026) as the municipality
+ *  announced it in /admin. The app only informs about it — the vote itself is
+ *  held through ΕΔΥΤΕ's ballot box, not here. */
+export interface OfficialReferendum {
+  id: string;
+  question: { el: string; en: string };
+  answerA: { el: string; en: string };
+  answerB: { el: string; en: string };
+  info?: { el: string; en: string };
+  /** 'YYYY-MM-DD' — by law a Sunday, 07:00–19:00. */
+  voteDate: string;
+  /** 'YYYY-MM-DD' — last day to be registered in the Ε.Μ.Επ. to be able to vote. */
+  emepDeadline?: string;
+  decisionPdf?: string;
+  voteUrl?: string;
+  // Filled in after the vote:
+  votesA?: number; votesB?: number; blank?: number;
+  registered?: number; lastElectionVoters?: number;
+}
+
+export async function fetchLiveOfficialReferendums(): Promise<OfficialReferendum[] | null> {
+  const rows = await fetchContent('official_referendum');
+  if (rows === null) return null;
+  return rows
+    .map((r) => ({ id: r.id, ...(r.data as Omit<OfficialReferendum, 'id'>) }))
+    .filter((r) => r.question?.el && r.voteDate)
+    .sort((a, b) => b.voteDate.localeCompare(a.voteDate));
+}
+
 export async function fetchLiveLessons(): Promise<Lesson[] | null> {
   const rows = await fetchContent('lesson');
   return rows === null ? null : mapLessonRows(rows);
@@ -326,6 +355,27 @@ export interface CitizenStatus {
   tax_number: string;
   /** Identity proved with TAXISnet codes on gov.gr (v2.0). */
   taxis_verified: boolean;
+  /** Version of the voting privacy notice this account accepted, if any (v2.1). */
+  consent_version: string | null;
+}
+
+/** The current voting privacy notice (components/VotingPrivacy.tsx). Bump it
+ *  when the notice changes in substance: everyone is then asked again. */
+export const VOTING_NOTICE_VERSION = '2026-11';
+/** How long after closing the list of who voted is kept — must match the
+ *  schedule in .github/workflows/participation-purge.yml. */
+export const PARTICIPATION_RETENTION_DAYS = 90;
+
+/** Record that the signed-in citizen accepted the voting privacy notice. */
+export async function acceptVotingTerms(): Promise<boolean> {
+  const sb = getSupabase();
+  if (!sb) return false;
+  try {
+    const { error } = await sb.rpc('accept_voting_terms', { p_version: VOTING_NOTICE_VERSION });
+    return !error;
+  } catch {
+    return false;
+  }
 }
 
 /** Own registry row, or null when signed out / never synced. */
@@ -335,14 +385,17 @@ export async function fetchOwnCitizenStatus(): Promise<CitizenStatus | null> {
   const user = await getVerifiedUser();
   if (!user) return null;
   const own = (cols: string) => sb.from('citizens').select(cols).eq('user_id', user.id).maybeSingle();
-  let { data, error } = await own('resident, full_name, tax_number, taxis_verified_at');
-  // A database whose schema.sql has not been re-run for v2.0 yet has no such column.
+  let { data, error } = await own('resident, full_name, tax_number, taxis_verified_at, consent_version');
+  // A database whose schema.sql has not been re-run yet lacks the newer columns.
+  if (error) ({ data, error } = await own('resident, full_name, tax_number, taxis_verified_at'));
   if (error) ({ data } = await own('resident, full_name, tax_number'));
   if (!data) return null;
-  const row = data as unknown as Omit<CitizenStatus, 'taxis_verified'> & { taxis_verified_at?: string | null };
+  const row = data as unknown as Pick<CitizenStatus, 'resident' | 'full_name' | 'tax_number'>
+    & { taxis_verified_at?: string | null; consent_version?: string | null };
   return {
     resident: row.resident, full_name: row.full_name, tax_number: row.tax_number,
     taxis_verified: !!row.tax_number && !!row.taxis_verified_at,
+    consent_version: row.consent_version ?? null,
   };
 }
 
@@ -405,8 +458,9 @@ export async function syncCitizenProfile(): Promise<void> {
  *  'closed'  — the server refused: the referendum is not open (or the option is
  *              not on the ballot)
  *  'taxis'   — the referendum takes TAXISnet-verified voters only (v2.0)
+ *  'consent' — the voting privacy notice has not been accepted yet (v2.1)
  *  'failed'  — a configured backend genuinely failed; the citizen may retry */
-export type VoteOutcome = 'ok' | 'already' | 'closed' | 'taxis' | 'failed';
+export type VoteOutcome = 'ok' | 'already' | 'closed' | 'taxis' | 'consent' | 'failed';
 
 /** Record a vote — signed-in citizens only, ONE shot (there is no changing a
  *  cast vote). Everything happens inside public.cast_vote(): it checks the
@@ -426,6 +480,7 @@ export async function submitVote(pollId: string, optionIndex: number): Promise<V
     if (code === '23505') return 'already'; // one ballot per account
     if (code === 'LF001' || code === 'LF002') return 'closed';
     if (code === 'LF008') return 'taxis';
+    if (code === 'LF009') return 'consent';
     return 'failed';
   } catch {
     return 'failed';
@@ -490,8 +545,13 @@ export async function submitVeto(): Promise<boolean> {
 export type ResultsState = 'visible' | 'unpublished' | 'until_close' | 'below_min' | 'awaiting_count';
 
 export interface PollState {
-  /** This account has voted in this poll (never WHAT — that is not stored). */
-  voted: boolean;
+  /** This account has voted in this poll (never WHAT — that is not stored).
+   *  null once the participation roll was deleted (retention, v2.1). */
+  voted: boolean | null;
+  /** v2.1 — how many accounts voted, out of how many could. Public even while
+   *  the results are hidden. Absent on a database not yet upgraded. */
+  turnout?: number | null;
+  eligible?: number | null;
   state: ResultsState;
   /** false when the Δημότες / non-Δημότες breakdown was merged because one of
    *  the groups is smaller than the poll's minimum (rows then carry r = null). */
@@ -618,11 +678,11 @@ export function useLive<T>(fetcher: () => Promise<T | null>): T | null {
  *  closing time take effect without a refresh button. `reload` re-fetches at
  *  once (after casting a vote, signing in…). `state` stays null until the
  *  first successful fetch. */
-export function usePollState(pollId: string, intervalMs = 15000): { state: PollState | null; reload: () => void } {
+export function usePollState(pollId: string | null, intervalMs = 15000): { state: PollState | null; reload: () => void } {
   const [state, setState] = useState<PollState | null>(null);
   const [tick, setTick] = useState(0);
   useEffect(() => {
-    if (!backendConfigured) return;
+    if (!backendConfigured || pollId === null) return;
     let alive = true;
     const run = () => fetchPollState(pollId).then((v) => { if (alive && v) setState(v); });
     run();

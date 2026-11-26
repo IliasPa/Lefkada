@@ -9,6 +9,7 @@ import {
   ShieldAlert,
   Megaphone,
   Vote,
+  FlaskConical,
   History,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
@@ -16,9 +17,10 @@ import { KEYS, storageGet, storageSet } from "@/lib/storage";
 import VetoOverlay from "@/components/VetoOverlay";
 import AnimatedSegmented from "@/components/AnimatedSegmented";
 import PollBlock, { isPollClosed } from "@/components/PollBlock";
-import { pollsData } from "@/data/voting";
+import OfficialReferendumCard from "@/components/OfficialReferendumCard";
+import { pollsData, demoPolls } from "@/data/voting";
 import {
-  fetchLiveReferendums, fetchOwnCitizenStatus, getVerifiedUser, mergeById,
+  fetchLiveReferendums, fetchLiveOfficialReferendums, fetchOwnCitizenStatus, getVerifiedUser, mergeById,
   submitMayorMessage, submitVeto, athensToday, isVetoActive, useLive,
 } from "@/lib/backend";
 import { backendConfigured } from "@/lib/supabase";
@@ -41,6 +43,8 @@ export default function SettingsPanel() {
   const [identity, setIdentity] = useState<{ fullName: string; email: string }>({ fullName: "", email: "" });
   // Referendums created in /admin come first, then the bundled ones.
   const liveReferendums = useLive(fetchLiveReferendums);
+  // The OFFICIAL municipal referendum (Law 5314/2026) — the app only informs.
+  const official = useLive(fetchLiveOfficialReferendums);
   const activePolls = mergeById(liveReferendums, pollsData).filter((p) => !isPollClosed(p, Date.now()));
 
   // Veto eligibility: signed-in AND mayor-confirmed Δημότης (matches the RLS
@@ -147,9 +151,16 @@ export default function SettingsPanel() {
 
   return (
     <>
-      <div className={`h-full scroll-area ${activePolls.length > 0 ? "snap-y" : ""}`}>
+      <div className="h-full scroll-area snap-y">
         <div className="pb-6 max-w-2xl mx-auto">
           <div className="px-4 pt-6 space-y-6">
+            {/* ══ OFFICIAL MUNICIPAL REFERENDUM (information only — v2.1) ═══ */}
+            {official && official.length > 0 && (
+              <div className="space-y-4">
+                {official.map((o) => <OfficialReferendumCard key={o.id} item={o} />)}
+              </div>
+            )}
+
             {/* ══ ACTIVE VOTINGS (each with its own countdown) ═══════════════ */}
             {activePolls.length > 0 && (
               <div>
@@ -174,6 +185,20 @@ export default function SettingsPanel() {
                 <div className="snap-stop" aria-hidden />
               </div>
             )}
+
+            {/* ══ DEMO VOTINGS — to try how voting works (v2.1.1) ═══════════ */}
+            <div>
+              <div className="flex items-center gap-1.5 mb-2">
+                <span className="text-primary dark:text-primary-300"><FlaskConical size={14} /></span>
+                <p className="text-[11px] font-bold tracking-[0.12em] uppercase text-gray-400 dark:text-gray-500">{t("acc_demo_votings")}</p>
+              </div>
+              <div className="space-y-5">
+                {demoPolls.map((p) => (
+                  <PollBlock key={p.id} poll={p} closed={false} />
+                ))}
+              </div>
+              <div className="snap-stop" aria-hidden />
+            </div>
 
             {/* ══ OFFICIAL ACTIONS (VETO) ════════════════════════════════════ */}
             <PSect icon={<ShieldAlert size={14} />} label={t("acc_official")}>

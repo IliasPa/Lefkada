@@ -24,6 +24,10 @@ export interface DbError { code?: string; message: string }
 export interface Deps {
   /** base64 of 32 random bytes — the TICKET_MASTER_KEY secret. */
   masterKey: string;
+  /** v2.1, optional: the BALLOT_BOX_KEY secret — a P-256 private key (PKCS#8,
+   *  PEM or bare base64). With it, ballot-cast also accepts ballots that came
+   *  through a relay, sealed so the relay cannot read or change them. */
+  boxKey?: string;
   /** The user behind a Supabase access token, or null. */
   getUser(jwt: string): Promise<{ id: string } | null>;
   /** Call a SECURITY DEFINER database function as the service role. */
@@ -33,7 +37,7 @@ export interface Deps {
 export const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
@@ -157,12 +161,77 @@ export async function handleTicket(req: Request, deps: Deps): Promise<Response> 
   }
 }
 
+// ── The ballot box's own key (v2.1): hiding the voter's network address ──────
+// The server that receives a ballot sees the address it came from — the same
+// address that asked for the ticket minutes earlier, with the account. To
+// break that, the app can send the ballot through a RELAY run by someone else:
+// the relay sees the address but only a sealed blob; this function sees the
+// ballot but only the relay's address. The seal is to this key
+// (ECDH P-256 → HKDF-SHA256 → AES-256-GCM, mirrored in web/lib/ballotSeal.ts ▸
+// sealEnvelope): eph(65) ‖ iv(12) ‖ ciphertext of [2-byte length ‖ JSON ‖ zero
+// padding to a multiple of 1024 bytes].
+const ENVELOPE_INFO = enc.encode("lefkada-relay-v1");
+const P256 = { name: "ECDH", namedCurve: "P-256" } as const;
+const boxCache = new Map<string, Promise<{ priv: CryptoKey; spki: string; raw: Uint8Array } | null>>();
+
+function ballotBox(deps: Deps) {
+  const secret = (deps.boxKey ?? "").replace(/-----(BEGIN|END)[^-]*-----/g, "").replace(/\s+/g, "");
+  if (!secret) return Promise.resolve(null);
+  let cached = boxCache.get(secret);
+  if (!cached) {
+    cached = (async () => {
+      const der = fromB64(secret);
+      if (!der) return null;
+      const priv = await crypto.subtle.importKey("pkcs8", der as BufferSource, P256, true, ["deriveBits"]);
+      const jwk = await crypto.subtle.exportKey("jwk", priv);
+      const pub = await crypto.subtle.importKey("jwk", { kty: "EC", crv: "P-256", x: jwk.x, y: jwk.y }, P256, true, []);
+      return {
+        priv,
+        spki: toB64(new Uint8Array(await crypto.subtle.exportKey("spki", pub))),
+        raw: new Uint8Array(await crypto.subtle.exportKey("raw", pub)),
+      };
+    })().catch(() => null);
+    boxCache.set(secret, cached);
+  }
+  return cached;
+}
+
+/** Open a sealed envelope → the JSON object inside, or null. */
+async function openEnvelope(deps: Deps, sealed: unknown): Promise<Record<string, unknown> | null> {
+  const box = await ballotBox(deps);
+  const raw = fromB64(sealed);
+  if (!box || !raw || raw.length < 65 + 12 + 16 + 1024) return null;
+  try {
+    const eph = await crypto.subtle.importKey("raw", raw.slice(0, 65) as BufferSource, P256, false, []);
+    const shared = await crypto.subtle.deriveBits({ name: "ECDH", public: eph }, box.priv, 256);
+    const salt = new Uint8Array(130); salt.set(raw.slice(0, 65)); salt.set(box.raw, 65);
+    const ikm = await crypto.subtle.importKey("raw", shared, "HKDF", false, ["deriveBits"]);
+    const key = await crypto.subtle.importKey("raw",
+      await crypto.subtle.deriveBits({ name: "HKDF", hash: "SHA-256", salt, info: ENVELOPE_INFO }, ikm, 256),
+      "AES-GCM", false, ["decrypt"]);
+    const plain = new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv: raw.slice(65, 77) }, key, raw.slice(77)));
+    const len = (plain[0] << 8) | plain[1];
+    if (len > plain.length - 2) return null;
+    const inner = JSON.parse(new TextDecoder().decode(plain.slice(2, 2 + len)));
+    return inner && typeof inner === "object" ? inner as Record<string, unknown> : null;
+  } catch {
+    return null;
+  }
+}
+
 // ── ballot-cast: NO account — the ticket is the only credential ──────────────
 export async function handleCast(req: Request, deps: Deps): Promise<Response> {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  // GET: the ballot box's PUBLIC key, for apps that send ballots through a relay.
+  if (req.method === "GET") return json({ key: (await ballotBox(deps))?.spki ?? null });
   if (req.method !== "POST") return json({ error: "method" }, 405);
   try {
-    const b = await body(req);
+    let b = await body(req);
+    // v2.1: a ballot that came through a relay arrives sealed.
+    if (b && typeof b.sealed === "string") {
+      b = await openEnvelope(deps, b.sealed);
+      if (!b) return json({ error: "sealed" }, 400);
+    }
     const signature = fromB64(b?.signature, MODULUS_BYTES);
     // v1.9: an encrypted referendum's ballot carries a ciphertext INSTEAD of
     // the option — exactly one of the two must be present (the database then

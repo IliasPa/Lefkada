@@ -5,7 +5,7 @@ import { Zap, Clock3, BookOpen, BarChart3, Youtube, FileText, CalendarDays, Vote
 import { useApp } from "@/context/AppContext";
 import { type Poll } from "@/data/voting";
 import { KEYS, storageGet } from "@/lib/storage";
-import { YouTubeEmbed, ResultsCard, resultsNote } from "@/components/PollBlock";
+import { YouTubeEmbed, ResultsCard, resultsNote, TurnoutLine } from "@/components/PollBlock";
 import ProtectionNotice from "@/components/ProtectionNotice";
 import { usePollState, countsFromState, getVerifiedUser, submitMayorMessage, type PollState, type VerifiedUser } from "@/lib/backend";
 import { keyFingerprint } from "@/lib/ballotSeal";
@@ -99,7 +99,8 @@ export default function ReferendumCard({ poll }: { poll: Poll }) {
           )}
         </div>
 
-        {serverPoll && <ParticipationLine poll={poll} voted={!!pollState?.voted} loaded={!!pollState} t={t} />}
+        {serverPoll && <div className="mt-3 -mx-1"><TurnoutLine state={pollState} t={t} /></div>}
+        {serverPoll && <ParticipationLine poll={poll} voted={pollState?.voted ?? null} loaded={!!pollState} t={t} />}
 
         {/* Active panel */}
         {open && (
@@ -213,16 +214,21 @@ function BallotBoxLine({ poll, state, t }: { poll: Poll; state: PollState; t: (k
  *  referendum: «you voted» / «you did not vote». A ballot cast in someone's
  *  name without them shows up here, and one tap reports it. (Only whether the
  *  account took part is recorded — never what it chose.) */
-function ParticipationLine({ poll, voted, loaded, t }: { poll: Poll; voted: boolean; loaded: boolean; t: (k: string) => string }) {
+function ParticipationLine({ poll, voted, loaded, t }: { poll: Poll; voted: boolean | null; loaded: boolean; t: (k: string) => string }) {
   const [user, setUser] = useState<VerifiedUser | null>(null);
   const [sent, setSent] = useState<"" | "ok" | "fail">("");
   useEffect(() => { getVerifiedUser().then(setUser); }, []);
   if (!user || !loaded) return null;
+  // The roll is deleted some weeks after closing (retention) — then nobody's
+  // participation is on record any more, and the app says so.
+  if (voted === null) {
+    return <p className="mt-3 text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed">{t("part_purged")}</p>;
+  }
   const report = async () => {
     if (!window.confirm(t("part_report_confirm"))) return;
     const ok = await submitMayorMessage({
       anonymous: false, email: user.email,
-      body: `[Αναφορά συμμετοχής] Δημοψήφισμα «${poll.title.el}» (${poll.id}). Τα αρχεία δείχνουν ότι ο λογαριασμός ${user.email} `
+      body: `[Αναφορά συμμετοχής] Ψηφοφορία «${poll.title.el}» (${poll.id}). Τα αρχεία δείχνουν ότι ο λογαριασμός ${user.email} `
         + `${voted ? "ΨΗΦΙΣΕ" : "ΔΕΝ ΨΗΦΙΣΕ"}, αλλά ο κάτοχός του δηλώνει ότι αυτό ΔΕΝ ισχύει.`,
     });
     setSent(ok ? "ok" : "fail");

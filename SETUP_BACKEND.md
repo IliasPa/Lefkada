@@ -484,7 +484,7 @@ one of those or its host added to `contentSecurityPolicy()` in
 2. If the hosting provider has any of these set, add each as a variable with
    the **same name and value** — they are compiled into the files, so the
    check must build with them: `NEXT_PUBLIC_VAPID_PUBLIC_KEY`,
-   `NEXT_PUBLIC_VOTE_SEED`, `NEXT_PUBLIC_GOVGR_ENABLED`,
+   `NEXT_PUBLIC_GOVGR_ENABLED`,
    `NEXT_PUBLIC_BALLOT_DELAY_MAX_S`. (None is a secret.)
 3. Actions ▸ «Verify the live site against the published code» ▸ Run
    workflow, once, to see it pass.
@@ -517,6 +517,46 @@ NEXT_PUBLIC_SUPABASE_URL=… NEXT_PUBLIC_SUPABASE_ANON_KEY=… \
 Also worth doing now, outside the code: two-factor sign-in on GitHub, the
 hosting provider and Supabase, and a rule that changes reach `main` only
 after a second person has looked at them.
+
+## 15. Non-binding opinion polls (v2.1)
+
+**Upgrade order matters.** The new database refuses votes from the old app
+(no consent recorded), and the new app cannot record consent on the old
+database. So do this **while no poll is open**, in one sitting:
+
+1. Back up the database.
+2. Re-run the whole `supabase/schema.sql`.
+3. Redeploy both functions (`ballot-cast` with JWT verification off):
+
+   ```bash
+   supabase functions deploy ballot-ticket
+   supabase functions deploy ballot-cast --no-verify-jwt
+   ```
+
+4. Merge to `main` and deploy the web app.
+5. **Retention job.** `participation-purge.yml` uses the existing
+   `SUPABASE_DB_URL` secret and runs only from `main`. **Its first run
+   permanently deletes the voter lists of every poll closed more than 90 days
+   ago** (encrypted polls only if counted). To keep any of them, export it
+   before step 4. The 90 days appear in two places that must agree:
+   `RETENTION_DAYS` in the workflow and `PARTICIPATION_RETENTION_DAYS` in
+   `web/lib/backend.ts`. Run the workflow once by hand and check it succeeds.
+6. Run one trial poll of each kind you will use, on a real phone, from sign-in
+   to published result.
+
+**Optional relay** (only matters for anonymous polls):
+
+```bash
+node scripts/tally.mjs keygen --out box-key.pem   # the public key it prints is not needed
+supabase secrets set BALLOT_BOX_KEY="$(cat box-key.pem)"
+rm box-key.pem
+```
+
+Have someone else host `relay/relay.mjs` or `relay/worker.js` (settings are in
+the comment at the top of `relay.mjs`; request logging off). Then set
+`NEXT_PUBLIC_BALLOT_RELAY_URL` on the web host **and** as a GitHub repository
+variable (the live-site check needs it), and redeploy. Do not remove or change
+it while an anonymous poll is open.
 
 ## 9. Citizen verification — email sign-in (v1.3)
 

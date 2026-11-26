@@ -11,8 +11,9 @@ name: Verify the live site against the published code
 #     (until it is set, this workflow does nothing).
 #   · Every NEXT_PUBLIC_* setting the HOST has beyond the Supabase URL/key must
 #     be mirrored here under the same name and value, because they are compiled
-#     into the files: NEXT_PUBLIC_VAPID_PUBLIC_KEY, NEXT_PUBLIC_VOTE_SEED,
-#     NEXT_PUBLIC_GOVGR_ENABLED, NEXT_PUBLIC_BALLOT_DELAY_MAX_S.
+#     into the files: NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+#     NEXT_PUBLIC_GOVGR_ENABLED, NEXT_PUBLIC_BALLOT_DELAY_MAX_S,
+#     NEXT_PUBLIC_BALLOT_RELAY_URL.
 #
 # This workflow lives in the same repository as the code it checks, so it
 # cannot be the only guard: for a real vote, have someone independent run
@@ -33,9 +34,9 @@ env:
   NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL || 'https://cdsoekdoxjuswxdgamlr.supabase.co' }}
   NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_gwnBlS3jR6JOb3-3LjR3rA__s50A1Ys' }}
   NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${{ vars.NEXT_PUBLIC_VAPID_PUBLIC_KEY }}
-  NEXT_PUBLIC_VOTE_SEED: ${{ vars.NEXT_PUBLIC_VOTE_SEED }}
   NEXT_PUBLIC_GOVGR_ENABLED: ${{ vars.NEXT_PUBLIC_GOVGR_ENABLED }}
   NEXT_PUBLIC_BALLOT_DELAY_MAX_S: ${{ vars.NEXT_PUBLIC_BALLOT_DELAY_MAX_S }}
+  NEXT_PUBLIC_BALLOT_RELAY_URL: ${{ vars.NEXT_PUBLIC_BALLOT_RELAY_URL }}
 
 jobs:
   verify:

@@ -26,7 +26,7 @@ import type { Poll } from '@/data/voting';
 import { getSupabase, supabaseUrl, supabaseAnonKey } from './supabase';
 import { KEYS, storageGet, storageSet } from './storage';
 import { newTicket, finishTicket, receiptOf, type BlindedTicket } from './ballotCrypto';
-import { sealBallot } from './ballotSeal';
+import { sealBallot, sealEnvelope } from './ballotSeal';
 import { fetchOwnCitizenStatus, getVerifiedUser, type VoteOutcome } from './backend';
 
 /** 'scheduled' — the ticket is signed and the ballot is waiting out its random
@@ -70,11 +70,6 @@ function setPending(k: string, p: PendingBallot | null) {
   const all = storageGet<Store<PendingBallot>>(KEYS.pendingBallots, {});
   if (p) all[k] = p; else delete all[k];
   storageSet(KEYS.pendingBallots, all);
-}
-
-/** True while this account has a ticket on this device whose ballot is not delivered. */
-export function hasPendingBallot(userId: string, pollId: string): boolean {
-  return !!getPending(keyOf(userId, pollId));
 }
 
 /** What this device still owes for a poll: the option picked and when the
@@ -125,15 +120,44 @@ async function callFn(name: string, body: unknown, token?: string): Promise<{ st
 const castUrl = () => `${supabaseUrl}/functions/v1/ballot-cast`;
 const castHeaders = () => ({ 'Content-Type': 'application/json', apikey: supabaseAnonKey ?? '' });
 
+// ── The relay (v2.1): hiding the voter's network address from the server ─────
+// With NEXT_PUBLIC_BALLOT_RELAY_URL set, ballots do not go to the server
+// directly: they are sealed to the ballot box's public key and handed to a
+// relay run by someone else (relay/). The relay sees where the ballot came
+// from but not what it is; the server sees the ballot but only the relay's
+// address — pairing a ballot with a ticket request then needs BOTH parties'
+// logs. If the relay or the key is unreachable the ballot WAITS; it is never
+// quietly sent the direct way.
+const RELAY_URL = (process.env.NEXT_PUBLIC_BALLOT_RELAY_URL ?? '').trim().replace(/\/+$/, '');
+export const relayConfigured = RELAY_URL !== '';
+let boxKeyPromise: Promise<string> | null = null;
+/** The ballot box's public key, straight from the server (not via the relay). */
+function ballotBoxKey(): Promise<string> {
+  boxKeyPromise ??= fetch(castUrl(), { headers: { apikey: supabaseAnonKey ?? '' }, credentials: 'omit' })
+    .then((r) => r.json())
+    .then((j: { key?: string | null }) => {
+      if (!j.key) throw new Error('the server has no ballot box key');
+      return j.key;
+    })
+    .catch((e) => { boxKeyPromise = null; throw e; });
+  return boxKeyPromise;
+}
+/** Where a prepared ballot goes, and with what headers. */
+const outbound = () => relayConfigured
+  ? { url: RELAY_URL, headers: { 'Content-Type': 'application/json' } }
+  : { url: castUrl(), headers: castHeaders() };
+
 /** Build the request of step 2 once — sealing the choice if the referendum is
  *  encrypted — and pick when it is due. */
 async function prepare(p: PendingBallot): Promise<PendingBallot> {
   const choice = p.encryptionKey
     ? { ciphertext: await sealBallot(p.pollId, p.option, p.encryptionKey) }
     : { option: p.option };
-  const body = JSON.stringify({
+  const ballot = JSON.stringify({
     poll_id: p.pollId, ...choice, resident: p.resident, serial: p.ticket.serial, signature: p.signature,
   });
+  // Through a relay the request is one more layer: the ballot, sealed to the box.
+  const body = relayConfigured ? JSON.stringify({ sealed: await sealEnvelope(await ballotBoxKey(), ballot) }) : ballot;
   const room = new Date(p.endsAt).getTime() - Date.now() - CLOSING_MARGIN_MS;
   const wait = DELAY_MAX_MS * (0.1 + 0.9 * Math.random());
   return { ...p, body, sendAt: Date.now() + Math.max(0, Math.min(wait, room)) };
@@ -149,8 +173,10 @@ async function deliver(k: string, p: PendingBallot): Promise<BallotOutcome> {
   let status = 0;
   let code: string | undefined;
   try {
-    // No Authorization header, no cookies: only the project's public key.
-    const res = await fetch(castUrl(), { method: 'POST', headers: castHeaders(), body: p.body, credentials: 'omit' });
+    // No Authorization header, no cookies: only the project's public key (or,
+    // through a relay, nothing at all).
+    const to = outbound();
+    const res = await fetch(to.url, { method: 'POST', headers: to.headers, body: p.body, credentials: 'omit' });
     status = res.status;
     code = ((await res.json().catch(() => ({}))) as { error?: string }).error;
   } catch {
@@ -191,7 +217,8 @@ export function flushPendingBallots(): void {
   for (const [k, p] of Object.entries(all)) {
     if (!p.signature || !p.body || !p.sendAt || Date.now() >= p.sendAt) continue;
     try {
-      void fetch(castUrl(), { method: 'POST', headers: castHeaders(), body: p.body, credentials: 'omit', keepalive: true })
+      const to = outbound();
+      void fetch(to.url, { method: 'POST', headers: to.headers, body: p.body, credentials: 'omit', keepalive: true })
         .catch(() => {});
     } catch { /* the next visit retries */ }
     all[k] = { ...p, sendAt: 0 };
@@ -261,6 +288,7 @@ export async function castAnonymousBallot(poll: Poll, optionIndex: number): Prom
     if (code === '23505') { setPending(k, null); return 'already'; } // the account's ticket went to another device
     if (code === 'LF001' || code === 'LF004') { setPending(k, null); return 'closed'; }
     if (code === 'LF008') { setPending(k, null); return 'taxis'; } // TAXISnet-verified voters only
+    if (code === 'LF009') { setPending(k, null); return 'consent'; } // the privacy notice was not accepted
     return 'failed'; // the saved ticket is retried on the next attempt
   }
   return 'failed';
